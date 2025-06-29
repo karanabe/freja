@@ -1,25 +1,37 @@
 <br />
 <h1 align="center">Freja</h1>
-<h3 align="center">TBD</h3>
+<h3 align="center">A command-line toolbox integrating multiple utilities, starting with a WebSocket tester.</h3>
 <br />
 <br />
+
+Freja aims to bundle several small command-line tools into a single binary.
+Currently it provides a WebSocket client and a simple echo server so you can
+quickly debug or demonstrate WebSocket interactions from the terminal.
 
 ### Goals
 
-
+- Combine several lightweight utilities under one CLI
+- Offer an easy-to-use WebSocket client and server
+- Serve as a minimal example of `tokio` + `tokio-tungstenite`
 
 ### Feature
 
-
+- Initial command provides a WebSocket client
+- Server mode running a local echo service
 
 ### TODO
 
-
+- TLS support
+- Configurable logging
 
 ### Getting Started
 
 ```shell
-# TBD
+# Build and run as a client
+cargo run -- websocket example.com --port 4444
+
+# Listen as an echo server
+cargo run -- websocket -l 0.0.0.0 --port 4444
 ```
 
 
