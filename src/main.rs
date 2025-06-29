@@ -1,9 +1,7 @@
-mod commands;
-mod error;
-
 use clap::{Parser, Subcommand};
 
-use crate::error::Result;
+use freja::Result;
+use freja::commands;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

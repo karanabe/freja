@@ -5,8 +5,13 @@ use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use crate::error::Result;
 
+/// Build a websocket URL from host and port
+pub fn url_from_host(host: &str, port: u16) -> String {
+    format!("ws://{}:{}/", host, port)
+}
+
 pub async fn run(host: String, port: u16) -> Result<()> {
-    let url = format!("ws://{}:{}/", host, port);
+    let url = url_from_host(&host, port);
     println!("Connecting to {url}");
 
     let (ws, _) = connect_async(&url).await?;
@@ -53,4 +58,15 @@ pub async fn run(host: String, port: u16) -> Result<()> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_url() {
+        let url = url_from_host("localhost", 1234);
+        assert_eq!(url, "ws://localhost:1234/");
+    }
 }
