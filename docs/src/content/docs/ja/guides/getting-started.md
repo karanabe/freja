@@ -2,7 +2,7 @@
 title: はじめに
 description: Frejaをbuildし、安全なローカル設定を検証して、最初のリクエストをproxyします。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - インストール
   - クイックスタート
@@ -29,7 +29,7 @@ cargo build --release -p freja-cli
 ./target/release/freja --help
 ```
 
-このrepositoryからpackageとしての配布はまだ行っていません。binaryと設定ファイルは、通常のsoftware supply chain管理下に置いてください。
+binaryと設定ファイルは、通常のsoftware supply chain管理下に置いてください。
 
 ## サンプル設定を確認する
 

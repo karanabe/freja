@@ -2,7 +2,7 @@
 title: Getting started
 description: Build Freja, validate a safe local configuration, and proxy your first request.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - installation
   - quick-start
@@ -33,8 +33,8 @@ cargo build --release -p freja-cli
 ./target/release/freja --help
 ```
 
-Freja is not currently distributed as a package from this repository. Keep the
-binary and configuration under your normal software supply-chain controls.
+Keep the binary and configuration under your normal software supply-chain
+controls.
 
 ## Review the example
 

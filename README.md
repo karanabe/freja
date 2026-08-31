@@ -1,4 +1,8 @@
-# Freja
+<br />
+<h1 align="center">Freja</h1>
+<h3 align="center">A local-first, explainable L4/L7 inspection proxy written in Rust.</h3>
+<br />
+<br />
 
 Freja is a local-first, explainable L4/L7 inspection proxy written in Rust. It
 provides HTTP/1.1 explicit forward proxying, CONNECT tunnels, opt-in TLS
@@ -11,6 +15,24 @@ audit, hooks, and UI independent of Pingora. Hyper 1.x owns HTTP/1 parsing and
 intercepted HTTP/2 framing. An opt-in `pingora-adapter` feature provides a small
 Pingora 0.8.1 `ServerApp` adapter, while the shipped multi-listener CLI uses the
 replaceable Tokio listener adapter.
+
+## Installation
+
+Freja requires Rust 1.88 or newer. The crates.io package is named `freja-cli`;
+it installs a binary named `freja`:
+
+```console
+cargo install freja-cli --locked
+freja --help
+```
+
+To install the same binary directly from a source checkout:
+
+```console
+cargo install --path crates/freja-cli --locked
+```
+
+All seven Freja crates share one version and are released together.
 
 ## Quick start
 
@@ -78,8 +100,14 @@ cargo check --manifest-path fuzz/Cargo.toml --bins
 (cd docs && pnpm check)
 ```
 
-## License
+### License
 
-Freja is licensed under either the [Apache License 2.0](LICENSE-APACHE) or the
-[MIT license](LICENSE-MIT), at your option. Contributions are submitted under
-the same dual-license terms unless explicitly stated otherwise.
+<sup>
+Licensed under either of <a href="LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
+
+<br>
+
+<sub>
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+</sub>
