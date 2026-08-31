@@ -1,4 +1,7 @@
 target
 patch
-Cargo.lock
 .cargo
+/plans/
+/freja.toml
+/freja-audit.jsonl
+/freja-*.jsonl

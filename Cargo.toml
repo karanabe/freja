@@ -1,23 +1,56 @@
-[package]
-name = "freja"
-version = "0.0.1"
+[workspace]
+members = [
+    "crates/freja-audit",
+    "crates/freja-config",
+    "crates/freja-domain",
+    "crates/freja-policy",
+]
+default-members = ["crates/freja-config"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
 edition = "2024"
 authors = ["karanabe"]
-description = "Command-line toolbox integrating multiple utilities; includes a WebSocket tester"
-repository = "https://github.com/karanabe/freja.git"
-readme = "README.md"
-license = "MIT/Apache-2.0"
-categories = ["command-line-utilities"]
-publish = true
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/karanabe/freja"
+rust-version = "1.88"
+publish = false
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace.dependencies]
+arc-swap = "1.7.1"
+async-trait = "0.1.89"
+base64 = "0.22.1"
+bytes = "1.11.1"
+clap = { version = "4.5.46", features = ["derive"] }
+ed25519-dalek = "2.2.0"
+hex = "0.4.3"
+http = "1.3.1"
+http-body-util = "0.1.3"
+hyper = { version = "1.7.0", features = ["client", "http1", "http2", "server"] }
+hyper-util = { version = "0.1.16", features = ["client-legacy", "http1", "server", "tokio"] }
+ipnet = { version = "2.11.0", features = ["serde"] }
+pingora-core = "=0.8.1"
+ratatui = "=0.30.2"
+rcgen = { version = "0.14.9", features = ["x509-parser"] }
+rustls = { version = "0.23.35", default-features = false, features = ["ring", "std", "tls12"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+sha2 = "0.10.9"
+tokio = { version = "1.47.1", features = ["full"] }
+tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "tls12"] }
+toml = "0.9.5"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
+url = "2.5.7"
+uuid = { version = "1.18.0", features = ["serde", "v4"] }
+webpki-roots = "1.0.3"
 
-[dependencies]
-clap = { version = "4.5.39", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
-tokio-tungstenite = "0.21"
-futures-util = "0.3"
+[workspace.lints.rust]
+unsafe_code = "forbid"
 
-[[bin]]
-name = "freja"
-path = "src/main.rs"
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"

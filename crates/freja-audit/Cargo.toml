@@ -1,0 +1,23 @@
+[package]
+name = "freja-audit"
+description = "Typed, privacy-aware, tamper-evident audit records for Freja"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+ed25519-dalek.workspace = true
+freja-domain = { path = "../freja-domain" }
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+url.workspace = true
+
+[lints]
+workspace = true
