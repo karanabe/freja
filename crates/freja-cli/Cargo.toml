@@ -1,0 +1,31 @@
+[package]
+name = "freja-cli"
+description = "Command-line bootstrap, validation, and replay interface for Freja"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "freja"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+freja-audit = { path = "../freja-audit" }
+freja-config = { path = "../freja-config" }
+freja-domain = { path = "../freja-domain" }
+freja-policy = { path = "../freja-policy" }
+freja-proxy = { path = "../freja-proxy" }
+freja-ui = { path = "../freja-ui", features = ["tui"] }
+hex.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true
