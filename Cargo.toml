@@ -1,14 +1,14 @@
 [workspace]
 members = [
     "crates/freja-audit",
-    "crates/freja-cli",
+    "crates/freja",
     "crates/freja-config",
     "crates/freja-domain",
     "crates/freja-policy",
     "crates/freja-proxy",
     "crates/freja-ui",
 ]
-default-members = ["crates/freja-cli"]
+default-members = ["crates/freja"]
 resolver = "3"
 
 [workspace.package]

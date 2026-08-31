@@ -81,7 +81,7 @@ Create these crates:
 - `freja-audit`
 - `freja-proxy`
 - `freja-ui`
-- `freja-cli`
+- `freja`
 
 Keep hooks under `freja-policy::hook` initially. Do not publish a separate
 hook SDK until the API has stabilized.

@@ -60,7 +60,7 @@ TLS interceptionはhostname単位のopt-inです。CONNECT commit前にupstream 
 
 immutable snapshotを受け、isolated threadでRAII restoration guardのもとterminalを所有します。TUI modeではCLIがoperational tracingをbounded immutable UI eventへformatするため、raw terminalへ同時に書くproducerはありません。UI saturationはsnapshotまたはlog lineをdropしてmetricを増やします。interactive requestは別のbounded channel、paused-flow semaphore、timeout、oneshot responseを使います。
 
-### `freja-cli`
+### `freja`
 
 bootstrap/error-erasure境界です。複数listener、signal、audit writer、compatible SIGHUP reload、stored inputのverify/replayを所有します。listener起動前に通常terminal tracing writerまたはbounded TUI routerを選び、terminal threadをjoinする前にrouterを切断します。production multi-listener runtimeはTokioを使い、generic Pingora 0.8.1 `ServerApp` adapterもcompile-testします。
 

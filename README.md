@@ -18,18 +18,18 @@ replaceable Tokio listener adapter.
 
 ## Installation
 
-Freja requires Rust 1.88 or newer. The crates.io package is named `freja-cli`;
-it installs a binary named `freja`:
+Freja requires Rust 1.88 or newer. The crates.io package and installed binary
+are both named `freja`:
 
 ```console
-cargo install freja-cli --locked
+cargo install freja --locked
 freja --help
 ```
 
 To install the same binary directly from a source checkout:
 
 ```console
-cargo install --path crates/freja-cli --locked
+cargo install --path crates/freja --locked
 ```
 
 All seven Freja crates share one version and are released together.
@@ -37,8 +37,8 @@ All seven Freja crates share one version and are released together.
 ## Quick start
 
 ```console
-cargo run -p freja-cli -- check-config --config examples/freja.toml
-cargo run -p freja-cli -- run --config examples/freja.toml
+cargo run -p freja -- check-config --config examples/freja.toml
+cargo run -p freja -- run --config examples/freja.toml
 curl --proxy http://127.0.0.1:8080 http://example.com/
 ```
 
@@ -61,7 +61,7 @@ enforcement mode. Listener, authentication, limit, TLS, UI/hook, capture, and
 audit-sink changes require a restart.
 
 ```console
-cargo run -p freja-cli -- replay --audit /path/to/segment.jsonl --config candidate.toml \
+cargo run -p freja -- replay --audit /path/to/segment.jsonl --config candidate.toml \
   --checkpoint-public-key '<64 hex characters>'
 ```
 
@@ -80,7 +80,7 @@ alone.
 - `freja-audit`: redacted, versioned, hash-chained JSONL and signed checkpoints.
 - `freja-proxy`: HTTP, CONNECT/TLS, TCP, SOCKS5, metrics, and runtime adapters.
 - `freja-ui`: immutable UI events and bounded interactive TUI decisions.
-- `freja-cli`: bootstrap, replay, reload, signals, and application error boundary.
+- `freja`: bootstrap, replay, reload, signals, and application error boundary.
 
 The Astro documentation site lives in [`docs/`](docs/README.md). Start with the
 [operator quick start](docs/src/content/docs/guides/getting-started.md), then use

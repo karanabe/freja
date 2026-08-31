@@ -12,11 +12,11 @@ use std::{
 };
 
 use clap::{Parser, Subcommand};
+use freja::{AppError, AppResult, ResultExt};
 use freja_audit::{
     AuditEvent, AuditPublisher, AuditRecord, CheckpointSchedule, CheckpointSigner, RecordHash,
     Redactor, drain_jsonl_with_checkpoints,
 };
-use freja_cli::{AppError, AppResult, ResultExt};
 use freja_config::{AuditConfig, CapturePolicy, CompiledConfig, Limits, TlsConfig};
 use freja_domain::{
     Decision, Direction, HookMode, ListenerSpec, Protocol, ReplayFacts, SessionId, TransactionId,

@@ -850,21 +850,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "freja-audit"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "freja-domain",
- "hex",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "url",
-]
-
-[[package]]
-name = "freja-cli"
+name = "freja"
 version = "0.1.0"
 dependencies = [
  "clap",
@@ -879,6 +865,20 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "freja-audit"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "freja-domain",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "url",
 ]
 
 [[package]]

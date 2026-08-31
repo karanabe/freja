@@ -1,10 +1,10 @@
-# freja-cli
+# freja
 
 The `freja` command for running and validating the Freja inspection proxy and
 replaying security audit segments.
 
 ```sh
-cargo install freja-cli --locked
+cargo install freja --locked
 ```
 
 See the [operator guide](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/guides/getting-started.md).

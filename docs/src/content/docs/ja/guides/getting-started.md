@@ -25,7 +25,7 @@ sidebar:
 repositoryのrootで実行します。
 
 ```sh title="ターミナル"
-cargo build --release -p freja-cli
+cargo build --release -p freja
 ./target/release/freja --help
 ```
 

@@ -90,7 +90,7 @@ UI saturation drops snapshots or log lines and increments a metric. Interactive
 requests use a separate bounded channel, paused-flow semaphore, timeout, and
 oneshot response.
 
-### `freja-cli`
+### `freja`
 
 Is the bootstrap and error-erasure boundary. It starts multiple listener kinds,
 owns signals and the audit writer, performs compatible SIGHUP reloads, and

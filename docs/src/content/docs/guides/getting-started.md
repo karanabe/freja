@@ -29,7 +29,7 @@ machine.
 From the repository root:
 
 ```sh title="Terminal"
-cargo build --release -p freja-cli
+cargo build --release -p freja
 ./target/release/freja --help
 ```
 

@@ -16,7 +16,7 @@ Frejaにはhardened systemd unit、sysusers、tmpfiles定義があります。ta
 ## buildとinstall
 
 ```sh
-cargo build --release -p freja-cli
+cargo build --release -p freja
 sudo install -Dm0755 target/release/freja /usr/bin/freja
 sudo install -Dm0644 packaging/freja.service /etc/systemd/system/freja.service
 sudo install -Dm0644 packaging/freja.sysusers /usr/lib/sysusers.d/freja.conf

@@ -1,5 +1,5 @@
 [package]
-name = "freja-cli"
+name = "freja"
 description = "Command-line bootstrap, validation, and replay interface for Freja"
 readme = "README.md"
 keywords = ["freja", "proxy", "security", "networking", "inspection"]
