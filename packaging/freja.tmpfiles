@@ -1,0 +1,2 @@
+d /var/lib/freja 0750 freja freja -
+d /etc/freja 0750 root freja -

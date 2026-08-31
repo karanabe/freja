@@ -1,0 +1,49 @@
+[Unit]
+Description=Freja local-first inspection proxy
+Documentation=https://github.com/karanabe/freja
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=freja
+Group=freja
+ExecStart=/usr/bin/freja run --config /etc/freja/freja.toml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=90s
+StateDirectory=freja
+StateDirectoryMode=0750
+RuntimeDirectory=freja
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+ReadWritePaths=/var/lib/freja /run/freja
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
