@@ -4,6 +4,8 @@ members = [
     "crates/freja-config",
     "crates/freja-domain",
     "crates/freja-policy",
+    "crates/freja-proxy",
+    "crates/freja-ui",
 ]
 default-members = ["crates/freja-config"]
 resolver = "3"

@@ -1,0 +1,25 @@
+[package]
+name = "freja-ui"
+description = "Bounded event publishing and optional terminal interface for Freja"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+tui = ["dep:ratatui"]
+
+[dependencies]
+freja-domain = { path = "../freja-domain" }
+freja-policy = { path = "../freja-policy" }
+http.workspace = true
+ratatui = { workspace = true, optional = true }
+serde.workspace = true
+tokio.workspace = true
+
+[lints]
+workspace = true
