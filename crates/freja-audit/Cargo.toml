@@ -1,6 +1,9 @@
 [package]
 name = "freja-audit"
 description = "Typed, privacy-aware, tamper-evident audit records for Freja"
+readme = "README.md"
+keywords = ["freja", "audit", "security", "logging"]
+categories = ["development-tools"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,7 +14,7 @@ publish.workspace = true
 
 [dependencies]
 ed25519-dalek.workspace = true
-freja-domain = { path = "../freja-domain" }
+freja-domain.workspace = true
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

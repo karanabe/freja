@@ -1,6 +1,9 @@
 [package]
 name = "freja-policy"
 description = "Explainable ACL, inspection, and typed hook policy for Freja"
+readme = "README.md"
+keywords = ["freja", "proxy", "policy", "security", "inspection"]
+categories = ["network-programming"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -11,7 +14,7 @@ publish.workspace = true
 
 [dependencies]
 bytes.workspace = true
-freja-domain = { path = "../freja-domain" }
+freja-domain.workspace = true
 http.workspace = true
 ipnet.workspace = true
 serde.workspace = true

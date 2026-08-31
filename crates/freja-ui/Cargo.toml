@@ -1,6 +1,9 @@
 [package]
 name = "freja-ui"
 description = "Bounded event publishing and optional terminal interface for Freja"
+readme = "README.md"
+keywords = ["freja", "proxy", "tui", "ratatui"]
+categories = ["command-line-utilities"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -14,8 +17,8 @@ default = []
 tui = ["dep:ratatui"]
 
 [dependencies]
-freja-domain = { path = "../freja-domain" }
-freja-policy = { path = "../freja-policy" }
+freja-domain.workspace = true
+freja-policy.workspace = true
 http.workspace = true
 ratatui = { workspace = true, optional = true }
 serde.workspace = true

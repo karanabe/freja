@@ -1,6 +1,9 @@
 [package]
 name = "freja-cli"
 description = "Command-line bootstrap, validation, and replay interface for Freja"
+readme = "README.md"
+keywords = ["freja", "proxy", "security", "networking", "inspection"]
+categories = ["command-line-utilities", "network-programming"]
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -15,12 +18,12 @@ path = "src/main.rs"
 
 [dependencies]
 clap.workspace = true
-freja-audit = { path = "../freja-audit" }
-freja-config = { path = "../freja-config" }
-freja-domain = { path = "../freja-domain" }
-freja-policy = { path = "../freja-policy" }
-freja-proxy = { path = "../freja-proxy" }
-freja-ui = { path = "../freja-ui", features = ["tui"] }
+freja-audit.workspace = true
+freja-config.workspace = true
+freja-domain.workspace = true
+freja-policy.workspace = true
+freja-proxy.workspace = true
+freja-ui = { workspace = true, features = ["tui"] }
 hex.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

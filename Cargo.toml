@@ -18,7 +18,7 @@ authors = ["karanabe"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/karanabe/freja"
 rust-version = "1.88"
-publish = false
+publish = ["crates-io"]
 
 [workspace.dependencies]
 arc-swap = "1.7.1"
@@ -27,6 +27,12 @@ base64 = "0.22.1"
 bytes = "1.11.1"
 clap = { version = "4.5.46", features = ["derive"] }
 ed25519-dalek = "2.2.0"
+freja-audit = { version = "0.1.0", path = "crates/freja-audit" }
+freja-config = { version = "0.1.0", path = "crates/freja-config" }
+freja-domain = { version = "0.1.0", path = "crates/freja-domain" }
+freja-policy = { version = "0.1.0", path = "crates/freja-policy" }
+freja-proxy = { version = "0.1.0", path = "crates/freja-proxy" }
+freja-ui = { version = "0.1.0", path = "crates/freja-ui" }
 hex = "0.4.3"
 http = "1.3.1"
 http-body-util = "0.1.3"
