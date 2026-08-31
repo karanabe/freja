@@ -1,0 +1,55 @@
+[package]
+name = "freja-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+bytes = "1"
+freja-config = { path = "../crates/freja-config" }
+freja-domain = { path = "../crates/freja-domain" }
+freja-policy = { path = "../crates/freja-policy" }
+freja-proxy = { path = "../crates/freja-proxy", default-features = false }
+http = "1"
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "config_parsing"
+path = "fuzz_targets/config_parsing.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "target_parsing"
+path = "fuzz_targets/target_parsing.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_mutation"
+path = "fuzz_targets/http_mutation.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "binary_scanning"
+path = "fuzz_targets/binary_scanning.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "http_framing"
+path = "fuzz_targets/http_framing.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
