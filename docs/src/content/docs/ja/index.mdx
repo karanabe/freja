@@ -1,0 +1,63 @@
+---
+title: Freja ドキュメント
+description: ローカルファーストで説明可能な検査プロキシの設定、運用、保護、拡張方法です。
+publishedAt: 2026-08-31
+updatedAt: 2026-08-31
+tags:
+  - 概要
+  - プロキシ
+template: splash
+hero:
+  title: プロキシが何を、なぜ決めたかを見える形に。
+  tagline: Frejaは、決定的なポリシートレース、上限付き検査、型付きHook、プライバシーを意識した監査を備えるローカルファーストのL4/L7検査プロキシです。
+  actions:
+    - text: はじめる
+      link: /ja/guides/getting-started/
+      icon: right-arrow
+    - text: アーキテクチャを理解する
+      link: /ja/developer/architecture/
+      icon: open-book
+      variant: minimal
+---
+
+<div class="landing-shell not-content">
+  <section class="landing-intro" aria-labelledby="landing-intro-title">
+    <p class="landing-eyebrow">安全側のデフォルト</p>
+    <h2 id="landing-intro-title">判断経路を隠さず、ローカル通信を検査する。</h2>
+    <p>loopback listener、metadata-only capture、CONNECTのblind tunnel、無効なHook、observe modeから始めます。enforce、TLS interception、外部公開、payload captureは、配置要件に応じて明示的に有効化します。</p>
+  </section>
+
+  <div class="landing-principles" aria-label="Frejaの設計原則">
+    <section>
+      <span aria-hidden="true">01</span>
+      <h3>すべての動作を説明する</h3>
+      <p>ポリシー世代、一致ルール、観測した事実、最終動作を各Decisionに記録します。</p>
+    </section>
+    <section>
+      <span aria-hidden="true">02</span>
+      <h3>すべての資源に上限を設ける</h3>
+      <p>接続、body prefix、channel、timeout、pause flow、証明書cacheに明示的な上限があります。</p>
+    </section>
+    <section>
+      <span aria-hidden="true">03</span>
+      <h3>証跡をローカルに保つ</h3>
+      <p>監査レコードをredact・hash chain化し、必要なら署名して、新しいポリシーでreplayできます。</p>
+    </section>
+  </div>
+
+  <section class="landing-workflow" aria-labelledby="landing-workflow-title">
+    <div>
+      <p class="landing-eyebrow">最初のローカルリクエスト</p>
+      <h2 id="landing-workflow-title">検証して、起動して、観測する。</h2>
+      <p>socketを開く前にサンプル設定をcompileし、loopback proxy経由でHTTPリクエストを1件送ります。</p>
+      <a href="/ja/guides/getting-started/">クイックスタートを実行する <span aria-hidden="true">→</span></a>
+    </div>
+    <pre aria-label="Frejaのクイックスタート"><code>{`$ cargo build --release -p freja-cli
+$ ./target/release/freja check-config \\
+    --config examples/freja.toml
+configuration valid: 3 listener(s), policy generation 1
+
+$ ./target/release/freja run \\
+    --config examples/freja.toml`}</code></pre>
+  </section>
+</div>

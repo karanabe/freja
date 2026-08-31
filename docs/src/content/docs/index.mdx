@@ -1,0 +1,63 @@
+---
+title: Freja documentation
+description: Configure, operate, secure, and extend the local-first explainable inspection proxy.
+publishedAt: 2026-08-31
+updatedAt: 2026-08-31
+tags:
+  - overview
+  - proxy
+template: splash
+hero:
+  title: See what your proxy decided—and why.
+  tagline: Freja is a local-first L4/L7 inspection proxy with deterministic policy traces, bounded inspection, typed hooks, and privacy-aware audit records.
+  actions:
+    - text: Get started
+      link: /guides/getting-started/
+      icon: right-arrow
+    - text: Understand the architecture
+      link: /developer/architecture/
+      icon: open-book
+      variant: minimal
+---
+
+<div class="landing-shell not-content">
+  <section class="landing-intro" aria-labelledby="landing-intro-title">
+    <p class="landing-eyebrow">Conservative by default</p>
+    <h2 id="landing-intro-title">Inspect local traffic without hiding the decision path.</h2>
+    <p>Start with loopback listeners, metadata-only capture, blind CONNECT tunnels, disabled hooks, and observe mode. Opt in to enforcement, interception, remote exposure, or payload capture only when the deployment needs them.</p>
+  </section>
+
+  <div class="landing-principles" aria-label="Freja principles">
+    <section>
+      <span aria-hidden="true">01</span>
+      <h3>Explain every action</h3>
+      <p>Every policy decision carries its generation, matched rule, observed facts, and final action.</p>
+    </section>
+    <section>
+      <span aria-hidden="true">02</span>
+      <h3>Bound every resource</h3>
+      <p>Connections, body prefixes, channels, timeouts, paused flows, and certificate caches have explicit limits.</p>
+    </section>
+    <section>
+      <span aria-hidden="true">03</span>
+      <h3>Keep evidence local</h3>
+      <p>Audit records are redacted, hash chained, optionally signed, and replayable against a new policy.</p>
+    </section>
+  </div>
+
+  <section class="landing-workflow" aria-labelledby="landing-workflow-title">
+    <div>
+      <p class="landing-eyebrow">First local request</p>
+      <h2 id="landing-workflow-title">Validate, run, inspect.</h2>
+      <p>Compile the example configuration before opening any listener, then send one HTTP request through the loopback proxy.</p>
+      <a href="/guides/getting-started/">Run the quick start <span aria-hidden="true">→</span></a>
+    </div>
+    <pre aria-label="Freja quick start"><code>{`$ cargo build --release -p freja-cli
+$ ./target/release/freja check-config \\
+    --config examples/freja.toml
+configuration valid: 3 listener(s), policy generation 1
+
+$ ./target/release/freja run \\
+    --config examples/freja.toml`}</code></pre>
+  </section>
+</div>
