@@ -1,0 +1,351 @@
+---
+import { getCollection } from 'astro:content';
+
+interface Props {
+	locale: 'en' | 'ja';
+}
+
+const { locale } = Astro.props;
+const isJapanese = locale === 'ja';
+const copy = isJapanese
+	? {
+			allTags: 'すべて',
+			clear: '条件をクリア',
+			empty: '条件に一致するドキュメントはありません。',
+			results: '件のドキュメント',
+			searchLabel: 'タイトル、説明、タグを検索',
+			searchPlaceholder: '例: TLS',
+			tagListLabel: 'タグで絞り込む',
+		}
+	: {
+			allTags: 'All tags',
+			clear: 'Clear filters',
+			empty: 'No documents match these filters.',
+			results: 'documents',
+			searchLabel: 'Search titles, descriptions, and tags',
+			searchPlaceholder: 'For example: TLS',
+			tagListLabel: 'Filter by tag',
+		};
+
+const documents = (await getCollection('docs'))
+	.filter((entry) => {
+		const matchesLocale = isJapanese
+			? entry.id === 'ja' || entry.id.startsWith('ja/')
+			: entry.id !== 'ja' && !entry.id.startsWith('ja/');
+		return matchesLocale && !entry.data.draft && entry.data.tags.length > 0;
+	})
+	.map((entry) => {
+		const path = entry.id.replace(/(^|\/)index$/, '$1').replace(/\/$/, '');
+		return {
+			description: entry.data.description,
+			href: path ? `/${path}/` : '/',
+			tags: [...new Set(entry.data.tags)],
+			title: entry.data.title,
+		};
+	})
+	.sort((a, b) => a.title.localeCompare(b.title, locale));
+
+const tagCounts = new Map<string, number>();
+for (const document of documents) {
+	for (const tag of new Set(document.tags)) {
+		tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+	}
+}
+const tags = [...tagCounts].sort(([a], [b]) => a.localeCompare(b, locale));
+---
+
+<tag-explorer class="tag-explorer not-content" data-locale={locale}>
+	<form class="tag-search" role="search">
+		<label for={`tag-search-${locale}`}>{copy.searchLabel}</label>
+		<div class="tag-search-row">
+			<input
+				id={`tag-search-${locale}`}
+				type="search"
+				name="query"
+				autocomplete="off"
+				placeholder={copy.searchPlaceholder}
+				data-query
+			/>
+			<button type="reset">{copy.clear}</button>
+		</div>
+	</form>
+
+	<div class="tag-filters" role="group" aria-label={copy.tagListLabel}>
+		<button type="button" data-tag="" aria-pressed="true">
+			{copy.allTags}<span>{documents.length}</span>
+		</button>
+		{
+			tags.map(([tag, count]) => (
+				<button type="button" data-tag={tag} aria-pressed="false">
+					{tag}<span>{count}</span>
+				</button>
+			))
+		}
+	</div>
+
+	<p class="tag-result-count" aria-live="polite" aria-atomic="true" data-result-count>
+		{documents.length}{isJapanese ? '' : ' '}{copy.results}
+	</p>
+
+	<ul class="tag-results">
+		{
+			documents.map((document) => (
+				<li
+					data-document
+					data-search-text={[document.title, document.description, ...document.tags].join(' ')}
+					data-document-tags={JSON.stringify(document.tags)}
+				>
+					<a href={document.href}>
+						<h2>{document.title}</h2>
+						{document.description && <span>{document.description}</span>}
+						<span class="document-tags">
+							{document.tags.map((tag) => <small>{tag}</small>)}
+						</span>
+					</a>
+				</li>
+			))
+		}
+	</ul>
+
+	<p class="tag-empty" hidden data-empty>{copy.empty}</p>
+</tag-explorer>
+
+<script>
+	class TagExplorer extends HTMLElement {
+		connectedCallback() {
+			const locale = this.dataset.locale || 'en';
+			const form = this.querySelector('form');
+			const input = this.querySelector<HTMLInputElement>('[data-query]');
+			const count = this.querySelector<HTMLElement>('[data-result-count]');
+			const empty = this.querySelector<HTMLElement>('[data-empty]');
+			const tagButtons = [...this.querySelectorAll<HTMLButtonElement>('[data-tag]')];
+			const documents = [...this.querySelectorAll<HTMLElement>('[data-document]')];
+			let selectedTag = '';
+
+			if (!form || !input || !count || !empty) return;
+
+			const normalize = (value: string) => value.normalize('NFKC').toLocaleLowerCase(locale);
+			const update = () => {
+				const query = normalize(input.value.trim());
+				let visible = 0;
+
+				for (const document of documents) {
+					const searchText = normalize(document.dataset.searchText || '');
+					const documentTags = JSON.parse(document.dataset.documentTags || '[]') as string[];
+					const matchesQuery = !query || searchText.includes(query);
+					const matchesTag = !selectedTag || documentTags.includes(selectedTag);
+					document.hidden = !(matchesQuery && matchesTag);
+					if (!document.hidden) visible += 1;
+				}
+
+				count.textContent = locale === 'ja'
+					? `${visible}件のドキュメント`
+					: `${visible} ${visible === 1 ? 'document' : 'documents'}`;
+				empty.hidden = visible !== 0;
+			};
+
+			form.addEventListener('submit', (event) => event.preventDefault());
+			form.addEventListener('reset', () => {
+				selectedTag = '';
+				for (const button of tagButtons) {
+					button.setAttribute('aria-pressed', String(button.dataset.tag === ''));
+				}
+				queueMicrotask(update);
+			});
+			input.addEventListener('input', update);
+
+			for (const button of tagButtons) {
+				button.addEventListener('click', () => {
+					selectedTag = button.dataset.tag || '';
+					for (const candidate of tagButtons) {
+						candidate.setAttribute('aria-pressed', String(candidate === button));
+					}
+					update();
+				});
+			}
+		}
+	}
+
+	if (!customElements.get('tag-explorer')) {
+		customElements.define('tag-explorer', TagExplorer);
+	}
+</script>
+
+<style>
+	.tag-explorer {
+		display: grid;
+		gap: 1.5rem;
+		margin-top: 2rem;
+	}
+
+	.tag-search {
+		display: grid;
+		gap: 0.55rem;
+	}
+
+	.tag-search label {
+		color: var(--sl-color-white);
+		font-weight: 650;
+	}
+
+	.tag-search-row {
+		display: flex;
+		gap: 0.65rem;
+	}
+
+	.tag-search input {
+		min-width: 0;
+		flex: 1;
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.65rem;
+		background: var(--sl-color-black);
+		padding: 0.75rem 0.9rem;
+		color: var(--sl-color-white);
+		font: inherit;
+	}
+
+	.tag-search input::placeholder {
+		color: var(--sl-color-gray-3);
+	}
+
+	.tag-search button,
+	.tag-filters button {
+		border: 1px solid var(--sl-color-gray-5);
+		border-radius: 0.65rem;
+		background: var(--sl-color-gray-6);
+		padding: 0.65rem 0.8rem;
+		color: var(--sl-color-gray-2);
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.tag-search button:hover,
+	.tag-filters button:hover {
+		border-color: var(--project-accent-border);
+		color: var(--sl-color-white);
+	}
+
+	.tag-search input:focus-visible,
+	.tag-search button:focus-visible,
+	.tag-filters button:focus-visible {
+		outline: 2px solid var(--sl-color-accent);
+		outline-offset: 2px;
+	}
+
+	.tag-filters {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.tag-filters button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.tag-filters button[aria-pressed='true'] {
+		border-color: var(--project-accent-border);
+		background: var(--project-accent-soft);
+		color: var(--sl-color-accent-high);
+	}
+
+	.tag-filters button span {
+		min-width: 1.35rem;
+		border-radius: 999px;
+		background: var(--sl-color-gray-5);
+		padding: 0.08rem 0.35rem;
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-xs);
+		text-align: center;
+	}
+
+	.tag-result-count,
+	.tag-empty {
+		margin: 0;
+		color: var(--sl-color-gray-2);
+	}
+
+	.tag-results {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.85rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.tag-results li {
+		min-width: 0;
+	}
+
+	.tag-results a {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		height: 100%;
+		border: 1px solid var(--sl-color-hairline-light);
+		border-radius: 0.8rem;
+		background: var(--sl-color-black);
+		padding: 1.1rem;
+		color: inherit;
+		text-decoration: none;
+		transition: border-color 160ms ease, transform 160ms ease;
+	}
+
+	.tag-results a:hover,
+	.tag-results a:focus-visible {
+		border-color: var(--project-accent-border);
+		transform: translateY(-2px);
+	}
+
+	.tag-results a:focus-visible {
+		outline: 2px solid var(--sl-color-accent);
+		outline-offset: 2px;
+	}
+
+	.tag-results h2 {
+		margin: 0;
+		color: var(--sl-color-white);
+		font-size: var(--sl-text-lg);
+	}
+
+	.tag-results a > span:not(.document-tags) {
+		color: var(--sl-color-gray-2);
+		line-height: 1.6;
+	}
+
+	.document-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem;
+		margin-top: auto;
+		padding-top: 0.25rem;
+	}
+
+	.document-tags small {
+		border-radius: 999px;
+		background: var(--project-accent-soft);
+		padding: 0.25rem 0.55rem;
+		color: var(--sl-color-accent-high);
+		font-size: var(--sl-text-xs);
+	}
+
+	@media (max-width: 42rem) {
+		.tag-search-row {
+			align-items: stretch;
+			flex-direction: column;
+		}
+
+		.tag-results {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tag-results a {
+			transition: none;
+		}
+	}
+</style>

@@ -1,0 +1,95 @@
+---
+import Default from '@astrojs/starlight/components/SiteTitle.astro';
+
+const { locale } = Astro.locals.starlightRoute;
+const isJapanese = locale === 'ja';
+const homePath = isJapanese ? '/ja/' : '/';
+const tagsPath = isJapanese ? '/ja/tags/' : '/tags/';
+const pathname = Astro.url.pathname;
+const isHome = pathname === homePath;
+const isTags = pathname === tagsPath;
+
+const links = [
+	{
+		label: isJapanese ? 'ドキュメント' : 'Docs',
+		href: isJapanese ? '/ja/guides/getting-started/' : '/guides/getting-started/',
+		current: !isHome && !isTags,
+	},
+	{
+		label: isJapanese ? 'タグ' : 'Tags',
+		href: tagsPath,
+		current: isTags,
+	},
+];
+---
+
+<div class="site-identity">
+	<Default />
+	<nav aria-label={isJapanese ? '主要ナビゲーション' : 'Primary navigation'}>
+		{
+			links.map(({ label, href, current }) => (
+				<a href={href} aria-current={current ? 'page' : undefined}>{label}</a>
+			))
+		}
+	</nav>
+</div>
+
+<style>
+	.site-identity {
+		display: flex;
+		align-items: center;
+		gap: clamp(0.5rem, 1.5vw, 1rem);
+		min-width: 0;
+	}
+
+	.site-identity :global(.site-title) {
+		flex: 0 1 auto;
+		overflow: hidden;
+	}
+
+	.site-identity :global(.site-title span) {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	nav {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: 0.2rem;
+		border-inline-start: 1px solid var(--sl-color-gray-5);
+		padding-inline-start: clamp(0.35rem, 1vw, 0.7rem);
+	}
+
+	nav a {
+		border-radius: 0.45rem;
+		padding: 0.35rem 0.55rem;
+		color: var(--sl-color-gray-2);
+		font-size: var(--sl-text-sm);
+		font-weight: 600;
+		line-height: 1.2;
+		text-decoration: none;
+		white-space: nowrap;
+	}
+
+	nav a:hover,
+	nav a:focus-visible {
+		color: var(--sl-color-white);
+		background: var(--project-accent-soft);
+	}
+
+	nav a[aria-current='page'] {
+		color: var(--sl-color-accent-high);
+		background: var(--project-accent-soft);
+	}
+
+	@media (max-width: 34rem) {
+		.site-identity :global(.site-title span) {
+			max-width: 3.5rem;
+		}
+
+		nav a {
+			padding-inline: 0.4rem;
+		}
+	}
+</style>

@@ -1,0 +1,40 @@
+/*
+ * Project color
+ *
+ * Change this hue to match the project brand. Useful starting points:
+ * 215 blue · 258 violet · 330 pink · 160 green · 28 orange
+ */
+:root {
+	--project-accent-hue: 258;
+
+	--sl-color-accent-low: hsl(var(--project-accent-hue), 48%, 22%);
+	--sl-color-accent: hsl(var(--project-accent-hue), 86%, 68%);
+	--sl-color-accent-high: hsl(var(--project-accent-hue), 92%, 89%);
+	--project-accent-soft: hsla(var(--project-accent-hue), 88%, 70%, 0.12);
+	--project-accent-border: hsla(var(--project-accent-hue), 88%, 72%, 0.3);
+
+	--sl-color-black: hsl(226, 24%, 9%);
+	--sl-color-gray-6: hsl(225, 19%, 14%);
+	--sl-color-bg-nav: hsla(225, 19%, 14%, 0.86);
+	--sl-color-bg-sidebar: hsl(225, 20%, 12%);
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-high: hsl(var(--project-accent-hue), 68%, 34%);
+	--sl-color-accent: hsl(var(--project-accent-hue), 74%, 51%);
+	--sl-color-accent-low: hsl(var(--project-accent-hue), 88%, 95%);
+	--project-accent-soft: hsla(var(--project-accent-hue), 78%, 48%, 0.09);
+	--project-accent-border: hsla(var(--project-accent-hue), 72%, 44%, 0.22);
+
+	--sl-color-black: hsl(220, 33%, 99%);
+	/* Keep light UI surfaces pale; these tokens also feed inline and terminal code. */
+	--sl-color-gray-5: hsl(220, 18%, 88%);
+	--sl-color-gray-6: hsl(220, 24%, 94%);
+	--sl-color-gray-7: hsl(220, 24%, 97%);
+	--sl-color-bg-inline-code: hsl(220, 26%, 95%);
+	--sl-color-hairline-light: hsla(220, 18%, 36%, 0.1);
+	--sl-color-hairline: hsla(220, 18%, 36%, 0.08);
+	--sl-color-hairline-shade: hsla(220, 18%, 36%, 0.12);
+	--sl-color-bg-nav: hsla(220, 33%, 99%, 0.88);
+	--sl-color-bg-sidebar: hsl(220, 33%, 99%);
+}
