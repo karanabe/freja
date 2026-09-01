@@ -83,13 +83,18 @@ alone.
 - `freja-ui`: immutable UI events and bounded interactive TUI decisions.
 - `freja`: bootstrap, replay, reload, signals, and application error boundary.
 
-The Astro documentation site lives in [`docs/`](docs/README.md). Start with the
-[operator quick start](docs/src/content/docs/guides/getting-started.md), then use
-the [configuration reference](docs/src/content/docs/reference/configuration.md),
-[architecture](docs/src/content/docs/developer/architecture.md), [threat
-model](docs/src/content/docs/developer/threat-model.md), and [typed hook
-design](docs/src/content/docs/developer/hooks.md). Matching Japanese pages live
-under `docs/src/content/docs/ja/`.
+The Astro documentation site lives in
+[`docs/`](https://github.com/karanabe/freja/blob/master/docs/README.md). Start
+with the [operator quick
+start](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/guides/getting-started.md),
+then use the [configuration
+reference](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/reference/configuration.md),
+[architecture](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/architecture.md),
+[threat
+model](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/threat-model.md),
+and [typed hook
+design](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/hooks.md).
+Matching Japanese pages live under `docs/src/content/docs/ja/`.
 
 ## Development gates
 
@@ -104,7 +109,7 @@ cargo check --manifest-path fuzz/Cargo.toml --bins
 ### License
 
 <sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+Licensed under either of <a href="https://github.com/karanabe/freja/blob/master/LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="https://github.com/karanabe/freja/blob/master/LICENSE-MIT">MIT license</a> at your option.
 </sup>
 
 <br>

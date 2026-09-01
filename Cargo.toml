@@ -17,6 +17,7 @@ edition = "2024"
 authors = ["karanabe"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/karanabe/freja"
+readme = "README.md"
 rust-version = "1.88"
 publish = ["crates-io"]
 

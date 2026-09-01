@@ -1,7 +1,7 @@
 [package]
 name = "freja"
 description = "Command-line bootstrap, validation, and replay interface for Freja"
-readme = "README.md"
+readme.workspace = true
 keywords = ["freja", "proxy", "security", "networking", "inspection"]
 categories = ["command-line-utilities", "network-programming"]
 version.workspace = true
