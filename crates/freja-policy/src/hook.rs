@@ -37,8 +37,8 @@ pub use contract::{
     TcpUpstreamChunkHook, WireBody,
 };
 pub use interactive::{
-    InteractiveBroker, InteractiveDecision, InterceptContext, InterceptError, InterceptRequest,
-    InterceptStage, InterceptTimeoutPolicy,
+    HttpRequestSnapshot, InteractiveBroker, InteractiveDecision, InterceptContext, InterceptError,
+    InterceptRequest, InterceptTimeoutPolicy,
 };
 pub use mutation::{
     MutationError, apply_body_mutation, apply_head_mutation, apply_http_mutation,
@@ -57,13 +57,13 @@ mod tests {
     };
 
     use bytes::Bytes;
-    use freja_domain::{HookMode, SessionId};
+    use freja_domain::{HookMode, SessionId, TransactionId};
     use http::{HeaderMap, HeaderValue, header};
 
     use super::{
         BodyMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HookError,
         HookFailurePolicy, HookFuture, HookRegistry, HookRunError, HookRunner, HttpRequestBodyHook,
-        InteractiveBroker, InterceptContext, InterceptError, InterceptStage,
+        HttpRequestSnapshot, InteractiveBroker, InterceptContext, InterceptError,
         InterceptTimeoutPolicy, MutationError, WireBody, apply_head_mutation, apply_http_mutation,
     };
 
@@ -189,17 +189,17 @@ mod tests {
         .unwrap();
         let context = InterceptContext {
             session_id: SessionId::new(),
-            transaction_id: None,
+            transaction_id: TransactionId::new(),
         };
         let first_broker = broker.clone();
         let first = tokio::spawn(async move {
             first_broker
-                .intercept(context, InterceptStage::TcpClientChunk)
+                .intercept_http_request(context, interactive_request_snapshot())
                 .await
         });
         let request = receiver.recv().await.unwrap();
         let second = broker
-            .intercept(context, InterceptStage::TcpClientChunk)
+            .intercept_http_request(context, interactive_request_snapshot())
             .await;
         assert_eq!(second, Err(InterceptError::Saturated));
         drop(request);
@@ -213,5 +213,15 @@ mod tests {
     #[test]
     fn hook_error_message_is_concrete() {
         assert_eq!(HookError::new("failed").to_string(), "failed");
+    }
+
+    fn interactive_request_snapshot() -> HttpRequestSnapshot {
+        HttpRequestSnapshot {
+            method: http::Method::GET,
+            uri: http::Uri::from_static("/"),
+            version: http::Version::HTTP_11,
+            headers: http::HeaderMap::new(),
+            body: WireBody::new(Bytes::new()),
+        }
     }
 }

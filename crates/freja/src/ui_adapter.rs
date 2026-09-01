@@ -23,6 +23,7 @@ impl DataPlaneEventSink for UiDataPlaneEventSink {
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
     match event {
         DataPlaneEvent::FlowOpened {
@@ -39,11 +40,28 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
             transaction_id,
             method,
             target,
+            version,
+            headers,
         } => UiEvent::HttpObserved {
             session_id,
             transaction_id,
             method,
             target,
+            version,
+            headers,
+        },
+        DataPlaneEvent::HttpResponseObserved {
+            session_id,
+            transaction_id,
+            status,
+            version,
+            headers,
+        } => UiEvent::HttpResponseObserved {
+            session_id,
+            transaction_id,
+            status,
+            version,
+            headers,
         },
         DataPlaneEvent::DecisionMade {
             session_id,
@@ -68,11 +86,43 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
             transaction_id,
             direction,
             bytes,
+            offset,
+            observed_bytes,
+            truncated,
         } => UiEvent::BodyPrefix {
             session_id,
             transaction_id,
             direction,
             bytes,
+            offset,
+            observed_bytes,
+            truncated,
+        },
+        DataPlaneEvent::WireCaptured {
+            session_id,
+            transaction_id,
+            direction,
+            bytes,
+            observed_bytes,
+            truncated,
+        } => UiEvent::WireCaptured {
+            session_id,
+            transaction_id,
+            direction,
+            bytes,
+            observed_bytes,
+            truncated,
+        },
+        DataPlaneEvent::WireCaptureFailed {
+            session_id,
+            transaction_id,
+            direction,
+            reason,
+        } => UiEvent::WireCaptureFailed {
+            session_id,
+            transaction_id,
+            direction,
+            reason,
         },
         DataPlaneEvent::FlowClosed {
             session_id,

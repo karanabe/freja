@@ -23,6 +23,10 @@ pub struct Limits {
     pub interception_timeout: Duration,
     /// Capacity of the best-effort UI event channel.
     pub ui_event_capacity: usize,
+    /// Maximum payload bytes retained for one TUI traffic side.
+    pub ui_content_bytes: usize,
+    /// Maximum HTTP transactions or TCP sessions retained by the TUI.
+    pub ui_retained_rows: usize,
 }
 
 impl TryFrom<RawLimits> for Limits {
@@ -31,6 +35,15 @@ impl TryFrom<RawLimits> for Limits {
     fn try_from(raw: RawLimits) -> Result<Self, Self::Error> {
         validate_nonzero_counts(&raw)?;
         validate_nonzero_timeouts(&raw)?;
+        if raw.ui_retained_rows < raw.paused_flows {
+            return Err(ValidationError::UiRowsBelowPausedFlows {
+                ui_retained_rows: raw.ui_retained_rows,
+                paused_flows: raw.paused_flows,
+            });
+        }
+        if raw.header_bytes.checked_add(raw.ui_content_bytes).is_none() {
+            return Err(ValidationError::WireCaptureLimitOverflow);
+        }
 
         Ok(Self {
             connections: raw.connections,
@@ -42,6 +55,8 @@ impl TryFrom<RawLimits> for Limits {
             paused_flows: raw.paused_flows,
             interception_timeout: Duration::from_millis(raw.interception_timeout_ms),
             ui_event_capacity: raw.ui_event_capacity,
+            ui_content_bytes: raw.ui_content_bytes,
+            ui_retained_rows: raw.ui_retained_rows,
         })
     }
 }
@@ -53,6 +68,8 @@ fn validate_nonzero_counts(raw: &RawLimits) -> Result<(), ValidationError> {
         ("body_prefix_bytes", raw.body_prefix_bytes),
         ("paused_flows", raw.paused_flows),
         ("ui_event_capacity", raw.ui_event_capacity),
+        ("ui_content_bytes", raw.ui_content_bytes),
+        ("ui_retained_rows", raw.ui_retained_rows),
     ] {
         if value == 0 {
             return Err(ValidationError::ZeroLimit { name });

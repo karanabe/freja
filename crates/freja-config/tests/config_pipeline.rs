@@ -54,6 +54,8 @@ fn safe_loopback_config_compiles() {
     assert_eq!(compiled.runtime().ui, UiMode::Headless);
     assert!(matches!(compiled.tls(), TlsConfig::Tunnel));
     assert_eq!(compiled.audit().path, std::path::PathBuf::from("."));
+    assert_eq!(compiled.limits().ui_content_bytes, 64 * 1_024);
+    assert_eq!(compiled.limits().ui_retained_rows, 128);
 }
 
 #[test]
@@ -221,6 +223,77 @@ fn interactive_hooks_require_tui() {
     assert!(matches!(
         error,
         ConfigError::Validation(ValidationError::InteractiveHooksRequireTui)
+    ));
+}
+
+#[test]
+fn tui_rows_must_cover_every_paused_flow() {
+    let error = RawConfig::parse(
+        r#"
+            [limits]
+            paused_flows = 4
+            ui_retained_rows = 3
+
+            [[listeners]]
+            kind = "http-forward"
+            bind = "127.0.0.1:8080"
+        "#,
+    )
+    .unwrap()
+    .validate()
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ConfigError::Validation(ValidationError::UiRowsBelowPausedFlows { .. })
+    ));
+}
+
+#[test]
+fn interactive_tui_must_retain_the_full_bounded_request() {
+    let error = RawConfig::parse(
+        r#"
+            [runtime]
+            ui = "tui"
+            hooks = "interactive"
+
+            [limits]
+            body_prefix_bytes = 1024
+            ui_content_bytes = 512
+
+            [[listeners]]
+            kind = "http-forward"
+            bind = "127.0.0.1:8080"
+        "#,
+    )
+    .unwrap()
+    .validate()
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        ConfigError::Validation(ValidationError::UiContentBelowBodyLimit { .. })
+    ));
+}
+
+#[test]
+fn combined_wire_capture_limit_must_not_overflow() {
+    let mut raw = RawConfig::parse(
+        r#"
+            [[listeners]]
+            kind = "http-forward"
+            bind = "127.0.0.1:8080"
+        "#,
+    )
+    .unwrap();
+    raw.limits.header_bytes = usize::MAX;
+    raw.limits.ui_content_bytes = 1;
+
+    let error = raw.validate().unwrap_err();
+
+    assert!(matches!(
+        error,
+        ConfigError::Validation(ValidationError::WireCaptureLimitOverflow)
     ));
 }
 

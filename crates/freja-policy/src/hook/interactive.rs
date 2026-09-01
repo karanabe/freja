@@ -3,32 +3,30 @@ use std::{error::Error, fmt, sync::Arc, time::Duration};
 use freja_domain::{SessionId, TransactionId};
 use tokio::sync::{Semaphore, mpsc, oneshot};
 
-use super::{DecodedBody, HeadMutationPlan};
+use super::{DecodedBody, HeadMutationPlan, WireBody};
+
+/// Immutable parsed request copied into an interactive TUI decision.
+#[derive(Debug, Clone)]
+pub struct HttpRequestSnapshot {
+    /// Parsed request method.
+    pub method: http::Method,
+    /// Parsed request URI at the interception boundary.
+    pub uri: http::Uri,
+    /// Parsed HTTP version at the interception boundary.
+    pub version: http::Version,
+    /// Framing-validated request headers.
+    pub headers: http::HeaderMap,
+    /// Fully collected bounded request body.
+    pub body: WireBody,
+}
 
 /// Context copied into a bounded interactive request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterceptContext {
     /// Flow paused for the operator decision.
     pub session_id: SessionId,
-    /// HTTP exchange, or `None` for connection-level/TCP interception.
-    pub transaction_id: Option<TransactionId>,
-}
-
-/// Hook stage paused for a bounded interactive decision.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum InterceptStage {
-    /// Request metadata before upstream forwarding.
-    HttpRequestHead,
-    /// Bounded request body before or during forwarding.
-    HttpRequestBody,
-    /// Response metadata before downstream commitment.
-    HttpResponseHead,
-    /// Bounded response body before or during forwarding.
-    HttpResponseBody,
-    /// Client-to-upstream TCP chunk.
-    TcpClientChunk,
-    /// Upstream-to-client TCP chunk.
-    TcpUpstreamChunk,
+    /// Paused HTTP exchange.
+    pub transaction_id: TransactionId,
 }
 
 /// TUI/manual action returned through a oneshot response.
@@ -50,8 +48,8 @@ pub enum InteractiveDecision {
 pub struct InterceptRequest {
     /// Correlation identifiers copied from the paused flow.
     pub context: InterceptContext,
-    /// Lifecycle point awaiting a decision.
-    pub stage: InterceptStage,
+    /// Complete bounded HTTP request available for interactive editing.
+    pub request: HttpRequestSnapshot,
     /// Single-use response channel; dropping it reports `ResponderDropped`.
     pub response: oneshot::Sender<InteractiveDecision>,
 }
@@ -61,7 +59,8 @@ impl fmt::Debug for InterceptRequest {
         formatter
             .debug_struct("InterceptRequest")
             .field("context", &self.context)
-            .field("stage", &self.stage)
+            .field("method", &self.request.method)
+            .field("uri", &self.request.uri)
             .finish_non_exhaustive()
     }
 }
@@ -137,15 +136,15 @@ impl InteractiveBroker {
         ))
     }
 
-    /// Pauses one flow without waiting for bounded capacity.
+    /// Pauses one complete bounded HTTP request for a single operator decision.
     ///
     /// # Errors
     ///
     /// Returns an explicit saturation, channel, timeout, or responder error.
-    pub async fn intercept(
+    pub async fn intercept_http_request(
         &self,
         context: InterceptContext,
-        stage: InterceptStage,
+        request: HttpRequestSnapshot,
     ) -> Result<InteractiveDecision, InterceptError> {
         let _permit = Arc::clone(&self.paused)
             .try_acquire_owned()
@@ -154,7 +153,7 @@ impl InteractiveBroker {
         self.sender
             .try_send(InterceptRequest {
                 context,
-                stage,
+                request,
                 response,
             })
             .map_err(|error| match error {

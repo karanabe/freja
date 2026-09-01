@@ -28,6 +28,10 @@ impl HttpService {
         if let Err(error) = headers::validate(request.headers(), self.limits.header_bytes) {
             return Ok(text_response(StatusCode::BAD_REQUEST, &error.to_string()));
         }
+        self.apply_request_head_hooks(transaction_id, &mut request)
+            .await?;
+        self.pause_connect_request(transaction_id, &mut request)
+            .await?;
         let target = match ForwardTarget::from_connect(request.uri()) {
             Ok(target) => target,
             Err(error) => return Ok(text_response(StatusCode::BAD_REQUEST, &error.to_string())),
@@ -103,6 +107,9 @@ impl HttpService {
             )
             .await?;
         self.register_task(handle).await?;
+        if let Some(capture) = &self.request_capture {
+            capture.disable();
+        }
         Ok(text_response(StatusCode::OK, ""))
     }
 

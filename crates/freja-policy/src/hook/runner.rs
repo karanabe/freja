@@ -85,8 +85,7 @@ impl HookRunner {
 
     /// Reports whether response-body framing must allow a typed replacement.
     pub fn may_mutate_response_body(&self) -> bool {
-        self.mode == HookMode::Interactive
-            || (self.mode == HookMode::Automatic && !self.registry.response_body.is_empty())
+        self.mode != HookMode::Disabled && !self.registry.response_body.is_empty()
     }
 
     /// Runs registered request-head hooks.

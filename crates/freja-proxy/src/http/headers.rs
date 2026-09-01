@@ -123,6 +123,13 @@ pub(super) fn audit_headers(headers: &HeaderMap) -> BTreeMap<String, Vec<String>
     values
 }
 
+pub(super) fn presentation_headers(headers: &HeaderMap) -> Vec<(String, Vec<u8>)> {
+    headers
+        .iter()
+        .map(|(name, value)| (name.as_str().to_owned(), value.as_bytes().to_vec()))
+        .collect()
+}
+
 fn header_size(headers: &HeaderMap) -> usize {
     headers.iter().fold(0_usize, |total, (name, value)| {
         total

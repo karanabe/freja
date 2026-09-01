@@ -1,8 +1,7 @@
 use freja_domain::{Direction, InspectionMode, Protocol, ReplayFacts, SessionId, TransactionId};
 use freja_policy::StreamScanner;
 use freja_policy::hook::{
-    BodyMutationPlan, ChunkMutationPlan, InteractiveDecision, InterceptStage, MutationError,
-    WireBody, apply_body_mutation,
+    BodyMutationPlan, ChunkMutationPlan, MutationError, WireBody, apply_body_mutation,
 };
 
 use crate::{
@@ -24,6 +23,9 @@ pub(crate) struct FlowInspector {
     http_request_body: StreamScanner,
     http_response_body: StreamScanner,
     captured_bytes: [usize; 4],
+    ui_observed_bytes: [u64; 4],
+    ui_retained_bytes: [usize; 4],
+    ui_truncation_reported: [bool; 4],
     maximum_inspected_bytes: usize,
     inspected_bytes: [usize; 4],
 }
@@ -59,6 +61,9 @@ impl FlowInspector {
             http_request_body,
             http_response_body,
             captured_bytes: [0; 4],
+            ui_observed_bytes: [0; 4],
+            ui_retained_bytes: [0; 4],
+            ui_truncation_reported: [false; 4],
             maximum_inspected_bytes,
             inspected_bytes: [0; 4],
         }
@@ -74,8 +79,7 @@ impl FlowInspector {
         direction: Direction,
         bytes: &[u8],
     ) -> Result<bool, ProxyError> {
-        self.services
-            .publish_body_prefix(self.session_id, self.transaction_id, direction, bytes);
+        self.publish_ui_prefix(direction, bytes);
         self.capture(direction, bytes).await?;
         let index = direction_index(direction);
         let remaining = self
@@ -138,6 +142,37 @@ impl FlowInspector {
             }
         }
         Ok(true)
+    }
+
+    fn publish_ui_prefix(&mut self, direction: Direction, bytes: &[u8]) {
+        let index = direction_index(direction);
+        let offset = self.ui_observed_bytes[index];
+        let byte_count = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+        self.ui_observed_bytes[index] = offset.saturating_add(byte_count);
+        let Some(settings) = self.services.ui_capture_settings() else {
+            return;
+        };
+        let remaining = settings
+            .content_bytes()
+            .saturating_sub(self.ui_retained_bytes[index]);
+        let retained = remaining.min(bytes.len());
+        self.ui_retained_bytes[index] = self.ui_retained_bytes[index].saturating_add(retained);
+        let truncated = retained < bytes.len();
+        if retained == 0 && (!truncated || self.ui_truncation_reported[index]) {
+            return;
+        }
+        if truncated {
+            self.ui_truncation_reported[index] = true;
+        }
+        self.services.publish_body_prefix(
+            self.session_id,
+            self.transaction_id,
+            direction,
+            &bytes[..retained],
+            offset,
+            self.ui_observed_bytes[index],
+            truncated,
+        );
     }
 
     async fn capture(&mut self, direction: Direction, bytes: &[u8]) -> Result<(), ProxyError> {
@@ -231,49 +266,10 @@ impl FlowInspector {
         }
         let automatic = apply_body_mutation(&body, &automatic_plan, maximum_replacement_bytes)
             .map_err(ProxyError::HookMutation)?;
-        let intercept_stage = match direction {
-            Direction::HttpRequestBody => InterceptStage::HttpRequestBody,
-            Direction::HttpResponseBody => InterceptStage::HttpResponseBody,
-            Direction::ClientToUpstream | Direction::UpstreamToClient => {
-                return Ok(BodyTransform {
-                    bytes: automatic,
-                    replaced: automatic_replaced,
-                });
-            }
-        };
-        match self
-            .services
-            .interactive_decision(context, intercept_stage)
-            .await?
-        {
-            Some(InteractiveDecision::ReplaceBody(replacement)) => {
-                if !decoded_replacement_allowed {
-                    return Err(ProxyError::HookMutation(
-                        MutationError::EncodedBodyReplacement,
-                    ));
-                }
-                let bytes = apply_body_mutation(
-                    &WireBody::new(automatic),
-                    &BodyMutationPlan::Replace(replacement),
-                    maximum_replacement_bytes,
-                )
-                .map_err(ProxyError::HookMutation)?;
-                Ok(BodyTransform {
-                    bytes,
-                    replaced: true,
-                })
-            }
-            Some(InteractiveDecision::Reject) => Err(ProxyError::InteractiveRejected),
-            Some(
-                InteractiveDecision::Continue
-                | InteractiveDecision::EditHeaders(_)
-                | InteractiveDecision::CancelModification,
-            )
-            | None => Ok(BodyTransform {
-                bytes: automatic,
-                replaced: automatic_replaced,
-            }),
-        }
+        Ok(BodyTransform {
+            bytes: automatic,
+            replaced: automatic_replaced,
+        })
     }
 }
 

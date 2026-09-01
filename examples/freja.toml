@@ -17,6 +17,8 @@ idle_timeout_ms = 60000
 paused_flows = 16
 interception_timeout_ms = 30000
 ui_event_capacity = 1024
+ui_content_bytes = 65536
+ui_retained_rows = 128
 
 [audit]
 # An existing directory receives a unique, owner-only segment on every run.

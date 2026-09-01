@@ -950,6 +950,7 @@ dependencies = [
  "http",
  "ratatui",
  "serde",
+ "serde_json",
  "tokio",
 ]
 

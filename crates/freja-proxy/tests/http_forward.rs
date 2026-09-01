@@ -2,7 +2,13 @@
 
 //! Externally observable HTTP forward-proxy and CONNECT integration tests.
 
-use std::{convert::Infallible, fs, net::IpAddr, sync::Arc, time::Duration};
+use std::{
+    convert::Infallible,
+    fs,
+    net::IpAddr,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use bytes::Bytes;
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
@@ -17,13 +23,13 @@ use freja_policy::{
     hook::{
         BodyMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HookFailurePolicy,
         HookFuture, HookRegistry, HookRunner, HttpRequestBodyHook, HttpRequestHead,
-        HttpRequestHeadHook, InteractiveBroker, InteractiveDecision, InterceptStage,
-        InterceptTimeoutPolicy, WireBody,
+        HttpRequestHeadHook, InteractiveBroker, InteractiveDecision, InterceptTimeoutPolicy,
+        WireBody,
     },
 };
 use freja_proxy::{
-    DataPlaneServices, HttpForwardServer, ProxyLimits, TlsInterceptionConfig, TlsInterceptor,
-    shutdown_channel,
+    DataPlaneEvent, DataPlaneEventSink, DataPlaneServices, HttpForwardServer, ProxyLimits,
+    TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings, shutdown_channel,
 };
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, Response, service::service_fn};
@@ -58,5 +64,7 @@ mod policy;
 mod runtime;
 #[path = "http_forward/support.rs"]
 mod support;
+#[path = "http_forward/tui_capture.rs"]
+mod tui_capture;
 
 use support::*;

@@ -10,6 +10,7 @@ use super::{
     body::{BodyError, BodyFrame, CollectError, ProxyBody, channel, collect_bounded, full},
     headers,
     target::ForwardTarget,
+    wire::RequestCaptureHandle,
 };
 use crate::{
     DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal,
@@ -39,6 +40,7 @@ pub(super) struct HttpService {
     limits: ProxyLimits,
     shutdown: ShutdownSignal,
     task_sender: mpsc::Sender<ConnectionTaskHandle>,
+    request_capture: Option<RequestCaptureHandle>,
 }
 
 impl HttpService {
@@ -52,6 +54,7 @@ impl HttpService {
         limits: ProxyLimits,
         shutdown: ShutdownSignal,
         task_sender: mpsc::Sender<ConnectionTaskHandle>,
+        request_capture: Option<RequestCaptureHandle>,
     ) -> Self {
         Self {
             peer,
@@ -62,6 +65,7 @@ impl HttpService {
             limits,
             shutdown,
             task_sender,
+            request_capture,
         }
     }
 
@@ -70,6 +74,9 @@ impl HttpService {
         request: Request<Incoming>,
     ) -> Result<Response<ProxyBody>, ProxyError> {
         let transaction_id = TransactionId::new();
+        if let Some(capture) = &self.request_capture {
+            capture.bind(transaction_id);
+        }
         self.audit_request(transaction_id, &request).await?;
         if let Some(authentication) = self.connect_ports.authentication() {
             let authenticated = authenticate_proxy_request(request.headers(), authentication);
@@ -106,6 +113,15 @@ impl HttpService {
         };
         let status = response.status().as_u16();
         let response_headers = headers::audit_headers(response.headers());
+        if self.services.publishes_events() {
+            self.services.publish_http_response_event(
+                self.session_id,
+                transaction_id,
+                status,
+                format!("{:?}", response.version()),
+                headers::presentation_headers(response.headers()),
+            );
+        }
         self.audit_response(transaction_id, status, response_headers)
             .await?;
         Ok(response)
@@ -117,12 +133,16 @@ impl HttpService {
     ) -> Result<(), ProxyError> {
         let method = request.method().as_str().to_owned();
         let target = request.uri().to_string();
-        self.services.publish_http_event(
-            self.session_id,
-            transaction_id,
-            method.clone(),
-            target.clone(),
-        );
+        if self.services.publishes_events() {
+            self.services.publish_http_event(
+                self.session_id,
+                transaction_id,
+                method.clone(),
+                target.clone(),
+                format!("{:?}", request.version()),
+                headers::presentation_headers(request.headers()),
+            );
+        }
         self.services
             .publish(AuditEnvelope {
                 context: audit_context(self.session_id, Some(transaction_id), &self.services),

@@ -1,6 +1,7 @@
 use freja_domain::{HookMode, TransactionId};
 use freja_policy::hook::{
-    HttpRequestHead, HttpResponseHead, InteractiveDecision, InterceptStage, apply_head_mutation,
+    BodyMutationPlan, HttpRequestHead, HttpRequestSnapshot, HttpResponseHead, InteractiveDecision,
+    WireBody, apply_body_mutation, apply_head_mutation,
 };
 use http::{Request, Response};
 use hyper::body::Incoming;
@@ -8,6 +9,43 @@ use hyper::body::Incoming;
 use super::{HttpService, ProxyError, audit_context};
 
 impl HttpService {
+    pub(super) async fn pause_connect_request(
+        &self,
+        transaction_id: TransactionId,
+        request: &mut Request<Incoming>,
+    ) -> Result<(), ProxyError> {
+        if self.services.hooks().mode() != HookMode::Interactive {
+            return Ok(());
+        }
+        let context = audit_context(self.session_id, Some(transaction_id), &self.services);
+        let snapshot = HttpRequestSnapshot {
+            method: request.method().clone(),
+            uri: request.uri().clone(),
+            version: request.version(),
+            headers: request.headers().clone(),
+            body: WireBody::new(bytes::Bytes::new()),
+        };
+        match self
+            .services
+            .interactive_http_request(context, transaction_id, snapshot)
+            .await?
+        {
+            Some(InteractiveDecision::EditHeaders(plan)) => {
+                apply_head_mutation(request.headers_mut(), &plan).map_err(ProxyError::HookMutation)
+            }
+            Some(InteractiveDecision::ReplaceBody(replacement)) => apply_body_mutation(
+                &WireBody::new(bytes::Bytes::new()),
+                &BodyMutationPlan::Replace(replacement),
+                0,
+            )
+            .map(|_| ())
+            .map_err(ProxyError::HookMutation),
+            Some(InteractiveDecision::Reject) => Err(ProxyError::InteractiveRejected),
+            Some(InteractiveDecision::Continue | InteractiveDecision::CancelModification)
+            | None => Ok(()),
+        }
+    }
+
     pub(super) async fn apply_request_head_hooks(
         &self,
         transaction_id: TransactionId,
@@ -27,23 +65,7 @@ impl HttpService {
             .publish_hook_outcome(context, "http-request-head", result.is_ok())
             .await?;
         let plan = result.map_err(ProxyError::Hook)?;
-        apply_head_mutation(request.headers_mut(), &plan).map_err(ProxyError::HookMutation)?;
-        match self
-            .services
-            .interactive_decision(context, InterceptStage::HttpRequestHead)
-            .await?
-        {
-            Some(InteractiveDecision::EditHeaders(plan)) => {
-                apply_head_mutation(request.headers_mut(), &plan).map_err(ProxyError::HookMutation)
-            }
-            Some(InteractiveDecision::Reject) => Err(ProxyError::InteractiveRejected),
-            Some(
-                InteractiveDecision::Continue
-                | InteractiveDecision::ReplaceBody(_)
-                | InteractiveDecision::CancelModification,
-            )
-            | None => Ok(()),
-        }
+        apply_head_mutation(request.headers_mut(), &plan).map_err(ProxyError::HookMutation)
     }
 
     pub(super) async fn apply_response_head_hooks(
@@ -64,22 +86,6 @@ impl HttpService {
             .publish_hook_outcome(context, "http-response-head", result.is_ok())
             .await?;
         let plan = result.map_err(ProxyError::Hook)?;
-        apply_head_mutation(response.headers_mut(), &plan).map_err(ProxyError::HookMutation)?;
-        match self
-            .services
-            .interactive_decision(context, InterceptStage::HttpResponseHead)
-            .await?
-        {
-            Some(InteractiveDecision::EditHeaders(plan)) => {
-                apply_head_mutation(response.headers_mut(), &plan).map_err(ProxyError::HookMutation)
-            }
-            Some(InteractiveDecision::Reject) => Err(ProxyError::InteractiveRejected),
-            Some(
-                InteractiveDecision::Continue
-                | InteractiveDecision::ReplaceBody(_)
-                | InteractiveDecision::CancelModification,
-            )
-            | None => Ok(()),
-        }
+        apply_head_mutation(response.headers_mut(), &plan).map_err(ProxyError::HookMutation)
     }
 }

@@ -4,7 +4,7 @@ use arc_swap::ArcSwap;
 use freja_audit::AuditPublisher;
 use freja_policy::hook::{HookRunner, InteractiveBroker};
 
-use crate::{DataPlaneEventSink, DataPlaneMetrics, TlsInterceptor};
+use crate::{DataPlaneEventSink, DataPlaneMetrics, TlsInterceptor, UiCaptureSettings};
 
 mod hooks;
 mod publication;
@@ -24,4 +24,5 @@ pub struct DataPlaneServices {
     interactive: Option<InteractiveBroker>,
     metrics: DataPlaneMetrics,
     capture_prefix_bytes: Option<usize>,
+    ui_capture: Option<UiCaptureSettings>,
 }

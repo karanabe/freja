@@ -9,7 +9,7 @@ use freja_policy::hook::{
 };
 use freja_proxy::{
     CaptureSettings, DataPlaneServices, HttpForwardServer, ProxyLimits, Socks5Server,
-    StaticTcpServer, TlsInterceptionConfig, TlsInterceptor, shutdown_channel,
+    StaticTcpServer, TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings, shutdown_channel,
 };
 use freja_ui::{UiEvent, UiPublisher, tui::spawn_tui};
 use tokio::task::JoinSet;
@@ -47,6 +47,7 @@ struct PreparedTui {
     ui: UiPublisher,
     receiver: tokio::sync::mpsc::Receiver<UiEvent>,
 }
+
 async fn run_proxy(
     path: &Path,
     compiled: CompiledConfig,
@@ -89,9 +90,7 @@ async fn run_proxy(
         services = services.with_interactive_broker(broker);
         intercept_receiver = Some(receiver);
     }
-    if let Some(prepared) = tui.as_ref() {
-        services = services.with_event_sink(UiDataPlaneEventSink::new(prepared.ui.clone()));
-    }
+    services = attach_tui_services(services, &compiled, tui.as_ref())?;
     let servers = bind_configured_servers(&compiled, &services, proxy_limits).await?;
     if servers.is_empty() {
         return Err(AppError::msg(
@@ -105,8 +104,13 @@ async fn run_proxy(
     let reload_task = spawn_reload_task(path.to_path_buf(), &compiled, services.clone())?;
     let (mut tui_exit, tui_thread) = if let Some(prepared) = tui {
         let metrics = prepared.ui.metrics();
-        let task = spawn_tui(prepared.receiver, metrics, intercept_receiver.take())
-            .context("could not start terminal UI")?;
+        let task = spawn_tui(
+            prepared.receiver,
+            metrics,
+            intercept_receiver.take(),
+            compiled.limits().ui_retained_rows,
+        )
+        .context("could not start terminal UI")?;
         let (exit, thread) = task.into_parts();
         (Some(exit), Some(thread))
     } else {
@@ -149,6 +153,24 @@ async fn run_proxy(
         return Err(error);
     }
     Ok(())
+}
+
+fn attach_tui_services(
+    services: DataPlaneServices,
+    compiled: &CompiledConfig,
+    tui: Option<&PreparedTui>,
+) -> AppResult<DataPlaneServices> {
+    let Some(prepared) = tui else {
+        return Ok(services);
+    };
+    let ui_capture = UiCaptureSettings::new(
+        compiled.limits().ui_content_bytes,
+        compiled.limits().ui_retained_rows,
+    )
+    .context("compiled configuration contains invalid TUI capture limits")?;
+    Ok(services
+        .with_ui_capture(ui_capture)
+        .with_event_sink(UiDataPlaneEventSink::new(prepared.ui.clone())))
 }
 
 fn proxy_limits(limits: Limits) -> AppResult<ProxyLimits> {

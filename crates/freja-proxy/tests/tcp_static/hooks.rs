@@ -101,3 +101,46 @@ async fn tcp_hook_replacement_respects_the_configured_body_budget() {
         AuditEvent::FlowClosed { outcome, .. } if outcome == "hook-failure"
     )));
 }
+
+#[tokio::test]
+async fn interactive_mode_observes_tcp_without_pausing_it() {
+    let (upstream, echo_task) = spawn_echo_server().await;
+    let (services, _audit) = services(Vec::new(), local_access(), 18);
+    let hooks = HookRunner::new(
+        HookMode::Interactive,
+        HookRegistry::default(),
+        Duration::from_secs(1),
+        HookFailurePolicy::FailClosed,
+    );
+    let (broker, mut intercepts) = InteractiveBroker::channel(
+        4,
+        2,
+        Duration::from_secs(1),
+        InterceptTimeoutPolicy::FailClosed,
+    )
+    .unwrap();
+    let server = StaticTcpServer::bind(
+        tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
+        services.with_hooks(hooks).with_interactive_broker(broker),
+        limits(),
+    )
+    .await
+    .unwrap();
+    let proxy_address = server.local_address();
+    let (shutdown, signal) = shutdown_channel();
+    let server_task = tokio::spawn(server.run(signal));
+    let mut client = TcpStream::connect(proxy_address).await.unwrap();
+
+    client.write_all(b"observe-only").await.unwrap();
+    let mut response = [0_u8; 12];
+    client.read_exact(&mut response).await.unwrap();
+    assert_eq!(&response, b"observe-only");
+    assert!(
+        timeout(Duration::from_millis(100), intercepts.recv())
+            .await
+            .is_err()
+    );
+    drop(client);
+    echo_task.await.unwrap();
+    stop_server(shutdown, server_task).await;
+}

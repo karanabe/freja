@@ -55,6 +55,14 @@ impl TryFrom<RawConfig> for ValidatedConfig {
         }
 
         let limits = Limits::try_from(raw_limits)?;
+        if runtime.hooks == HookMode::Interactive
+            && limits.ui_content_bytes < limits.body_prefix_bytes
+        {
+            return Err(ValidationError::UiContentBelowBodyLimit {
+                ui_content_bytes: limits.ui_content_bytes,
+                body_prefix_bytes: limits.body_prefix_bytes,
+            });
+        }
         let capture = CapturePolicy::try_from((raw_capture, limits.body_prefix_bytes))?;
         let RawInspection {
             mode: inspection_mode,

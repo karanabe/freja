@@ -23,7 +23,7 @@ use freja_policy::{
     InspectionPattern, InspectionProgram, MatchExpression, PortRange, RuleAction,
     hook::{
         ChunkMutationPlan, HookFailurePolicy, HookFuture, HookRegistry, HookRunner,
-        TcpClientChunkHook,
+        InteractiveBroker, InterceptTimeoutPolicy, TcpClientChunkHook,
     },
 };
 use freja_proxy::{

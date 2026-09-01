@@ -1,5 +1,32 @@
 use super::*;
 
+#[derive(Debug, Clone, Default)]
+pub(super) struct RecordingEventSink {
+    events: Arc<Mutex<Vec<DataPlaneEvent>>>,
+}
+
+impl RecordingEventSink {
+    pub(super) fn events(&self) -> Vec<DataPlaneEvent> {
+        match self.events.lock() {
+            Ok(events) => events.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        }
+    }
+}
+
+impl DataPlaneEventSink for RecordingEventSink {
+    fn try_publish(&self, event: DataPlaneEvent) {
+        match self.events.lock() {
+            Ok(mut events) => events.push(event),
+            Err(poisoned) => poisoned.into_inner().push(event),
+        }
+    }
+
+    fn dropped_events(&self) -> u64 {
+        0
+    }
+}
+
 pub(super) fn limits() -> ProxyLimits {
     ProxyLimits::new(
         8,

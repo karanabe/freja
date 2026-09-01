@@ -114,6 +114,10 @@ pub struct RawLimits {
     pub interception_timeout_ms: u64,
     /// Bounded best-effort UI event channel capacity.
     pub ui_event_capacity: usize,
+    /// Maximum payload bytes retained for one TUI traffic side.
+    pub ui_content_bytes: usize,
+    /// Maximum HTTP transactions or TCP sessions retained by the TUI.
+    pub ui_retained_rows: usize,
 }
 
 impl Default for RawLimits {
@@ -128,6 +132,8 @@ impl Default for RawLimits {
             paused_flows: 16,
             interception_timeout_ms: 30_000,
             ui_event_capacity: 1_024,
+            ui_content_bytes: 64 * 1_024,
+            ui_retained_rows: 128,
         }
     }
 }

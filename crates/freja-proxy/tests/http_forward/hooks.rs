@@ -164,40 +164,21 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
         .with_hooks(hooks)
         .with_interactive_broker(broker);
     let responder = tokio::spawn(async move {
-        let request_head = intercepts.recv().await.unwrap();
-        assert_eq!(request_head.stage, InterceptStage::HttpRequestHead);
-        request_head
-            .response
-            .send(InteractiveDecision::EditHeaders(HeadMutationPlan {
-                headers: vec![HeaderMutation::Set {
-                    name: "x-freja-manual".parse().unwrap(),
-                    value: "approved".parse().unwrap(),
-                }],
-            }))
-            .unwrap();
-
-        let request_body = intercepts.recv().await.unwrap();
-        assert_eq!(request_body.stage, InterceptStage::HttpRequestBody);
-        request_body
+        let request = intercepts.recv().await.unwrap();
+        let snapshot = &request.request;
+        assert_eq!(snapshot.method, http::Method::POST);
+        assert_eq!(snapshot.body.bytes().as_ref(), b"old");
+        request
             .response
             .send(InteractiveDecision::ReplaceBody(DecodedBody::new(
                 "manual-body",
             )))
             .unwrap();
-
-        let response_head = intercepts.recv().await.unwrap();
-        assert_eq!(response_head.stage, InterceptStage::HttpResponseHead);
-        response_head
-            .response
-            .send(InteractiveDecision::Continue)
-            .unwrap();
-
-        let response_body = intercepts.recv().await.unwrap();
-        assert_eq!(response_body.stage, InterceptStage::HttpResponseBody);
-        response_body
-            .response
-            .send(InteractiveDecision::Continue)
-            .unwrap();
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), intercepts.recv())
+                .await
+                .is_err()
+        );
     });
     let (proxy, shutdown, proxy_task) = bind_proxy(vec![Port::HTTPS], services).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();
@@ -217,7 +198,6 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
     assert!(response_head.starts_with("HTTP/1.1 200"));
     assert_eq!(&response_body, b"ok");
     let upstream = String::from_utf8(observed.await.unwrap()).unwrap();
-    assert!(upstream.contains("x-freja-manual: approved\r\n"));
     assert!(upstream.contains("content-length: 11\r\n"));
     assert!(upstream.ends_with("\r\n\r\nmanual-body"));
     drop(client);
@@ -228,10 +208,53 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::ManualModification { action } if action == "edit-headers"
-    )));
-    assert!(events.iter().any(|event| matches!(
-        &event.event,
         AuditEvent::ManualModification { action } if action == "replace-body"
     )));
+}
+
+#[tokio::test]
+async fn interactive_request_rejects_an_oversized_body_without_pausing() {
+    let (origin, origin_task) = spawn_body_origin(b"ok").await;
+    let (services, _audit) = services(Vec::new(), local_access());
+    let hooks = HookRunner::new(
+        HookMode::Interactive,
+        HookRegistry::default(),
+        Duration::from_secs(1),
+        HookFailurePolicy::FailClosed,
+    );
+    let (broker, mut intercepts) = InteractiveBroker::channel(
+        4,
+        2,
+        Duration::from_secs(1),
+        InterceptTimeoutPolicy::FailClosed,
+    )
+    .unwrap();
+    let constrained = limits().with_body_prefix_bytes(4).unwrap();
+    let (proxy, shutdown, proxy_task) = bind_proxy_with_limits(
+        vec![Port::HTTPS],
+        services.with_hooks(hooks).with_interactive_broker(broker),
+        constrained,
+    )
+    .await;
+    let mut client = TcpStream::connect(proxy).await.unwrap();
+    client
+        .write_all(
+            format!(
+                "POST http://{origin}/ HTTP/1.1\r\nHost: ignored.invalid\r\nContent-Length: 5\r\n\r\n12345"
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+
+    let response_head = String::from_utf8(read_head(&mut client).await).unwrap();
+    assert!(response_head.starts_with("HTTP/1.1 413"));
+    assert!(
+        tokio::time::timeout(Duration::from_millis(100), intercepts.recv())
+            .await
+            .is_err()
+    );
+    drop(client);
+    assert!(origin_task.await.unwrap().is_empty());
+    stop_proxy(shutdown, proxy_task).await;
 }

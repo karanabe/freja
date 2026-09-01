@@ -33,7 +33,9 @@ pub use event::{DataPlaneEvent, DataPlaneEventSink};
 pub use http::HttpForwardServer;
 pub use metrics::{DataPlaneMetrics, MetricsSnapshot};
 pub use runtime::DataPlaneServices;
-pub use settings::{CaptureSettings, ProxyLimits, ProxySettingsError, TlsInterceptionConfig};
+pub use settings::{
+    CaptureSettings, ProxyLimits, ProxySettingsError, TlsInterceptionConfig, UiCaptureSettings,
+};
 pub use shutdown::{ShutdownSender, ShutdownSignal, shutdown_channel};
 pub use socks::{Socks5Server, SocksError};
 pub use tcp::StaticTcpServer;

@@ -245,6 +245,45 @@ pub struct CaptureSettings {
     maximum_prefix_bytes: Option<usize>,
 }
 
+/// Bounded in-memory capture settings used only by an attached live UI.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UiCaptureSettings {
+    content_bytes: usize,
+    retained_rows: usize,
+}
+
+impl UiCaptureSettings {
+    /// Creates non-zero per-side content and traffic-row bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ProxySettingsError::ZeroLimit`] when either bound is zero.
+    pub fn new(content_bytes: usize, retained_rows: usize) -> Result<Self, ProxySettingsError> {
+        for (name, value) in [
+            ("ui_content_bytes", content_bytes),
+            ("ui_retained_rows", retained_rows),
+        ] {
+            if value == 0 {
+                return Err(ProxySettingsError::ZeroLimit { name });
+            }
+        }
+        Ok(Self {
+            content_bytes,
+            retained_rows,
+        })
+    }
+
+    /// Returns the maximum retained bytes for one traffic side.
+    pub const fn content_bytes(self) -> usize {
+        self.content_bytes
+    }
+
+    /// Returns the maximum traffic rows retained by the TUI.
+    pub const fn retained_rows(self) -> usize {
+        self.retained_rows
+    }
+}
+
 impl CaptureSettings {
     /// Disables raw payload capture while retaining metadata and hashed evidence.
     pub const fn metadata_only() -> Self {
@@ -339,7 +378,9 @@ impl TlsInterceptionConfig {
 mod tests {
     use std::{path::PathBuf, time::Duration};
 
-    use super::{CaptureSettings, ProxyLimits, ProxySettingsError, TlsInterceptionConfig};
+    use super::{
+        CaptureSettings, ProxyLimits, ProxySettingsError, TlsInterceptionConfig, UiCaptureSettings,
+    };
 
     #[test]
     fn direct_runtime_settings_reject_zero_bounds() {
@@ -359,6 +400,8 @@ mod tests {
             }
         );
         assert!(CaptureSettings::prefix(0).is_err());
+        assert!(UiCaptureSettings::new(0, 1).is_err());
+        assert!(UiCaptureSettings::new(1, 0).is_err());
         assert!(
             TlsInterceptionConfig::new(
                 PathBuf::from("ca.pem"),

@@ -7,7 +7,7 @@ use crate::{UiEvent, UiMetrics};
 
 use super::{TuiError, TuiModel};
 use super::{
-    input::{drain_intercepts, editor_status, handle_input},
+    input::{drain_intercepts, editor_status, handle_input, paused_transactions},
     terminal::TerminalGuard,
 };
 
@@ -21,12 +21,13 @@ pub fn spawn_tui(
     receiver: mpsc::Receiver<UiEvent>,
     metrics: UiMetrics,
     intercept_receiver: Option<mpsc::Receiver<InterceptRequest>>,
+    retained_rows: usize,
 ) -> Result<TuiTask, TuiError> {
     let (exit_sender, exit_receiver) = oneshot::channel();
     let thread = thread::Builder::new()
         .name("freja-tui".to_owned())
         .spawn(move || {
-            let result = run_tui(receiver, &metrics, intercept_receiver);
+            let result = run_tui(receiver, &metrics, intercept_receiver, retained_rows);
             let _send_result = exit_sender.send(());
             result
         })
@@ -55,7 +56,7 @@ impl TuiTask {
     }
 }
 
-/// Runs the terminal event loop until `q`, Escape, or producer shutdown.
+/// Runs the terminal event loop until `q` or producer shutdown.
 ///
 /// # Errors
 ///
@@ -64,9 +65,10 @@ pub fn run_tui(
     mut receiver: mpsc::Receiver<UiEvent>,
     metrics: &UiMetrics,
     mut intercept_receiver: Option<mpsc::Receiver<InterceptRequest>>,
+    retained_rows: usize,
 ) -> Result<(), TuiError> {
     let mut terminal = TerminalGuard::enter()?;
-    let mut model = TuiModel::default();
+    let mut model = TuiModel::new(retained_rows, 256);
     let mut pending = VecDeque::new();
     let mut editor = None;
     loop {
@@ -81,9 +83,12 @@ pub fn run_tui(
                 }
             }
         }
-        drain_intercepts(&mut intercept_receiver, &mut pending);
+        drain_intercepts(&mut intercept_receiver, &mut pending, &mut model);
         model.set_dropped_events(metrics.dropped_events());
-        model.set_interactive_state(pending.len(), editor_status(&pending, editor.as_ref()));
+        model.set_interactive_state(
+            paused_transactions(&pending),
+            editor_status(&model, &pending, editor.as_ref()),
+        );
         terminal.draw(&model)?;
         if disconnected || handle_input(&mut model, &mut pending, &mut editor)? {
             return Ok(());

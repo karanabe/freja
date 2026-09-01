@@ -4,10 +4,14 @@ use freja_audit::{AuditEnvelope, AuditEvent};
 use freja_domain::{HttpForwardListener, RuleId, SessionId};
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::{TokioIo, TokioTimer};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet};
 use tracing::warn;
 
-use super::service::{ConnectionTaskHandle, HttpService};
+use super::{
+    service::{ConnectionTaskHandle, HttpService},
+    wire::RequestCaptureIo,
+};
 use crate::{
     DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal, destination::audit_context,
 };
@@ -163,24 +167,55 @@ async fn serve_connection(
     );
     let (task_sender, task_receiver) = tokio::sync::mpsc::channel::<ConnectionTaskHandle>(1);
     let tracker = tokio::spawn(track_connection_tasks(task_receiver));
-    let service = HttpService::new(
-        context.peer,
-        session_id,
-        context.connect_port_rule,
-        context.specification,
-        context.services.clone(),
-        context.limits,
-        context.shutdown.clone(),
-        task_sender,
-    );
-    let connection_result = run_hyper_connection(
-        client,
-        service,
-        context.limits.header_bytes,
-        context.limits.read_timeout,
-        context.shutdown.clone(),
-    )
-    .await;
+    let connection_result = if let Some(capture) = context.services.ui_capture_settings() {
+        let (client, capture_handle) = RequestCaptureIo::new(
+            client,
+            context.services.clone(),
+            session_id,
+            context.limits.header_bytes,
+            capture.content_bytes(),
+            capture.retained_rows(),
+        );
+        let service = HttpService::new(
+            context.peer,
+            session_id,
+            context.connect_port_rule,
+            context.specification,
+            context.services.clone(),
+            context.limits,
+            context.shutdown.clone(),
+            task_sender,
+            Some(capture_handle),
+        );
+        run_hyper_connection(
+            client,
+            service,
+            context.limits.header_bytes,
+            context.limits.read_timeout,
+            context.shutdown.clone(),
+        )
+        .await
+    } else {
+        let service = HttpService::new(
+            context.peer,
+            session_id,
+            context.connect_port_rule,
+            context.specification,
+            context.services.clone(),
+            context.limits,
+            context.shutdown.clone(),
+            task_sender,
+            None,
+        );
+        run_hyper_connection(
+            client,
+            service,
+            context.limits.header_bytes,
+            context.limits.read_timeout,
+            context.shutdown.clone(),
+        )
+        .await
+    };
     let tracked_result = tracker.await.map_err(ProxyError::Join)?;
     let outcome = if connection_result.is_err() || tracked_result.is_err() {
         "http-error"
@@ -203,13 +238,16 @@ async fn serve_connection(
     tracked_result
 }
 
-async fn run_hyper_connection(
-    client: tokio::net::TcpStream,
+async fn run_hyper_connection<Stream>(
+    client: Stream,
     service: HttpService,
     header_bytes: usize,
     read_timeout: Duration,
     mut shutdown: ShutdownSignal,
-) -> Result<(), ProxyError> {
+) -> Result<(), ProxyError>
+where
+    Stream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+{
     let hyper_service = service_fn(move |request| {
         let service = service.clone();
         async move { service.handle(request).await }

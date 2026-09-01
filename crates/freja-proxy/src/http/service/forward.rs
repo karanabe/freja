@@ -8,6 +8,7 @@ use freja_policy::{PolicyFacts, hook::normalize_replaced_body_headers};
 use http::{HeaderValue, Method, Request, Response, StatusCode, Version, header};
 use hyper::{body::Incoming, client::conn::http1};
 use hyper_util::rt::TokioIo;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::{net::TcpStream, sync::Mutex, time::timeout};
 
 use super::{
@@ -22,6 +23,7 @@ use super::{
     record_action,
     response::{response_for_error, text_response},
 };
+use crate::http::wire::ResponseCaptureIo;
 
 impl HttpService {
     pub(super) async fn handle_intercepted(
@@ -48,6 +50,15 @@ impl HttpService {
             Ok(response) => response,
             Err(error) => response_for_error(error)?,
         };
+        if self.services.publishes_events() {
+            self.services.publish_http_response_event(
+                self.session_id,
+                transaction_id,
+                response.status().as_u16(),
+                format!("{:?}", response.version()),
+                headers::presentation_headers(response.headers()),
+            );
+        }
         self.audit_response(
             transaction_id,
             response.status().as_u16(),
@@ -236,7 +247,10 @@ impl HttpService {
             Ok(request) => request,
             Err(response) => return Ok(response),
         };
-        let response = match self.send_upstream_request(upstream, request).await {
+        let response = match self
+            .send_upstream_request(upstream, request, transaction_id)
+            .await
+        {
             Ok(response) => response,
             Err(error) => return response_for_error(error),
         };
@@ -428,10 +442,13 @@ impl HttpService {
         .await?;
         Ok(false)
     }
-    pub(super) async fn establish_http_sender(
+    pub(super) async fn establish_http_sender<Stream>(
         &self,
-        upstream: TcpStream,
-    ) -> Result<http1::SendRequest<ProxyBody>, ProxyError> {
+        upstream: Stream,
+    ) -> Result<http1::SendRequest<ProxyBody>, ProxyError>
+    where
+        Stream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         let handshake = timeout(
             self.limits.connect_timeout,
             http1::handshake::<_, ProxyBody>(TokioIo::new(upstream)),
@@ -465,7 +482,33 @@ impl HttpService {
         &self,
         upstream: TcpStream,
         request: Request<ProxyBody>,
+        transaction_id: TransactionId,
     ) -> Result<Response<Incoming>, ProxyError> {
+        let request_was_head = request.method() == Method::HEAD;
+        if let Some(capture) = self.services.ui_capture_settings() {
+            let upstream = ResponseCaptureIo::new(
+                upstream,
+                self.services.clone(),
+                self.session_id,
+                transaction_id,
+                self.limits.header_bytes,
+                capture.content_bytes(),
+                request_was_head,
+                false,
+            );
+            return self.send_request_on(upstream, request).await;
+        }
+        self.send_request_on(upstream, request).await
+    }
+
+    async fn send_request_on<Stream>(
+        &self,
+        upstream: Stream,
+        request: Request<ProxyBody>,
+    ) -> Result<Response<Incoming>, ProxyError>
+    where
+        Stream: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+    {
         let mut sender = self.establish_http_sender(upstream).await?;
         match timeout(self.limits.idle_timeout, sender.send_request(request)).await {
             Ok(Ok(response)) => Ok(response),

@@ -18,16 +18,33 @@ pub enum DataPlaneEvent {
         /// Requested or static target formatted for presentation.
         target: String,
     },
-    /// Normalized HTTP request metadata became available.
+    /// Parsed HTTP request metadata became available.
     HttpObserved {
         /// Connection correlation identity.
         session_id: SessionId,
         /// HTTP exchange correlation identity.
         transaction_id: TransactionId,
-        /// Normalized HTTP method.
+        /// Parsed HTTP method.
         method: String,
-        /// Normalized request target with secrets removed upstream.
+        /// Original request target; presentation consumers must treat it as sensitive.
         target: String,
+        /// Parsed HTTP version used by the semantic view.
+        version: String,
+        /// Original request headers copied before forwarding normalization.
+        headers: Vec<(String, Vec<u8>)>,
+    },
+    /// Parsed HTTP response metadata became available.
+    HttpResponseObserved {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Parsed HTTP status code.
+        status: u16,
+        /// Parsed HTTP version used by the semantic view.
+        version: String,
+        /// Response headers copied at the observation boundary.
+        headers: Vec<(String, Vec<u8>)>,
     },
     /// Policy produced an explainable decision.
     DecisionMade {
@@ -57,6 +74,38 @@ pub enum DataPlaneEvent {
         direction: Direction,
         /// Bounded copied bytes; consumers must treat them as sensitive.
         bytes: Vec<u8>,
+        /// Offset of the first byte within this logical direction.
+        offset: u64,
+        /// Total bytes observed in this direction after this event.
+        observed_bytes: u64,
+        /// Whether bytes were omitted because the TUI retention bound was reached.
+        truncated: bool,
+    },
+    /// A bounded exact HTTP/1 wire message was captured at an ingress boundary.
+    WireCaptured {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Request or response direction represented by the bytes.
+        direction: Direction,
+        /// Exact retained bytes, including HTTP/1 framing.
+        bytes: Vec<u8>,
+        /// Full message length observed before retention truncation.
+        observed_bytes: u64,
+        /// Whether the exact message exceeded the retention bound.
+        truncated: bool,
+    },
+    /// Exact wire capture failed independently of HTTP forwarding.
+    WireCaptureFailed {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Request or response direction that could not be captured.
+        direction: Direction,
+        /// Stable, secret-free capture diagnostic.
+        reason: String,
     },
     /// A flow reached its terminal state.
     FlowClosed {

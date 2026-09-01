@@ -8,7 +8,9 @@ use freja_policy::{
     hook::{HookFailurePolicy, HookRegistry, HookRunner, InteractiveBroker},
 };
 
-use crate::{CaptureSettings, DataPlaneEventSink, DataPlaneMetrics, TlsInterceptor};
+use crate::{
+    CaptureSettings, DataPlaneEventSink, DataPlaneMetrics, TlsInterceptor, UiCaptureSettings,
+};
 
 use super::DataPlaneServices;
 
@@ -82,6 +84,7 @@ impl DataPlaneServices {
             interactive: None,
             metrics: DataPlaneMetrics::default(),
             capture_prefix_bytes: None,
+            ui_capture: None,
         }
     }
 
@@ -159,8 +162,23 @@ impl DataPlaneServices {
         self
     }
 
+    /// Enables bounded sensitive-content snapshots for an attached live UI.
+    #[must_use]
+    pub const fn with_ui_capture(mut self, capture: UiCaptureSettings) -> Self {
+        self.ui_capture = Some(capture);
+        self
+    }
+
     pub(crate) const fn capture_prefix_bytes(&self) -> Option<usize> {
         self.capture_prefix_bytes
+    }
+
+    pub(crate) const fn ui_capture_settings(&self) -> Option<UiCaptureSettings> {
+        self.ui_capture
+    }
+
+    pub(crate) fn publishes_events(&self) -> bool {
+        self.events.is_some()
     }
 
     pub(crate) fn decision_snapshot(&self) -> DecisionSnapshot {

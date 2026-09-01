@@ -57,16 +57,33 @@ pub enum UiEvent {
         /// Requested or static target formatted for presentation.
         target: String,
     },
-    /// Normalized HTTP request metadata became available.
+    /// Parsed HTTP request metadata became available.
     HttpObserved {
         /// Connection correlation identity.
         session_id: SessionId,
         /// HTTP exchange correlation identity.
         transaction_id: TransactionId,
-        /// Normalized method.
+        /// Parsed method.
         method: String,
-        /// Redacted request target.
+        /// Original request target; terminal presentation treats it as sensitive.
         target: String,
+        /// Parsed HTTP version used by the semantic view.
+        version: String,
+        /// Request headers copied before forwarding normalization.
+        headers: Vec<(String, Vec<u8>)>,
+    },
+    /// Parsed HTTP response metadata became available.
+    HttpResponseObserved {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Parsed HTTP status code.
+        status: u16,
+        /// Parsed HTTP version used by the semantic view.
+        version: String,
+        /// Response headers copied at the observation boundary.
+        headers: Vec<(String, Vec<u8>)>,
     },
     /// Policy produced an explainable decision.
     DecisionMade {
@@ -96,6 +113,38 @@ pub enum UiEvent {
         direction: Direction,
         /// Copied bytes that consumers must treat as sensitive.
         bytes: Vec<u8>,
+        /// Offset of the first byte within this logical direction.
+        offset: u64,
+        /// Total bytes observed after this event.
+        observed_bytes: u64,
+        /// Whether later or current bytes exceeded the retention bound.
+        truncated: bool,
+    },
+    /// A bounded exact HTTP/1 wire message captured before normalization.
+    WireCaptured {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Request or response direction.
+        direction: Direction,
+        /// Exact retained bytes including HTTP/1 framing.
+        bytes: Vec<u8>,
+        /// Full observed message length.
+        observed_bytes: u64,
+        /// Whether bytes beyond the retention bound were omitted.
+        truncated: bool,
+    },
+    /// Exact HTTP/1 wire capture failed without affecting forwarding.
+    WireCaptureFailed {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Request or response direction.
+        direction: Direction,
+        /// Stable, secret-free capture diagnostic.
+        reason: String,
     },
     /// A flow reached its terminal state.
     FlowClosed {

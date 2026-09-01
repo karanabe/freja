@@ -1,7 +1,7 @@
 use freja_audit::{AuditEnvelope, AuditEvent};
 use freja_domain::Direction;
 use freja_policy::hook::{
-    ChunkMutationPlan, InteractiveDecision, InterceptContext, InterceptStage,
+    ChunkMutationPlan, HttpRequestSnapshot, InteractiveDecision, InterceptContext,
 };
 
 use crate::ProxyError;
@@ -9,10 +9,11 @@ use crate::ProxyError;
 use super::DataPlaneServices;
 
 impl DataPlaneServices {
-    pub(crate) async fn interactive_decision(
+    pub(crate) async fn interactive_http_request(
         &self,
         context: freja_audit::AuditContext,
-        stage: InterceptStage,
+        transaction_id: freja_domain::TransactionId,
+        request: HttpRequestSnapshot,
     ) -> Result<Option<InteractiveDecision>, ProxyError> {
         if self.hooks.mode() != freja_domain::HookMode::Interactive {
             return Ok(None);
@@ -23,12 +24,12 @@ impl DataPlaneServices {
             .ok_or(freja_policy::hook::InterceptError::ChannelClosed)
             .map_err(ProxyError::Interactive)?;
         let result = broker
-            .intercept(
+            .intercept_http_request(
                 InterceptContext {
                     session_id: context.session_id,
-                    transaction_id: context.transaction_id,
+                    transaction_id,
                 },
-                stage,
+                request,
             )
             .await;
         let action = match &result {
@@ -57,15 +58,13 @@ impl DataPlaneServices {
         if self.hooks.mode() == freja_domain::HookMode::Disabled {
             return Ok(ChunkMutationPlan::Keep);
         }
-        let (stage, intercept_stage, result) = match direction {
+        let (stage, result) = match direction {
             Direction::ClientToUpstream => (
                 "tcp-client-chunk",
-                InterceptStage::TcpClientChunk,
                 self.hooks.tcp_client_chunk(&bytes).await,
             ),
             Direction::UpstreamToClient => (
                 "tcp-upstream-chunk",
-                InterceptStage::TcpUpstreamChunk,
                 self.hooks.tcp_upstream_chunk(&bytes).await,
             ),
             Direction::HttpRequestBody | Direction::HttpResponseBody => {
@@ -85,17 +84,7 @@ impl DataPlaneServices {
             },
         })
         .await?;
-        let automatic = result.map_err(ProxyError::Hook)?;
-        match self.interactive_decision(context, intercept_stage).await? {
-            Some(InteractiveDecision::Reject) => Err(ProxyError::InteractiveRejected),
-            Some(
-                InteractiveDecision::Continue
-                | InteractiveDecision::CancelModification
-                | InteractiveDecision::EditHeaders(_)
-                | InteractiveDecision::ReplaceBody(_),
-            )
-            | None => Ok(automatic),
-        }
+        result.map_err(ProxyError::Hook)
     }
 
     pub(crate) async fn publish_hook_outcome(

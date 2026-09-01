@@ -115,6 +115,22 @@ pub enum ValidationError {
         /// Stable configuration field name used in diagnostics.
         name: &'static str,
     },
+    /// The TUI could evict a flow while it is still paused for a decision.
+    UiRowsBelowPausedFlows {
+        /// Configured TUI row retention bound.
+        ui_retained_rows: usize,
+        /// Configured simultaneous paused-flow bound.
+        paused_flows: usize,
+    },
+    /// A paused request body could not be shown completely in the TUI.
+    UiContentBelowBodyLimit {
+        /// Configured per-side TUI content bound.
+        ui_content_bytes: usize,
+        /// Configured request-body preflight bound.
+        body_prefix_bytes: usize,
+    },
+    /// Header and content capture bounds overflowed `usize` when combined.
+    WireCaptureLimitOverflow,
     /// Raw payload capture exceeded the maximum inspected body prefix.
     CapturePrefixExceedsBodyLimit {
         /// Requested raw capture length in bytes.
@@ -193,6 +209,23 @@ impl fmt::Display for ValidationError {
                 formatter.write_str("interactive hooks require runtime.ui = \"tui\"")
             }
             Self::ZeroLimit { name } => write!(formatter, "limit {name} must be non-zero"),
+            Self::UiRowsBelowPausedFlows {
+                ui_retained_rows,
+                paused_flows,
+            } => write!(
+                formatter,
+                "limits.ui_retained_rows ({ui_retained_rows}) must be at least limits.paused_flows ({paused_flows})"
+            ),
+            Self::UiContentBelowBodyLimit {
+                ui_content_bytes,
+                body_prefix_bytes,
+            } => write!(
+                formatter,
+                "interactive TUI content limit {ui_content_bytes} is smaller than body-prefix limit {body_prefix_bytes}"
+            ),
+            Self::WireCaptureLimitOverflow => formatter.write_str(
+                "combined limits.header_bytes and limits.ui_content_bytes overflow usize",
+            ),
             Self::CapturePrefixExceedsBodyLimit {
                 capture_bytes,
                 body_prefix_bytes,

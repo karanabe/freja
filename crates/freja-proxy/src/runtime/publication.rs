@@ -131,6 +131,8 @@ impl DataPlaneServices {
         transaction_id: TransactionId,
         method: String,
         target: String,
+        version: String,
+        headers: Vec<(String, Vec<u8>)>,
     ) {
         if let Some(events) = &self.events {
             events.try_publish(DataPlaneEvent::HttpObserved {
@@ -138,6 +140,27 @@ impl DataPlaneServices {
                 transaction_id,
                 method,
                 target,
+                version,
+                headers,
+            });
+        }
+    }
+
+    pub(crate) fn publish_http_response_event(
+        &self,
+        session_id: SessionId,
+        transaction_id: TransactionId,
+        status: u16,
+        version: String,
+        headers: Vec<(String, Vec<u8>)>,
+    ) {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::HttpResponseObserved {
+                session_id,
+                transaction_id,
+                status,
+                version,
+                headers,
             });
         }
     }
@@ -172,20 +195,71 @@ impl DataPlaneServices {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn publish_body_prefix(
         &self,
         session_id: SessionId,
         transaction_id: Option<TransactionId>,
         direction: Direction,
         bytes: &[u8],
+        offset: u64,
+        observed_bytes: u64,
+        truncated: bool,
     ) {
         if let Some(events) = &self.events {
-            let maximum = bytes.len().min(1_024);
             events.try_publish(DataPlaneEvent::BodyPrefix {
                 session_id,
                 transaction_id,
                 direction,
-                bytes: bytes[..maximum].to_vec(),
+                bytes: bytes.to_vec(),
+                offset,
+                observed_bytes,
+                truncated,
+            });
+        }
+    }
+
+    pub(crate) fn publish_wire_capture(
+        &self,
+        session_id: SessionId,
+        transaction_id: TransactionId,
+        direction: Direction,
+        bytes: Vec<u8>,
+        observed_bytes: u64,
+        truncated: bool,
+    ) {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::WireCaptured {
+                session_id,
+                transaction_id,
+                direction,
+                bytes,
+                observed_bytes,
+                truncated,
+            });
+        }
+    }
+
+    pub(crate) fn publish_wire_capture_failure(
+        &self,
+        session_id: SessionId,
+        transaction_id: TransactionId,
+        direction: Direction,
+        reason: String,
+    ) {
+        warn!(
+            session_id = %session_id,
+            transaction_id = %transaction_id,
+            direction = ?direction,
+            reason,
+            "best-effort HTTP/1 wire capture failed"
+        );
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::WireCaptureFailed {
+                session_id,
+                transaction_id,
+                direction,
+                reason,
             });
         }
     }

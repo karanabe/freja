@@ -1,4 +1,4 @@
-use freja_domain::{Direction, InspectionMode, Protocol, TransactionId};
+use freja_domain::{Direction, HookMode, InspectionMode, Protocol, TransactionId};
 use http::{HeaderValue, Method, Request, Response, StatusCode, header};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
@@ -8,7 +8,10 @@ use super::{
     BodyError, BodyFrame, BodyTransform, CollectError, FlowInspector, HttpService, ProxyBody,
     ProxyError, ShutdownSignal, channel, collect_bounded, full, response::text_response,
 };
-use freja_policy::hook::normalize_replaced_body_headers;
+use freja_policy::hook::{
+    BodyMutationPlan, HttpRequestSnapshot, InteractiveDecision, WireBody, apply_body_mutation,
+    apply_head_mutation, normalize_replaced_body_headers,
+};
 
 impl HttpService {
     pub(super) async fn prepare_request_body(
@@ -16,6 +19,11 @@ impl HttpService {
         request: Request<Incoming>,
         transaction_id: TransactionId,
     ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
+        if self.services.hooks().mode() == HookMode::Interactive {
+            return self
+                .prepare_interactive_request(request, transaction_id)
+                .await;
+        }
         let (mut parts, body) = request.into_parts();
         match self.services.inspection_mode() {
             InspectionMode::Preflight => {
@@ -87,6 +95,87 @@ impl HttpService {
                 Ok(Ok(Request::from_parts(parts, body)))
             }
         }
+    }
+
+    async fn prepare_interactive_request(
+        &self,
+        request: Request<Incoming>,
+        transaction_id: TransactionId,
+    ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
+        let (mut parts, body) = request.into_parts();
+        let original = match collect_bounded(
+            body,
+            self.limits.body_prefix_bytes,
+            self.limits.read_timeout,
+        )
+        .await
+        {
+            Ok(bytes) => bytes,
+            Err(CollectError::LimitExceeded { .. }) => {
+                return Ok(Err(text_response(
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "request body exceeds interactive limit\n",
+                )));
+            }
+            Err(CollectError::Hyper(_)) => {
+                return Ok(Err(text_response(
+                    StatusCode::BAD_REQUEST,
+                    "request body stream failed\n",
+                )));
+            }
+            Err(CollectError::ReadTimedOut) => {
+                return Ok(Err(text_response(
+                    StatusCode::REQUEST_TIMEOUT,
+                    "request body read timed out\n",
+                )));
+            }
+        };
+        if !self
+            .inspect_preflight(transaction_id, Direction::HttpRequestBody, &original)
+            .await?
+        {
+            return Ok(Err(block_page()));
+        }
+        let transformed = self
+            .transform_preflight_body(transaction_id, Direction::HttpRequestBody, original)
+            .await?;
+        let mut body = transformed.bytes;
+        if transformed.replaced {
+            normalize_replaced_body_headers(&mut parts.headers);
+        }
+        let context = super::audit_context(self.session_id, Some(transaction_id), &self.services);
+        let snapshot = HttpRequestSnapshot {
+            method: parts.method.clone(),
+            uri: parts.uri.clone(),
+            version: parts.version,
+            headers: parts.headers.clone(),
+            body: WireBody::new(body.clone()),
+        };
+        match self
+            .services
+            .interactive_http_request(context, transaction_id, snapshot)
+            .await?
+        {
+            Some(InteractiveDecision::EditHeaders(plan)) => {
+                apply_head_mutation(&mut parts.headers, &plan).map_err(ProxyError::HookMutation)?;
+            }
+            Some(InteractiveDecision::ReplaceBody(replacement)) => {
+                body = apply_body_mutation(
+                    &WireBody::new(body),
+                    &BodyMutationPlan::Replace(replacement),
+                    self.limits.body_prefix_bytes,
+                )
+                .map_err(ProxyError::HookMutation)?;
+                normalize_replaced_body_headers(&mut parts.headers);
+            }
+            Some(InteractiveDecision::Reject) => {
+                return Err(ProxyError::InteractiveRejected);
+            }
+            Some(InteractiveDecision::Continue | InteractiveDecision::CancelModification)
+            | None => {}
+        }
+        set_content_length(&mut parts.headers, body.len());
+        Ok(Ok(Request::from_parts(parts, full(body))))
     }
 
     pub(super) async fn inspect_preflight(
