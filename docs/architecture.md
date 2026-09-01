@@ -8,6 +8,8 @@ owns its concrete Tokio listeners. The different runtime lifecycles are not
 forced through a nominal common trait.
 
 The configuration path is `RawConfig -> ValidatedConfig -> CompiledConfig`.
+Within `freja-config`, `raw` owns TOML decoding, `validation` owns semantic and
+cross-field invariants, and `compiled` freezes policy and inspection programs.
 Each connection receives a `SessionId`, each HTTP exchange a `TransactionId`,
 and every policy decision carries its `PolicyGeneration` and `DecisionTrace`.
 Requested destinations are checked before DNS and every resolved address is

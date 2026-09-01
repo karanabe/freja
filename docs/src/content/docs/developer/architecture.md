@@ -51,6 +51,12 @@ combinations, zero bounds, unsafe remote exposure, unbounded capture, malformed
 credential digests, empty CONNECT/interception allowlists, and invalid policy
 or detector inputs before sockets open.
 
+Internally, `raw` owns the Serde-facing TOML model, `validation` owns semantic
+and cross-field invariants, and `compiled` builds the immutable policy and
+inspection programs. Listener, resource-limit, audit, inspection, and TLS
+rules are isolated within their owning stage; the crate root only exposes the
+stable public API.
+
 ### `freja-policy`
 
 Evaluates declaration-ordered first-match ACLs. Requested destinations are

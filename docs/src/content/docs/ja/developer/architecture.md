@@ -43,6 +43,8 @@ validated identifier、endpoint、runtime mode、目的別fact、finding、decis
 
 唯一のconfiguration compilerです。typestate pathにより、socketを開く前に不正なmode組み合わせ、zero bound、安全でないremote exposure、無制限capture、不正credential digest、empty CONNECT/interception allowlist、不正policy/detectorを拒否します。
 
+内部では`raw`がSerde向けTOML model、`validation`がsemantic/cross-field invariant、`compiled`がimmutableなpolicy/inspection programの構築を所有します。listener、resource limit、audit、inspection、TLSのruleは各stage内の担当moduleへ分離し、crate rootはstableなpublic APIだけを公開します。
+
 ### `freja-policy`
 
 宣言順first-match ACLを評価します。requested destinationをDNS前に確認し、その後destination guardとACLが全addressを評価します。detectorは`Finding`を生成し、inspection policyがtraced decisionへ変換します。fixed-pattern scannerはchunk間のbounded overlapを保持します。typed automatic/interactive Hookもwire accessなしでここに置きます。

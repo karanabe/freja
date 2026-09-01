@@ -1,0 +1,46 @@
+use std::path::PathBuf;
+
+use freja_audit::AuditFailurePolicy;
+
+use crate::{RawAudit, ValidationError};
+
+/// Validated audit sink and redaction settings.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AuditConfig {
+    pub path: PathBuf,
+    pub channel_capacity: usize,
+    pub failure_policy: AuditFailurePolicy,
+    pub redact_query_parameters: Vec<String>,
+    pub checkpoint_signing_key: Option<PathBuf>,
+    pub checkpoint_interval: u64,
+}
+
+impl TryFrom<RawAudit> for AuditConfig {
+    type Error = ValidationError;
+
+    fn try_from(raw: RawAudit) -> Result<Self, Self::Error> {
+        if raw.channel_capacity == 0 {
+            return Err(ValidationError::ZeroLimit {
+                name: "audit.channel_capacity",
+            });
+        }
+        if raw.checkpoint_signing_key.is_some() && raw.checkpoint_interval == 0 {
+            return Err(ValidationError::ZeroLimit {
+                name: "audit.checkpoint_interval",
+            });
+        }
+
+        Ok(Self {
+            path: raw.path,
+            channel_capacity: raw.channel_capacity,
+            failure_policy: raw.failure_policy,
+            redact_query_parameters: raw
+                .redact_query_parameters
+                .into_iter()
+                .map(|name| name.to_ascii_lowercase())
+                .collect(),
+            checkpoint_signing_key: raw.checkpoint_signing_key,
+            checkpoint_interval: raw.checkpoint_interval,
+        })
+    }
+}
