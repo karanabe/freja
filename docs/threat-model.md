@@ -17,5 +17,10 @@ TLS interception is disabled by default and limited to an explicit hostname
 allowlist. Certificate or ALPN failures close and audit the committed tunnel;
 Freja never falls back to unauthenticated upstream TLS.
 
+TUI traffic content is bounded but intentionally unredacted. Exact plain
+HTTP/1 Raw observers are installed only in TUI mode, publish without blocking,
+and cannot influence Hyper's authoritative protocol decisions. Operators must
+protect terminal access and screen recordings.
+
 The maintained threat analysis is
 [`src/content/docs/developer/threat-model.md`](src/content/docs/developer/threat-model.md).

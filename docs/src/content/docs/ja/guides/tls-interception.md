@@ -66,4 +66,6 @@ certificateとhostname verificationを無効化しません。original certifica
 
 HTTP/1.1とHTTP/2はFreja独自wire parserではなくHyperがdecodeします。CONNECT authorityが正であり、Frejaは`Host`/`:authority`を再生成し、inner requestによる別destination選択を許可せず、nested CONNECTを拒否します。このためHTTP method/path/header、request/response body inspection、typed HTTP mutationはplain/intercepted trafficで同じように動作します。
 
+TUIはinner exchangeをPrettyで表示します。persistent intercepted HTTP/1とHTTP/2の正確なRaw/Hex ingress captureは未対応で、semantic dataから再構築せずunavailableを表示します。
+
 監査にはhostname、cache hit/miss、ALPN、handshake結果を記録し、CA private materialは記録しません。

@@ -2,7 +2,7 @@
 title: 開発とテスト
 description: workspace構造、validation gate、integration test、fuzz target、documentation workflowです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-02
 tags:
   - テスト
   - contribution
@@ -29,10 +29,10 @@ multi-listener CLIがTokioを選択していてもall-feature buildはPingora ad
 
 - `freja-policy`: first-match trace、destination guard、split-pattern、typed mutation、timeout、paused-flow bound
 - `freja-audit`: redaction-before-hash、sequence/hash chain、checkpoint tamper detection
-- `freja-proxy/tests/http_forward.rs`: absolute-form、framing limit、CONNECT、auth、response policy、inspection、Hook、reload、TLS interception、intercept後HTTP/1.1/HTTP/2 semantic forwarding、pinning failure
+- `freja-proxy/tests/http_forward.rs`: absolute-form、framing limit、CONNECT、auth、response policy、inspection、Hook、reload、TLS interception、intercept後HTTP/1.1/HTTP/2 semantic forwarding、pinning failure、TUI専用plain HTTP/1 request/response ingress exact capture
 - `tcp_static.rs`/`socks_forward.rs`: relay、DNS reauthorization、detour、limit、inspection、authentication
 - CLI test: configuration、no-overwrite segment、pinned checkpoint replay、Cargo metadataによるworkspace dependency direction/Pingora isolation境界
-- UI test: ratatui test backend renderとnon-blocking saturation
+- UI test: ratatui test backendによるsplit traffic/diagnostics render、non-blocking saturation、terminal-control escape
 
 local logicにはfocused unit test、externally observable network/CLI変更にはintegration testを追加します。
 
@@ -44,7 +44,7 @@ nested `fuzz` workspaceはproduction parser/state machineを5 targetへ接続し
 cargo check --manifest-path fuzz/Cargo.toml --bins
 ```
 
-configuration parsing、target parsing、HTTP mutation plan、binary scanning、malformed/ambiguous HTTP framingを対象にします。target buildは接続維持を証明しますが、release hardeningではcorpusを保持したtime-bounded `cargo-fuzz` campaignも実行してください。
+configuration parsing、target parsing、HTTP mutation plan、binary scanning、malformed/ambiguous HTTP framingを対象にします。framing targetはprivate capture-only HTTP/1 message-boundary state machineも駆動します。target buildは接続維持を証明しますが、release hardeningではcorpusを保持したtime-bounded `cargo-fuzz` campaignも実行してください。
 
 ## Code constraint
 

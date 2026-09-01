@@ -2,7 +2,7 @@
 title: Typed hook design
 description: Hook stages, mutation contracts, interactive flow state, and extension rules.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-02
 tags:
   - hooks
   - architecture
@@ -52,14 +52,15 @@ The shipped CLI intentionally uses an empty registry. Embedders construct a
 registry and pass the runner through `DataPlaneServices`; configuration does not
 discover executable code.
 
-## Interactive state
+## Interactive HTTP request state
 
 ```mermaid
 sequenceDiagram
     participant Flow as Network task
     participant Broker as Bounded broker
     participant TUI
-    Flow->>Broker: InterceptRequest + oneshot sender
+    Flow->>Flow: collect bounded body, inspect, run registered request hooks
+    Flow->>Broker: complete HttpRequestSnapshot + oneshot sender
     Broker->>Broker: acquire paused-flow permit
     Broker->>TUI: bounded request
     TUI-->>Flow: InteractiveDecision via oneshot
@@ -67,13 +68,22 @@ sequenceDiagram
 ```
 
 The queue capacity and paused-flow semaphore are independent. Saturation,
-closed channels, timeout, and a dropped responder are distinct errors. The
-decision is one of Continue, Reject, EditHeaders, ReplaceBody, or
-CancelModification.
+closed channels, timeout, and a dropped responder are distinct errors. Each
+HTTP request pauses once before upstream forwarding. Its snapshot contains the
+parsed method, URI, headers, and complete body bounded by
+`limits.body_prefix_bytes`; method, URI, version, headers, and body are copied
+through the reliable pause channel so the request remains operable even if a
+best-effort UI event was dropped. An oversized body receives 413 instead of pausing.
+CONNECT pauses once with an empty body before commitment. The decision is one
+of Continue, Reject, EditHeaders, ReplaceBody, or CancelModification.
 
-Manual edits are bounded and audited by action without content. Reject is legal
-only before protocol commitment. An interactive TCP reject closes the flow;
-after CONNECT commitment the system cannot synthesize another HTTP response.
+HTTP responses remain visible to the TUI but are never paused. TCP traffic is
+also observe-only at the interactive broker boundary; it does not acquire a
+paused-flow permit or wait for an operator. Registered typed response/TCP hooks
+remain an in-process embedding mechanism, while manual TCP drop/mutation is
+deferred. Manual HTTP edits are bounded and audited by action without content.
+Reject is legal only before protocol commitment; after CONNECT commitment the
+system cannot synthesize another HTTP response.
 
 ## Extension policy
 

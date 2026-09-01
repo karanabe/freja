@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: Freja contributor向けのcrate境界、data flow、runtime snapshot、不変条件です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-02
 tags:
   - アーキテクチャ
   - 開発者
@@ -59,11 +59,15 @@ transport behaviorを所有します。HyperがHTTP/1 absolute-formとCONNECTを
 
 public listener constructorはproxy所有の`ProxyLimits`を受け取り、TLS/capture setupもproxy所有のvalidated inputを使います。`freja-config`の値は`freja` composition rootで変換し、configuration/UI型をdata-plane crateへ漏らしません。
 
+TUIがattachedの場合に限り、proxy所有の`UiCaptureSettings`がplain explicit HTTP/1 streamへnon-blocking ingress observerを設置します。protocol parse/forwardingの正はHyperです。privateで上限付きのcapture-only framerは、content-length、chunked trailer、informational response、close-delimited responseを含むmessage境界を検出し、正確なRaw表示だけに使います。結果はbest-effort UI eventしか生成できず、trafficのaccept/reject/mutation/delayには影響できません。third-party HTTP wire-capture dependencyと汎用public parser APIは追加しません。
+
 TLS interceptionはhostname単位のopt-inです。CONNECT commit前にupstream TCPを確立し、downstream TLSをnegotiateして、選択された`h2`/`http/1.1` ALPNでupstream TLSを認証します。Rcgenはprotected CAからSAN付きleafを作り、host+ALPNのbounded cacheへ保存します。Hyperがintercepted HTTP/1.1/HTTP/2をdecodeし、semantic exchangeを同じ上限付きHTTP policy、inspection、typed Hook、audit、replay pipelineへ再接続します。
+TUIはこれらintercepted exchangeをsemantic表示します。persistent intercepted HTTP/1とHTTP/2 framingの正確なRaw captureは、transaction correlationを専用設計するまで意図的にunavailableです。
 
 ### `freja-ui`
 
 immutable snapshotを受け、isolated threadでRAII restoration guardのもとterminalを所有します。TUI modeではCLIがoperational tracingをbounded immutable UI eventへformatするため、raw terminalへ同時に書くproducerはありません。UI saturationはsnapshotまたはlog lineをdropしてmetricを増やします。interactive requestは別のbounded channel、paused-flow semaphore、timeout、oneshot responseを使います。
+traffic rowは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。responseとTCP dataはTUI decisionを待ちません。
 
 ### `freja`
 

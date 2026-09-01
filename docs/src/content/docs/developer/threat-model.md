@@ -2,7 +2,7 @@
 title: Threat model
 description: Trusted inputs, attack surfaces, implemented controls, and residual operator risks.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-02
 tags:
   - security
   - threat-model
@@ -47,11 +47,13 @@ serialization, and replay parsing.
 
 ### Protocol and resource safety
 
-- Hyper, not a handwritten parser, handles HTTP/1. Conflicting framing,
-  excessive headers, ambiguous targets, and unsafe hop-by-hop forwarding are
-  rejected.
-- Connection count, header/body prefix, DNS/connect/idle/interception timeout,
-  leaf cache, audit/UI queues, paused flows, and manual edits are bounded.
+- Hyper handles authoritative HTTP/1 parsing and forwarding. The private TUI
+  Raw framer is only a bounded observer and cannot make a protocol decision.
+  Conflicting framing, excessive headers, ambiguous targets, and unsafe
+  hop-by-hop forwarding are rejected by the data plane.
+- Connection count, header/body/TUI content, retained TUI rows,
+  DNS/connect/idle/interception timeout, leaf cache, audit/UI queues, paused
+  flows, and manual edits are bounded.
 - Streaming signatures retain bounded overlap; preflight holds only its prefix
   budget.
 - Hooks cannot emit wire bytes or modify hop-by-hop framing. Interactive
@@ -65,6 +67,9 @@ serialization, and replay parsing.
 - Audit and UI use separate publishers. UI loss is counted. Audit failure
   follows an explicit policy and is not silent. The CLI monitors the writer,
   flushes after each event, and shuts down on writer failure.
+- The TUI's live traffic content is intentionally unredacted and exists only in
+  bounded process memory. Operators must restrict terminal access and screen
+  recording. Headless mode does not install the HTTP Raw observers.
 - Record/previous hashes detect internal modification and reordering. Ed25519
   checkpoints authenticate chain positions when a trusted key is pinned.
 - New audit segments use owner-only `0600` permissions on Unix. Directory
@@ -96,6 +101,8 @@ serialization, and replay parsing.
   tail or whole segment. Pin keys and export evidence to separate control.
 - Prefix capture increases breach impact. Use the smallest bound and define
   access, retention, and deletion policy.
+- TUI `ui_content_bytes` similarly increases live-memory and shoulder-surfing
+  exposure even when audit capture remains metadata-only.
 - Content-encoded representations are not decompressed automatically. Streaming
   body replacement rejects encoded messages; preflight replacement explicitly
   removes stale representation metadata.

@@ -68,6 +68,8 @@ All values must be non-zero.
 | `paused_flows` | `16` | Simultaneously paused interactive flows |
 | `interception_timeout_ms` | `30000` | Hook/manual/TLS interception wait budget |
 | `ui_event_capacity` | `1024` | Best-effort UI event queue capacity |
+| `ui_content_bytes` | `65536` | Payload bytes retained for each TUI traffic side |
+| `ui_retained_rows` | `128` | HTTP transaction or TCP session rows retained by the TUI |
 
 ```toml
 [limits]
@@ -80,7 +82,15 @@ idle_timeout_ms = 60000
 paused_flows = 16
 interception_timeout_ms = 30000
 ui_event_capacity = 1024
+ui_content_bytes = 65536
+ui_retained_rows = 128
 ```
+
+`ui_retained_rows` must be at least `paused_flows`, so a paused request cannot
+be made unreachable by row eviction. In interactive mode, `ui_content_bytes`
+must be at least `body_prefix_bytes`. `header_bytes + ui_content_bytes` must fit
+in `usize`; invalid combinations fail before listener startup. These TUI
+retention limits do not enable payload audit capture.
 
 ## Audit
 

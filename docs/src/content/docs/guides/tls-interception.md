@@ -82,6 +82,9 @@ CONNECT authority is authoritative: Freja regenerates `Host`/`:authority`, does
 not permit an inner request to select another destination, and rejects nested
 CONNECT. HTTP method, path, header, request/response body inspection, and typed
 HTTP mutation therefore behave consistently for plain and intercepted traffic.
+The TUI shows these inner exchanges in Pretty mode. Exact Raw/Hex ingress
+capture is not yet available for persistent intercepted HTTP/1 or HTTP/2 and
+is reported as unavailable rather than reconstructed from semantic data.
 
 Audit records include hostname, cache hit/miss, negotiated ALPN, and handshake
 outcome, but never CA private material.

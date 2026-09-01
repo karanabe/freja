@@ -2,7 +2,7 @@
 title: Threat model
 description: trusted input、attack surface、実装済みcontrol、operatorに残るriskです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-02
 tags:
   - セキュリティ
   - threat-model
@@ -37,8 +37,8 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 
 ### Protocolとresource safety
 
-- HTTP/1は手書きparserではなくHyperで処理。conflicting framing、oversized header、ambiguous target、unsafe hop-by-hop forwardingを拒否
-- connection、header/body prefix、DNS/connect/idle/interception timeout、leaf cache、audit/UI queue、paused flow、manual editをbounded化
+- authoritativeなHTTP/1 parse/forwardingはHyperが処理。private TUI Raw framerはbounded observerだけでprotocol decisionを行えない。data planeはconflicting framing、oversized header、ambiguous target、unsafe hop-by-hop forwardingを拒否
+- connection、header/body/TUI content、retained TUI row、DNS/connect/idle/interception timeout、leaf cache、audit/UI queue、paused flow、manual editをbounded化
 - streaming signatureはbounded overlapを保持し、preflightはprefix budgetだけ保持
 - Hookはwire byteを出力できずhop-by-hop framingを変更不可。interactive requestはboundedでCLI timeoutはfail-closed
 
@@ -46,6 +46,7 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 
 - secret header/query parameterをhash前にredact。default captureはmetadata-only、明示prefix以外のevidenceはhash
 - Audit/UIは別publisher。UI lossはcountし、audit failureは明示policyに従い黙殺しない。CLIはwriterを監視し、eventごとにflushしてwriter failure時にshutdown
+- TUIのlive traffic contentは意図的にunredactedで、bounded process memoryだけに存在する。operatorはterminal accessとscreen recordingを制限する。headless modeはHTTP Raw observerを設置しない
 - record/previous hashで内部改変とreorderを検知。trusted keyをpinしたEd25519 checkpointでchain位置をauthenticate
 - Unixでは新規audit segmentをowner-onlyの`0600`で作成。directory access、storage durability、rotation、exportはoperator control
 
@@ -63,6 +64,7 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - DNS answerは変化する。毎回再評価するがresolver compromise/rebindingは環境risk
 - hash chainとsegment内checkpointは未知tail/segment全体の削除を証明できない。key pinと別管理storageへのexportが必要
 - prefix captureはbreach impactを増やす。最小bound、access、retention、deletion policyが必要
+- TUIの`ui_content_bytes`もaudit captureがmetadata-onlyの場合でもlive-memory/shoulder-surfing exposureを増やす
 - content-encoded representationは自動展開しない。streaming body replacementはencoded messageを拒否し、preflight replacementは古いrepresentation metadataを明示的に除去する
 - built-in admin HTTP metrics endpointはなく、embedderがprocess-local APIをsampleする
 

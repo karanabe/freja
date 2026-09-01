@@ -25,6 +25,12 @@ opt-ins.
 In TUI mode, operational tracing is formatted into that bounded UI publisher
 and rendered inside the terminal layout. The raw terminal has one owner; the
 CLI disconnects the tracing router before joining the terminal thread.
+TUI-only `UiCaptureSettings` additionally install bounded, non-blocking ingress
+observers for exact plain HTTP/1 Raw display. Hyper remains the authoritative
+HTTP engine; the private capture-only framer cannot affect forwarding. HTTP
+interactive mode pauses one complete bounded request, while responses and TCP
+traffic remain observe-only. Exact Raw for intercepted HTTP and HTTP/2 remains
+explicitly unavailable.
 
 The maintained, rendered architecture reference is
 [`src/content/docs/developer/architecture.md`](src/content/docs/developer/architecture.md).

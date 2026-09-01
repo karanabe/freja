@@ -2,7 +2,7 @@
 title: Development and testing
 description: Workspace layout, validation gates, integration tests, fuzz targets, and documentation workflow.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-02
 tags:
   - testing
   - contributing
@@ -37,13 +37,15 @@ behavior; they must not depend on public network services.
   checkpoint tamper detection.
 - `freja-proxy/tests/http_forward.rs` covers absolute-form, framing limits,
   CONNECT, auth, response policy, inspection, hooks, reload, TLS interception,
-  semantic intercepted HTTP/1.1/HTTP/2 forwarding, and pinning failure.
+  semantic intercepted HTTP/1.1/HTTP/2 forwarding, pinning failure, and exact
+  TUI-only plain HTTP/1 request/response ingress capture.
 - `tcp_static.rs` and `socks_forward.rs` cover relay, DNS reauthorization,
   detours, limits, inspection, and authentication.
 - CLI tests cover configuration behavior, no-overwrite audit segments, and
   replay with pinned checkpoints. A Cargo-metadata integration test also locks
   the allowed workspace dependency direction and Pingora isolation boundary.
-- UI tests render to ratatui's test backend and verify non-blocking saturation.
+- UI tests render split traffic and diagnostics pages to ratatui's test backend
+  and verify non-blocking saturation and terminal-control escaping.
 
 Add a focused unit test for local logic and an integration test when externally
 observable network or CLI behavior changes.
@@ -58,9 +60,10 @@ cargo check --manifest-path fuzz/Cargo.toml --bins
 ```
 
 Targets cover configuration parsing, target parsing, HTTP mutation plans,
-binary scanning, and malformed/ambiguous HTTP framing. Building targets proves
-they remain connected; release hardening should also run time-bounded
-`cargo-fuzz` campaigns with retained corpora.
+binary scanning, and malformed/ambiguous HTTP framing. The framing target also
+drives the private capture-only HTTP/1 message-boundary state machine. Building
+targets proves they remain connected; release hardening should also run
+time-bounded `cargo-fuzz` campaigns with retained corpora.
 
 ## Code constraints
 

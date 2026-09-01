@@ -2,7 +2,7 @@
 title: Architecture
 description: Crate boundaries, data flow, runtime snapshots, and invariants for Freja contributors.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-02
 tags:
   - architecture
   - developer
@@ -85,6 +85,15 @@ setup uses proxy-owned validated inputs. `freja-config` values are translated
 at the `freja` composition root instead of leaking configuration or UI types
 into the data-plane crate.
 
+When and only when the TUI is attached, proxy-owned `UiCaptureSettings` install
+non-blocking ingress observers around plain explicit HTTP/1 streams. Hyper
+remains authoritative for protocol parsing and forwarding. A private bounded
+capture-only framer finds message boundaries for exact Raw presentation,
+including content-length, chunked trailers, informational responses, and
+close-delimited responses. Its result can only produce a best-effort UI event;
+failure cannot accept, reject, mutate, or delay traffic. No third-party HTTP
+wire-capture dependency or general-purpose public parser API is introduced.
+
 TLS interception is hostname-opted. It establishes upstream TCP before CONNECT
 commitment, negotiates downstream TLS, and authenticates upstream TLS with the
 selected `h2` or `http/1.1` ALPN. Rcgen creates SAN-bearing leaves from a
@@ -92,6 +101,9 @@ protected CA; a bounded host-plus-ALPN cache stores server configurations.
 Hyper decodes intercepted HTTP/1.1 and HTTP/2 and reconnects their semantic
 exchanges to the same bounded HTTP policy, inspection, typed-hook, audit, and
 replay pipeline.
+The TUI presents those intercepted exchanges semantically; exact Raw capture
+for persistent intercepted HTTP/1 and HTTP/2 framing is intentionally
+unavailable until transaction correlation has a dedicated design.
 
 ### `freja-ui`
 
@@ -101,6 +113,10 @@ bounded immutable UI events, so no concurrent writer touches the raw terminal.
 UI saturation drops snapshots or log lines and increments a metric. Interactive
 requests use a separate bounded channel, paused-flow semaphore, timeout, and
 oneshot response.
+Traffic rows are bounded by configuration. Screen 1 correlates HTTP by
+`TransactionId` and TCP by `SessionId`; screen 2 separates evidence, logs, and
+statistics. HTTP interactive mode sends one complete bounded request snapshot
+to the operator. Responses and TCP data never wait for a TUI decision.
 
 ### `freja`
 

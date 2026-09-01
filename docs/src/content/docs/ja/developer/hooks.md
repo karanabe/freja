@@ -2,7 +2,7 @@
 title: 型付きHook設計
 description: Hook stage、mutation contract、interactive flow state、拡張ruleです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-02
 tags:
   - Hook
   - アーキテクチャ
@@ -34,23 +34,24 @@ HTTP head Hookは`HeadMutationPlan`、body Hookは`BodyMutationPlan`、TCP Hook�
 
 同梱CLIは意図的にempty registryを使います。embedderがregistryを構築し、runnerを`DataPlaneServices`へ渡します。configurationからexecutable codeをdiscoverしません。
 
-## Interactive state
+## Interactive HTTP request state
 
 ```mermaid
 sequenceDiagram
     participant Flow as Network task
     participant Broker as Bounded broker
     participant TUI
-    Flow->>Broker: InterceptRequest + oneshot sender
+    Flow->>Flow: bounded body収集、inspection、registered request Hook
+    Flow->>Broker: complete HttpRequestSnapshot + oneshot sender
     Broker->>Broker: acquire paused-flow permit
     Broker->>TUI: bounded request
     TUI-->>Flow: InteractiveDecision via oneshot
     Flow->>Flow: validate and apply or reject
 ```
 
-queue capacityとpaused-flow semaphoreは独立です。saturation、closed channel、timeout、dropped responderは別errorです。decisionはContinue、Reject、EditHeaders、ReplaceBody、CancelModificationのいずれかです。
+queue capacityとpaused-flow semaphoreは独立です。saturation、closed channel、timeout、dropped responderは別errorです。各HTTP requestはupstream forwarding前に1回pauseします。snapshotはparsed method、URI、version、header、および`limits.body_prefix_bytes`でboundedなcomplete bodyを持ちます。best-effort UI eventがdropされても操作できるよう、このsnapshotはreliable pause channelでcopyされます。上限超過bodyはpauseせず413になります。CONNECTはcommit前にempty bodyで1回pauseします。decisionはContinue、Reject、EditHeaders、ReplaceBody、CancelModificationのいずれかです。
 
-manual editはboundedで、contentではなくactionをauditします。Rejectはprotocol commit前だけ有効です。interactive TCP rejectはflowをcloseし、CONNECT commit後に別HTTP responseは生成できません。
+HTTP responseはTUIへ表示しますがpauseしません。TCP trafficもinteractive broker境界ではobserve-onlyで、paused-flow permitを取得せずoperatorを待ちません。registered typed response/TCP Hookはin-process embedding mechanismとして残し、manual TCP drop/mutationはdeferredです。manual HTTP editはboundedで、contentではなくactionをauditします。Rejectはprotocol commit前だけ有効で、CONNECT commit後に別HTTP responseは生成できません。
 
 ## 拡張policy
 
