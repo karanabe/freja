@@ -1,7 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use freja_audit::{AuditEnvelope, AuditEvent};
-use freja_config::Limits;
 use freja_domain::{HttpForwardListener, RuleId, SessionId};
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::{TokioIo, TokioTimer};
@@ -9,7 +8,9 @@ use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet};
 use tracing::warn;
 
 use super::service::{ConnectionTaskHandle, HttpService};
-use crate::{DataPlaneServices, ProxyError, ShutdownSignal, destination::audit_context};
+use crate::{
+    DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal, destination::audit_context,
+};
 
 const MINIMUM_HTTP1_READ_BUFFER_BYTES: usize = 8 * 1_024;
 
@@ -20,7 +21,7 @@ pub struct HttpForwardServer {
     specification: HttpForwardListener,
     connect_port_rule: RuleId,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
 }
 
 impl HttpForwardServer {
@@ -33,7 +34,7 @@ impl HttpForwardServer {
     pub async fn bind(
         specification: HttpForwardListener,
         services: DataPlaneServices,
-        limits: Limits,
+        limits: ProxyLimits,
     ) -> Result<Self, ProxyError> {
         let bind = specification.bind().address();
         let listener = TcpListener::bind(bind)
@@ -136,7 +137,7 @@ struct ConnectionContext {
     specification: HttpForwardListener,
     connect_port_rule: RuleId,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
     shutdown: ShutdownSignal,
 }
 

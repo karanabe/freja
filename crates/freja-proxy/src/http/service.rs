@@ -10,7 +10,6 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use freja_audit::{AuditEnvelope, AuditEvent};
-use freja_config::Limits;
 use freja_domain::{
     Decision, DecisionTrace, Direction, EnforcementAction, HookMode, HttpReject, HttpRequestFacts,
     HttpResponseFacts, InspectionMode, MatchReason, PolicyStage, Protocol, ProxyAuthentication,
@@ -48,7 +47,7 @@ use super::{
     target::ForwardTarget,
 };
 use crate::{
-    DataPlaneServices, ProxyError, ShutdownSignal,
+    DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal,
     destination::{audit_context, authorize_and_resolve, connect_any, record_action},
     inspection::{BodyTransform, FlowInspector},
     tcp::relay::{RelayLimits, RelayStats, RelayTermination, relay},
@@ -63,7 +62,7 @@ pub(super) struct HttpService {
     connect_port_rule: RuleId,
     connect_ports: freja_domain::HttpForwardListener,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
     shutdown: ShutdownSignal,
     task_sender: mpsc::Sender<ConnectionTaskHandle>,
 }
@@ -76,7 +75,7 @@ impl HttpService {
         connect_port_rule: RuleId,
         connect_ports: freja_domain::HttpForwardListener,
         services: DataPlaneServices,
-        limits: Limits,
+        limits: ProxyLimits,
         shutdown: ShutdownSignal,
         task_sender: mpsc::Sender<ConnectionTaskHandle>,
     ) -> Self {
@@ -568,7 +567,7 @@ impl HttpService {
     ) -> Result<(), ProxyError> {
         let method = request.method().as_str().to_owned();
         let target = request.uri().to_string();
-        self.services.publish_http_ui(
+        self.services.publish_http_event(
             self.session_id,
             transaction_id,
             method.clone(),

@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod ui_adapter;
+
 use std::{
     collections::HashMap,
     error::Error,
@@ -27,13 +29,15 @@ use freja_policy::hook::{
 };
 use freja_policy::{PolicyFacts, StreamScanner};
 use freja_proxy::{
-    DataPlaneServices, HttpForwardServer, Socks5Server, StaticTcpServer, TlsInterceptor,
-    shutdown_channel,
+    CaptureSettings, DataPlaneServices, HttpForwardServer, ProxyLimits, Socks5Server,
+    StaticTcpServer, TlsInterceptionConfig, TlsInterceptor, shutdown_channel,
 };
 use freja_ui::{UiEvent, UiPublisher, tui::spawn_tui};
 use tokio::task::JoinSet;
 use tracing::{info, warn};
 use tracing_subscriber::{EnvFilter, fmt::MakeWriter};
+
+use crate::ui_adapter::UiDataPlaneEventSink;
 
 const MAXIMUM_REPLAY_LINE_BYTES: usize = 16 * 1024 * 1024;
 const MAXIMUM_TUI_LOG_LINE_BYTES: usize = 16 * 1024;
@@ -385,6 +389,8 @@ async fn run_proxy(
     tui: Option<PreparedTui>,
     tracing_router: Option<TuiTracingRouter>,
 ) -> AppResult<()> {
+    let proxy_limits = proxy_limits(compiled.limits())?;
+    let capture = capture_settings(compiled.capture())?;
     let (audit_publisher, audit_receiver) = AuditPublisher::channel(
         compiled.audit().channel_capacity,
         compiled.audit().failure_policy,
@@ -396,7 +402,7 @@ async fn run_proxy(
         compiled.runtime().enforcement,
         audit_publisher,
     )
-    .with_capture(compiled.capture())
+    .with_capture(capture)
     .with_inspection(compiled.inspection().clone(), compiled.inspection_mode())
     .with_hooks(HookRunner::new(
         compiled.runtime().hooks,
@@ -404,9 +410,7 @@ async fn run_proxy(
         compiled.limits().interception_timeout,
         HookFailurePolicy::FailClosed,
     ));
-    if let Some(interceptor) = TlsInterceptor::from_config(compiled.tls())
-        .context("could not initialize TLS interception")?
-    {
+    if let Some(interceptor) = tls_interceptor(compiled.tls())? {
         services = services.with_tls_interceptor(interceptor);
     }
     let mut intercept_receiver = None;
@@ -422,9 +426,9 @@ async fn run_proxy(
         intercept_receiver = Some(receiver);
     }
     if let Some(prepared) = tui.as_ref() {
-        services = services.with_ui(prepared.ui.clone());
+        services = services.with_event_sink(UiDataPlaneEventSink::new(prepared.ui.clone()));
     }
-    let servers = bind_configured_servers(&compiled, &services).await?;
+    let servers = bind_configured_servers(&compiled, &services, proxy_limits).await?;
     if servers.is_empty() {
         return Err(AppError::msg(
             "configuration contains no runnable listeners",
@@ -481,6 +485,48 @@ async fn run_proxy(
         return Err(error);
     }
     Ok(())
+}
+
+fn proxy_limits(limits: Limits) -> AppResult<ProxyLimits> {
+    ProxyLimits::new(
+        limits.connections,
+        limits.header_bytes,
+        limits.body_prefix_bytes,
+        limits.connect_timeout,
+        limits.read_timeout,
+        limits.idle_timeout,
+    )
+    .context("compiled configuration contains invalid proxy limits")
+}
+
+fn capture_settings(capture: CapturePolicy) -> AppResult<CaptureSettings> {
+    match capture {
+        CapturePolicy::MetadataOnly => Ok(CaptureSettings::metadata_only()),
+        CapturePolicy::Prefix { max_bytes } => CaptureSettings::prefix(max_bytes)
+            .context("compiled configuration contains an invalid capture bound"),
+    }
+}
+
+fn tls_interceptor(config: &TlsConfig) -> AppResult<Option<TlsInterceptor>> {
+    let TlsConfig::Intercept {
+        ca_certificate,
+        ca_private_key,
+        intercept_hosts,
+        leaf_cache_entries,
+    } = config
+    else {
+        return Ok(None);
+    };
+    let settings = TlsInterceptionConfig::new(
+        ca_certificate.clone(),
+        ca_private_key.clone(),
+        intercept_hosts.clone(),
+        *leaf_cache_entries,
+    )
+    .context("compiled configuration contains invalid TLS interception settings")?;
+    TlsInterceptor::from_config(&settings)
+        .map(Some)
+        .context("could not initialize TLS interception")
 }
 
 fn spawn_audit_writer(
@@ -709,23 +755,20 @@ async fn wait_for_shutdown_trigger(
 async fn bind_configured_servers(
     compiled: &CompiledConfig,
     services: &DataPlaneServices,
+    limits: ProxyLimits,
 ) -> AppResult<Vec<BoundServer>> {
     let mut servers = Vec::new();
     for listener in compiled.listeners() {
         match listener {
             ListenerSpec::TcpStatic(specification) => {
-                let server = StaticTcpServer::bind(
-                    specification.clone(),
-                    services.clone(),
-                    compiled.limits(),
-                )
-                .await
-                .with_context(|| {
-                    format!(
-                        "could not bind static TCP listener {}",
-                        specification.bind()
-                    )
-                })?;
+                let server = StaticTcpServer::bind(specification.clone(), services.clone(), limits)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "could not bind static TCP listener {}",
+                            specification.bind()
+                        )
+                    })?;
                 info!(
                     bind = %server.local_address(),
                     upstream = %specification.upstream(),
@@ -734,18 +777,15 @@ async fn bind_configured_servers(
                 servers.push(BoundServer::Tcp(server));
             }
             ListenerSpec::HttpForward(specification) => {
-                let server = HttpForwardServer::bind(
-                    specification.clone(),
-                    services.clone(),
-                    compiled.limits(),
-                )
-                .await
-                .with_context(|| {
-                    format!(
-                        "could not bind HTTP forward listener {}",
-                        specification.bind()
-                    )
-                })?;
+                let server =
+                    HttpForwardServer::bind(specification.clone(), services.clone(), limits)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "could not bind HTTP forward listener {}",
+                                specification.bind()
+                            )
+                        })?;
                 info!(
                     bind = %server.local_address(),
                     "HTTP/1 explicit forward listener bound"
@@ -753,12 +793,11 @@ async fn bind_configured_servers(
                 servers.push(BoundServer::Http(server));
             }
             ListenerSpec::Socks5(specification) => {
-                let server =
-                    Socks5Server::bind(specification.clone(), services.clone(), compiled.limits())
-                        .await
-                        .with_context(|| {
-                            format!("could not bind SOCKS5 listener {}", specification.bind())
-                        })?;
+                let server = Socks5Server::bind(specification.clone(), services.clone(), limits)
+                    .await
+                    .with_context(|| {
+                        format!("could not bind SOCKS5 listener {}", specification.bind())
+                    })?;
                 info!(bind = %server.local_address(), "SOCKS5 listener bound");
                 servers.push(BoundServer::Socks5(server));
             }

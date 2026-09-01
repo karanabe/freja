@@ -1,21 +1,20 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use freja_audit::{AuditContext, AuditEnvelope, AuditEvent, UnixMillis};
-use freja_config::Limits;
 use freja_domain::{SessionId, TcpStaticListener};
 use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet};
 use tracing::warn;
 
 use super::session::run_static_session;
-use crate::{DataPlaneServices, ProxyError, ShutdownSignal};
+use crate::{DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal};
 
-/// Bound pure-Tokio static TCP listener behind Freja's engine boundary.
+/// Bound pure-Tokio static TCP listener inside Freja's runtime isolation boundary.
 pub struct StaticTcpServer {
     listener: TcpListener,
     local_address: SocketAddr,
     specification: TcpStaticListener,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
 }
 
 impl StaticTcpServer {
@@ -27,7 +26,7 @@ impl StaticTcpServer {
     pub async fn bind(
         specification: TcpStaticListener,
         services: DataPlaneServices,
-        limits: Limits,
+        limits: ProxyLimits,
     ) -> Result<Self, ProxyError> {
         let bind = specification.bind().address();
         let listener = TcpListener::bind(bind)

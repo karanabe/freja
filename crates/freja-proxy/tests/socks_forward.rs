@@ -1,14 +1,13 @@
 use std::{net::IpAddr, time::Duration};
 
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
-use freja_config::Limits;
 use freja_domain::{
     EnforcementMode, ListenEndpoint, PolicyGeneration, ProxyCredentialHash, Socks5Listener,
 };
 use freja_policy::{
     AclPolicy, DestinationAccess, DestinationGuard, DestinationGuardSettings, RuleAction,
 };
-use freja_proxy::{DataPlaneServices, Socks5Server, shutdown_channel};
+use freja_proxy::{DataPlaneServices, ProxyLimits, Socks5Server, shutdown_channel};
 use sha2::{Digest, Sha256};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
@@ -17,18 +16,16 @@ use tokio::{
     time::timeout,
 };
 
-fn limits() -> Limits {
-    Limits {
-        connections: 8,
-        header_bytes: 16 * 1_024,
-        body_prefix_bytes: 16 * 1_024,
-        connect_timeout: Duration::from_secs(1),
-        read_timeout: Duration::from_secs(1),
-        idle_timeout: Duration::from_secs(2),
-        paused_flows: 2,
-        interception_timeout: Duration::from_secs(1),
-        ui_event_capacity: 8,
-    }
+fn limits() -> ProxyLimits {
+    ProxyLimits::new(
+        8,
+        16 * 1_024,
+        16 * 1_024,
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+    )
+    .unwrap()
 }
 
 fn services() -> (DataPlaneServices, mpsc::Receiver<AuditEnvelope>) {

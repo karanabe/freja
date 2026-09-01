@@ -1,8 +1,14 @@
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{
+    net::IpAddr,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
+};
 
 use bytes::Bytes;
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
-use freja_config::Limits;
 use freja_domain::{
     Confidence, DetectorId, Direction, EnforcementAction, EnforcementMode, HookMode, HostName,
     InspectionMode, ListenEndpoint, PolicyGeneration, Port, Protocol, RuleId, Severity, TargetHost,
@@ -16,8 +22,10 @@ use freja_policy::{
         TcpClientChunkHook,
     },
 };
-use freja_proxy::{DataPlaneServices, StaticTcpServer, shutdown_channel};
-use freja_ui::UiPublisher;
+use freja_proxy::{
+    DataPlaneEvent, DataPlaneEventSink, DataPlaneServices, ProxyLimits, StaticTcpServer,
+    shutdown_channel,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -25,17 +33,30 @@ use tokio::{
     time::timeout,
 };
 
-fn limits() -> Limits {
-    Limits {
-        connections: 8,
-        header_bytes: 16 * 1_024,
-        body_prefix_bytes: 16 * 1_024,
-        connect_timeout: Duration::from_secs(1),
-        read_timeout: Duration::from_secs(1),
-        idle_timeout: Duration::from_secs(2),
-        paused_flows: 2,
-        interception_timeout: Duration::from_secs(1),
-        ui_event_capacity: 8,
+fn limits() -> ProxyLimits {
+    ProxyLimits::new(
+        8,
+        16 * 1_024,
+        16 * 1_024,
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+    )
+    .unwrap()
+}
+
+#[derive(Debug, Clone, Default)]
+struct DroppingEventSink {
+    dropped: Arc<AtomicU64>,
+}
+
+impl DataPlaneEventSink for DroppingEventSink {
+    fn try_publish(&self, _event: DataPlaneEvent) {
+        let _previous = self.dropped.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn dropped_events(&self) -> u64 {
+        self.dropped.load(Ordering::Relaxed)
     }
 }
 
@@ -476,8 +497,7 @@ async fn tcp_preflight_blocks_split_pattern_before_forwarding_any_bytes() {
         EnforcementMode::Enforce,
         InspectionMode::Preflight,
     );
-    let mut preflight_limits = limits();
-    preflight_limits.body_prefix_bytes = b"MALWARE".len();
+    let preflight_limits = limits().with_body_prefix_bytes(b"MALWARE".len()).unwrap();
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
         services,
@@ -523,9 +543,11 @@ async fn tcp_preflight_releases_a_benign_short_prefix_after_timeout() {
         EnforcementMode::Enforce,
         InspectionMode::Preflight,
     );
-    let mut preflight_limits = limits();
-    preflight_limits.body_prefix_bytes = b"MALWARE".len();
-    preflight_limits.read_timeout = Duration::from_millis(25);
+    let preflight_limits = limits()
+        .with_body_prefix_bytes(b"MALWARE".len())
+        .unwrap()
+        .with_read_timeout(Duration::from_millis(25))
+        .unwrap();
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
         services,
@@ -561,8 +583,7 @@ async fn tcp_preflight_releases_a_benign_short_prefix_after_timeout() {
 async fn tcp_streaming_inspection_stops_at_the_configured_prefix_budget() {
     let (upstream, upstream_task) = spawn_recording_echo_server().await;
     let (services, _audit) = inspection_services(Vec::new(), EnforcementMode::Enforce);
-    let mut bounded_limits = limits();
-    bounded_limits.body_prefix_bytes = 4;
+    let bounded_limits = limits().with_body_prefix_bytes(4).unwrap();
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
         services,
@@ -589,14 +610,14 @@ async fn tcp_streaming_inspection_stops_at_the_configured_prefix_budget() {
 }
 
 #[tokio::test]
-async fn saturated_ui_channel_does_not_block_tcp_forwarding() {
+async fn dropping_event_sink_does_not_block_tcp_forwarding() {
     let (upstream, echo_task) = spawn_echo_server().await;
     let (services, _audit) = services(Vec::new(), local_access(), 15);
-    let (ui, _receiver) = UiPublisher::channel(1).unwrap();
-    let metrics = ui.metrics();
+    let sink = DroppingEventSink::default();
+    let metrics = services.clone().with_event_sink(sink.clone());
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
-        services.with_ui(ui),
+        metrics.clone(),
         limits(),
     )
     .await
@@ -613,7 +634,8 @@ async fn saturated_ui_channel_does_not_block_tcp_forwarding() {
         .unwrap()
         .unwrap();
     assert_eq!(&response, b"still-forwarding");
-    assert!(metrics.dropped_events() > 0);
+    assert!(sink.dropped_events() > 0);
+    assert!(metrics.metrics_snapshot().event_sink_dropped_events > 0);
     drop(client);
     echo_task.await.unwrap();
     stop_server(shutdown, server_task).await;
@@ -624,8 +646,7 @@ async fn connection_limit_rejects_excess_load_and_recovers_capacity() {
     let (upstream, echo_task) = spawn_multi_echo_server(5).await;
     let (services, mut audit) = services(Vec::new(), local_access(), 17);
     let metrics = services.clone();
-    let mut constrained = limits();
-    constrained.connections = 4;
+    let constrained = limits().with_connections(4).unwrap();
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
         services,
@@ -743,8 +764,7 @@ async fn tcp_hook_replacement_respects_the_configured_body_budget() {
         Duration::from_secs(1),
         HookFailurePolicy::FailClosed,
     );
-    let mut bounded_limits = limits();
-    bounded_limits.body_prefix_bytes = 4;
+    let bounded_limits = limits().with_body_prefix_bytes(4).unwrap();
     let server = StaticTcpServer::bind(
         tcp_spec(TargetHost::Ip(upstream.ip()), upstream.port()),
         services.with_hooks(hooks),

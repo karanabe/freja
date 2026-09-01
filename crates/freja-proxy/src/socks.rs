@@ -1,7 +1,6 @@
 use std::{error::Error, fmt, net::SocketAddr, sync::Arc, time::Duration};
 
 use freja_audit::{AuditEnvelope, AuditEvent};
-use freja_config::Limits;
 use freja_domain::{
     Port, Protocol, ProxyCredentialHash, RequestedTargetFacts, SessionId, Socks5Listener,
     TargetHost,
@@ -17,7 +16,7 @@ use tokio::{
 use tracing::warn;
 
 use crate::{
-    DataPlaneServices, ProxyError, ShutdownSignal,
+    DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal,
     destination::{audit_context, authorize_and_resolve, connect_any},
     inspection::FlowInspector,
     tcp::relay::{RelayLimits, RelayStats, RelayTermination, relay},
@@ -35,7 +34,7 @@ pub struct Socks5Server {
     local_address: SocketAddr,
     specification: Socks5Listener,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
 }
 
 impl Socks5Server {
@@ -47,7 +46,7 @@ impl Socks5Server {
     pub async fn bind(
         specification: Socks5Listener,
         services: DataPlaneServices,
-        limits: Limits,
+        limits: ProxyLimits,
     ) -> Result<Self, ProxyError> {
         let bind = specification.bind().address();
         let listener = TcpListener::bind(bind)
@@ -119,7 +118,7 @@ struct SessionContext {
     listener: SocketAddr,
     authentication: Option<ProxyCredentialHash>,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
     shutdown: ShutdownSignal,
 }
 

@@ -42,7 +42,7 @@ pub struct MetricsSnapshot {
     pub tls_leaf_cache_misses: u64,
     pub manual_actions: u64,
     pub audit_rejected_events: u64,
-    pub ui_dropped_events: u64,
+    pub event_sink_dropped_events: u64,
 }
 
 impl DataPlaneMetrics {
@@ -107,7 +107,7 @@ impl DataPlaneMetrics {
     pub(crate) fn snapshot_with_delivery(
         &self,
         audit_rejected_events: u64,
-        ui_dropped_events: u64,
+        event_sink_dropped_events: u64,
     ) -> MetricsSnapshot {
         let accepted_flows = load(&self.inner.accepted_flows);
         let closed_flows = load(&self.inner.closed_flows);
@@ -124,7 +124,7 @@ impl DataPlaneMetrics {
             tls_leaf_cache_misses: load(&self.inner.tls_leaf_cache_misses),
             manual_actions: load(&self.inner.manual_actions),
             audit_rejected_events,
-            ui_dropped_events,
+            event_sink_dropped_events,
         }
     }
 }

@@ -2,28 +2,17 @@
 //!
 //! Protocol processing is deliberately outside this module. This adapter owns
 //! only Pingora's connection callback and delegates the supplied transport to
-//! a runtime-independent handler. The current CLI selects the Tokio fallback
+//! a runtime-independent handler. The current CLI uses concrete Tokio listeners
 //! because Pingora does not expose the listener metadata needed by Freja's
 //! existing multi-listener bootstrap without additional service wiring.
 
 use std::{future::Future, pin::Pin, sync::Arc};
 
-use crate::{EngineKind, ListenerEngine};
 use async_trait::async_trait;
 use pingora_core::{apps::ServerApp, protocols::Stream, server::ShutdownWatch};
 
 /// Pingora compatibility baseline required by Freja's runtime adapter.
 pub const COMPATIBILITY_BASELINE: &str = "0.8.1";
-
-/// Runtime identity for the Pingora `ServerApp` adapter.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PingoraEngine;
-
-impl ListenerEngine for PingoraEngine {
-    fn kind(&self) -> EngineKind {
-        EngineKind::PingoraServerApp
-    }
-}
 
 /// Boxed transport-handler future used without exposing Pingora to policy,
 /// inspection, audit, hook, or UI crates.

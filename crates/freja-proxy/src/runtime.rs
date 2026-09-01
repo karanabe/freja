@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher, PublishError};
-use freja_config::CapturePolicy;
 use freja_domain::{
     Decision, Direction, EnforcementAction, EnforcementMode, Finding, InspectionMode, Protocol,
     ReplayFacts, SessionId, TransactionId,
@@ -12,17 +11,19 @@ use freja_policy::{
     hook::{ChunkMutationPlan, HookFailurePolicy, HookRegistry, HookRunner},
     hook::{InteractiveBroker, InteractiveDecision, InterceptContext, InterceptStage},
 };
-use freja_ui::{UiEvent, UiPublisher};
 use tracing::warn;
 
-use crate::{DataPlaneMetrics, MetricsSnapshot, ProxyError, TlsInterceptor};
+use crate::{
+    CaptureSettings, DataPlaneEvent, DataPlaneEventSink, DataPlaneMetrics, MetricsSnapshot,
+    ProxyError, TlsInterceptor,
+};
 
 /// Immutable policy and publishers shared by independent connection tasks.
 #[derive(Debug, Clone)]
 pub struct DataPlaneServices {
     snapshot: Arc<ArcSwap<PolicySnapshot>>,
     audit: AuditPublisher,
-    ui: Option<UiPublisher>,
+    events: Option<Arc<dyn DataPlaneEventSink>>,
     hooks: Arc<HookRunner>,
     tls: Option<Arc<TlsInterceptor>>,
     interactive: Option<InteractiveBroker>,
@@ -94,7 +95,7 @@ impl DataPlaneServices {
         Self {
             snapshot: Arc::new(ArcSwap::from_pointee(snapshot)),
             audit,
-            ui: None,
+            events: None,
             hooks: Arc::new(hooks),
             tls: None,
             interactive: None,
@@ -137,10 +138,13 @@ impl DataPlaneServices {
         }));
     }
 
-    /// Installs a separate best-effort publisher for immutable UI snapshots.
+    /// Installs a separate best-effort observer for immutable data-plane facts.
     #[must_use]
-    pub fn with_ui(mut self, ui: UiPublisher) -> Self {
-        self.ui = Some(ui);
+    pub fn with_event_sink<S>(mut self, sink: S) -> Self
+    where
+        S: DataPlaneEventSink + 'static,
+    {
+        self.events = Some(Arc::new(sink));
         self
     }
 
@@ -169,11 +173,8 @@ impl DataPlaneServices {
     /// Enables explicitly configured bounded raw-prefix capture for audit and
     /// offline replay. Metadata-only remains the default.
     #[must_use]
-    pub fn with_capture(mut self, capture: CapturePolicy) -> Self {
-        self.capture_prefix_bytes = match capture {
-            CapturePolicy::MetadataOnly => None,
-            CapturePolicy::Prefix { max_bytes } => Some(max_bytes),
-        };
+    pub fn with_capture(mut self, capture: CaptureSettings) -> Self {
+        self.capture_prefix_bytes = capture.maximum_prefix_bytes();
         self
     }
 
@@ -259,7 +260,7 @@ impl DataPlaneServices {
     pub fn metrics_snapshot(&self) -> MetricsSnapshot {
         self.metrics.snapshot_with_delivery(
             self.audit.rejected_events(),
-            self.ui.as_ref().map_or(0, UiPublisher::dropped_events),
+            self.events.as_ref().map_or(0, |sink| sink.dropped_events()),
         )
     }
 
@@ -276,8 +277,8 @@ impl DataPlaneServices {
             },
         })
         .await?;
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::DecisionMade {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::DecisionMade {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
@@ -298,8 +299,8 @@ impl DataPlaneServices {
             },
         })
         .await?;
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::FindingDetected {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::FindingDetected {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 finding,
@@ -351,8 +352,8 @@ impl DataPlaneServices {
             },
         })
         .await?;
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::DecisionMade {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::DecisionMade {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
@@ -361,15 +362,15 @@ impl DataPlaneServices {
         Ok(())
     }
 
-    pub(crate) fn publish_http_ui(
+    pub(crate) fn publish_http_event(
         &self,
         session_id: SessionId,
         transaction_id: TransactionId,
         method: String,
         target: String,
     ) {
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::HttpObserved {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::HttpObserved {
                 session_id,
                 transaction_id,
                 method,
@@ -384,8 +385,8 @@ impl DataPlaneServices {
         client: String,
         target: String,
     ) {
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::FlowOpened {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::FlowOpened {
                 session_id,
                 client,
                 target,
@@ -399,8 +400,8 @@ impl DataPlaneServices {
         client_to_upstream_bytes: u64,
         upstream_to_client_bytes: u64,
     ) {
-        if let Some(ui) = &self.ui {
-            ui.try_publish(UiEvent::FlowClosed {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::FlowClosed {
                 session_id,
                 client_to_upstream_bytes,
                 upstream_to_client_bytes,
@@ -415,9 +416,9 @@ impl DataPlaneServices {
         direction: Direction,
         bytes: &[u8],
     ) {
-        if let Some(ui) = &self.ui {
+        if let Some(events) = &self.events {
             let maximum = bytes.len().min(1_024);
-            ui.try_publish(UiEvent::BodyPrefix {
+            events.try_publish(DataPlaneEvent::BodyPrefix {
                 session_id,
                 transaction_id,
                 direction,

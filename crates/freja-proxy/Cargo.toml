@@ -22,10 +22,8 @@ async-trait = { workspace = true, optional = true }
 base64.workspace = true
 bytes.workspace = true
 freja-audit.workspace = true
-freja-config.workspace = true
 freja-domain.workspace = true
 freja-policy.workspace = true
-freja-ui.workspace = true
 hex.workspace = true
 http.workspace = true
 http-body-util.workspace = true

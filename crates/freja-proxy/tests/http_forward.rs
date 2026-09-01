@@ -2,7 +2,6 @@ use std::{convert::Infallible, fs, net::IpAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
-use freja_config::{Limits, TlsConfig};
 use freja_domain::{
     Confidence, DetectorId, Direction, EnforcementMode, HookMode, HostName, HttpForwardListener,
     InspectionMode, ListenEndpoint, PolicyGeneration, Port, ProxyAuthentication,
@@ -18,7 +17,10 @@ use freja_policy::{
         InterceptTimeoutPolicy, WireBody,
     },
 };
-use freja_proxy::{DataPlaneServices, HttpForwardServer, TlsInterceptor, shutdown_channel};
+use freja_proxy::{
+    DataPlaneServices, HttpForwardServer, ProxyLimits, TlsInterceptionConfig, TlsInterceptor,
+    shutdown_channel,
+};
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, Response, service::service_fn};
 use hyper_util::rt::{TokioExecutor, TokioIo};
@@ -36,18 +38,16 @@ use tokio::{
 };
 use tokio_rustls::{TlsAcceptor, TlsConnector};
 
-fn limits() -> Limits {
-    Limits {
-        connections: 8,
-        header_bytes: 16 * 1_024,
-        body_prefix_bytes: 16 * 1_024,
-        connect_timeout: Duration::from_secs(1),
-        read_timeout: Duration::from_secs(1),
-        idle_timeout: Duration::from_secs(2),
-        paused_flows: 2,
-        interception_timeout: Duration::from_secs(1),
-        ui_event_capacity: 8,
-    }
+fn limits() -> ProxyLimits {
+    ProxyLimits::new(
+        8,
+        16 * 1_024,
+        16 * 1_024,
+        Duration::from_secs(1),
+        Duration::from_secs(1),
+        Duration::from_secs(2),
+    )
+    .unwrap()
 }
 
 fn inspected_services(
@@ -112,7 +112,7 @@ async fn bind_proxy(
 async fn bind_proxy_with_limits(
     connect_ports: Vec<Port>,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
 ) -> (
     std::net::SocketAddr,
     freja_proxy::ShutdownSender,
@@ -166,8 +166,9 @@ async fn stop_proxy(
 #[tokio::test]
 async fn configured_read_timeout_closes_a_partial_request_head() {
     let (services, _audit) = services(Vec::new(), local_access());
-    let mut short_limits = limits();
-    short_limits.read_timeout = Duration::from_millis(25);
+    let short_limits = limits()
+        .with_read_timeout(Duration::from_millis(25))
+        .unwrap();
     let (proxy, shutdown, proxy_task) =
         bind_proxy_with_limits(vec![Port::HTTPS], services, short_limits).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();
@@ -200,8 +201,9 @@ async fn preflight_request_body_read_timeout_returns_request_timeout() {
     let (services, _audit) = services(Vec::new(), local_access());
     let inspection = InspectionProgram::empty(PolicyGeneration::new(31).unwrap());
     let services = services.with_inspection(inspection, InspectionMode::Preflight);
-    let mut short_limits = limits();
-    short_limits.read_timeout = Duration::from_millis(25);
+    let short_limits = limits()
+        .with_read_timeout(Duration::from_millis(25))
+        .unwrap();
     let (proxy, shutdown, proxy_task) =
         bind_proxy_with_limits(vec![Port::HTTPS], services, short_limits).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();
@@ -401,17 +403,16 @@ fn interception_fixture(
 
         fs::set_permissions(&ca_private_key, fs::Permissions::from_mode(0o600)).unwrap();
     }
-    let tls_config = TlsConfig::Intercept {
+    let tls_config = TlsInterceptionConfig::new(
         ca_certificate,
         ca_private_key,
-        intercept_hosts: vec![HostPattern::Exact(HostName::new("localhost").unwrap())],
-        leaf_cache_entries: 4,
-    };
+        vec![HostPattern::Exact(HostName::new("localhost").unwrap())],
+        4,
+    )
+    .unwrap();
     let mut upstream_roots = RootCertStore::empty();
     upstream_roots.add(issuer.der().clone()).unwrap();
-    let interceptor = TlsInterceptor::from_config_and_roots(&tls_config, upstream_roots)
-        .unwrap()
-        .unwrap();
+    let interceptor = TlsInterceptor::from_config_and_roots(&tls_config, upstream_roots).unwrap();
     (interceptor, directory)
 }
 
@@ -1173,8 +1174,7 @@ async fn unavailable_upstream_returns_bad_gateway() {
 #[tokio::test]
 async fn configured_header_budget_rejects_oversized_requests() {
     let (services, _audit) = services(Vec::new(), local_access());
-    let mut constrained = limits();
-    constrained.header_bytes = 64;
+    let constrained = limits().with_header_bytes(64).unwrap();
     let (proxy, shutdown, proxy_task) =
         bind_proxy_with_limits(vec![Port::HTTPS], services, constrained).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();
@@ -1202,8 +1202,7 @@ async fn preflight_body_budget_rejects_without_forwarding_body() {
             InspectionProgram::empty(generation),
             InspectionMode::Preflight,
         );
-    let mut constrained = limits();
-    constrained.body_prefix_bytes = 4;
+    let constrained = limits().with_body_prefix_bytes(4).unwrap();
     let (proxy, shutdown, proxy_task) =
         bind_proxy_with_limits(vec![Port::HTTPS], services, constrained).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();
@@ -1235,8 +1234,9 @@ async fn slow_upstream_response_returns_gateway_timeout() {
         tokio::time::sleep(Duration::from_millis(300)).await;
     });
     let (services, _audit) = services(Vec::new(), local_access());
-    let mut short_limits = limits();
-    short_limits.idle_timeout = Duration::from_millis(50);
+    let short_limits = limits()
+        .with_idle_timeout(Duration::from_millis(50))
+        .unwrap();
     let (proxy, shutdown, proxy_task) =
         bind_proxy_with_limits(vec![Port::HTTPS], services, short_limits).await;
     let mut client = TcpStream::connect(proxy).await.unwrap();

@@ -1,13 +1,12 @@
 use std::net::SocketAddr;
 
 use freja_audit::{AuditEnvelope, AuditEvent};
-use freja_config::Limits;
 use freja_domain::{Protocol, RequestedTargetFacts, SessionId, UpstreamEndpoint};
 use tokio::net::TcpStream;
 
 use super::relay::{RelayLimits, RelayResult, RelayStats, RelayTermination, relay};
 use crate::{
-    DataPlaneServices, ProxyError, ShutdownSignal,
+    DataPlaneServices, ProxyError, ProxyLimits, ShutdownSignal,
     destination::{audit_context, authorize_and_resolve, connect_any},
     inspection::FlowInspector,
 };
@@ -18,7 +17,7 @@ pub(super) async fn run_static_session(
     listener: SocketAddr,
     upstream: UpstreamEndpoint,
     services: DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
     shutdown: ShutdownSignal,
 ) -> Result<(), ProxyError> {
     let session_id = SessionId::new();
@@ -65,7 +64,7 @@ async fn run_session_inner(
     upstream: &UpstreamEndpoint,
     session_id: SessionId,
     services: &DataPlaneServices,
-    limits: Limits,
+    limits: ProxyLimits,
     mut shutdown: ShutdownSignal,
 ) -> Result<RelayResult, ProxyError> {
     let requested = RequestedTargetFacts::new(

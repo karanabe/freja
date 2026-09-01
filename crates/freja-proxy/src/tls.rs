@@ -6,7 +6,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use freja_config::TlsConfig;
 use freja_domain::TargetHost;
 use freja_policy::HostPattern;
 use rcgen::{CertificateParams, Issuer, KeyPair};
@@ -19,6 +18,8 @@ use rustls::{
 };
 use tokio::net::TcpStream;
 use tokio_rustls::{TlsAcceptor, TlsConnector, client::TlsStream as ClientTlsStream};
+
+use crate::TlsInterceptionConfig;
 
 const ALPN_HTTP_2: &[u8] = b"h2";
 const ALPN_HTTP_1_1: &[u8] = b"http/1.1";
@@ -48,14 +49,13 @@ impl fmt::Debug for TlsInterceptor {
 }
 
 impl TlsInterceptor {
-    /// Loads the configured CA and creates an interceptor, or returns `None`
-    /// when TLS handling is tunnel-only.
+    /// Loads the configured CA and creates an interception engine.
     ///
     /// # Errors
     ///
     /// Returns [`TlsError`] for unreadable or insecure CA inputs and invalid
     /// certificate/key material.
-    pub fn from_config(config: &TlsConfig) -> Result<Option<Self>, TlsError> {
+    pub fn from_config(config: &TlsInterceptionConfig) -> Result<Self, TlsError> {
         let roots = webpki_roots::TLS_SERVER_ROOTS
             .iter()
             .cloned()
@@ -71,29 +71,19 @@ impl TlsInterceptor {
     ///
     /// Returns [`TlsError`] under the same conditions as [`Self::from_config`].
     pub fn from_config_and_roots(
-        config: &TlsConfig,
+        config: &TlsInterceptionConfig,
         roots: RootCertStore,
-    ) -> Result<Option<Self>, TlsError> {
-        let TlsConfig::Intercept {
-            ca_certificate,
-            ca_private_key,
-            intercept_hosts,
-            leaf_cache_entries,
-        } = config
-        else {
-            return Ok(None);
-        };
-        validate_private_key_permissions(ca_private_key)?;
-        let ca_pem = read_text(ca_certificate, TlsInput::Certificate)?;
-        let key_pem = read_text(ca_private_key, TlsInput::PrivateKey)?;
+    ) -> Result<Self, TlsError> {
+        validate_private_key_permissions(&config.ca_private_key)?;
+        let ca_pem = read_text(&config.ca_certificate, TlsInput::Certificate)?;
+        let key_pem = read_text(&config.ca_private_key, TlsInput::PrivateKey)?;
         Self::from_material(
             &ca_pem,
             &key_pem,
-            intercept_hosts.clone(),
-            *leaf_cache_entries,
+            config.intercept_hosts.clone(),
+            config.leaf_cache_entries,
             roots,
         )
-        .map(Some)
     }
 
     fn from_material(
@@ -426,13 +416,12 @@ fn validate_private_key_permissions(_path: &Path) -> Result<(), TlsError> {
 
 #[cfg(test)]
 mod tests {
-    use freja_config::TlsConfig;
     use freja_domain::{HostName, SessionId, TargetHost};
     use freja_policy::HostPattern;
     use rcgen::{BasicConstraints, CertificateParams, IsCa, KeyPair, KeyUsagePurpose};
     use rustls::RootCertStore;
 
-    use super::{ALPN_HTTP_1_1, TlsError, TlsInterceptor};
+    use super::{ALPN_HTTP_1_1, TlsError, TlsInterceptionConfig, TlsInterceptor};
 
     fn test_interceptor(capacity: usize) -> TlsInterceptor {
         let key = KeyPair::generate().expect("generate CA key");
@@ -514,14 +503,15 @@ mod tests {
         fs::write(&private_key, "not-secret-test-material").expect("write test key");
         fs::set_permissions(&private_key, fs::Permissions::from_mode(0o640))
             .expect("set insecure permissions");
-        let config = TlsConfig::Intercept {
-            ca_certificate: directory.join("missing-ca.pem"),
-            ca_private_key: private_key,
-            intercept_hosts: vec![HostPattern::Exact(
+        let config = TlsInterceptionConfig::new(
+            directory.join("missing-ca.pem"),
+            private_key,
+            vec![HostPattern::Exact(
                 HostName::new("example.test").expect("valid host"),
             )],
-            leaf_cache_entries: 1,
-        };
+            1,
+        )
+        .expect("valid interception settings");
 
         let error = TlsInterceptor::from_config(&config).expect_err("permissions must fail");
         assert!(matches!(

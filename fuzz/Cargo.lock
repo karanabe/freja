@@ -384,10 +384,8 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "freja-audit",
- "freja-config",
  "freja-domain",
  "freja-policy",
- "freja-ui",
  "hex",
  "http",
  "http-body-util",
@@ -400,17 +398,6 @@ dependencies = [
  "tokio-rustls",
  "tracing",
  "webpki-roots",
-]
-
-[[package]]
-name = "freja-ui"
-version = "0.1.0"
-dependencies = [
- "freja-domain",
- "freja-policy",
- "http",
- "serde",
- "tokio",
 ]
 
 [[package]]

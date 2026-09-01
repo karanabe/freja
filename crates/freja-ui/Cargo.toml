@@ -14,12 +14,12 @@ publish.workspace = true
 
 [features]
 default = []
-tui = ["dep:ratatui"]
+tui = ["dep:freja-policy", "dep:http", "dep:ratatui"]
 
 [dependencies]
 freja-domain.workspace = true
-freja-policy.workspace = true
-http.workspace = true
+freja-policy = { workspace = true, optional = true }
+http = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
 serde.workspace = true
 tokio.workspace = true
