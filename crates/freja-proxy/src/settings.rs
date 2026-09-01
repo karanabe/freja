@@ -10,7 +10,12 @@ use freja_policy::HostPattern;
 /// Invalid runtime input supplied directly to the data-plane API.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProxySettingsError {
-    ZeroLimit { name: &'static str },
+    /// A memory, concurrency, cache, or timeout bound was zero.
+    ZeroLimit {
+        /// Stable setting name used in diagnostics.
+        name: &'static str,
+    },
+    /// TLS interception was requested without explicitly allowed hosts.
     EmptyInterceptionAllowlist,
 }
 
@@ -45,6 +50,26 @@ impl ProxyLimits {
     ///
     /// Returns [`ProxySettingsError::ZeroLimit`] when any bound or timeout is
     /// zero.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::time::Duration;
+    /// use freja_proxy::ProxyLimits;
+    ///
+    /// # fn main() -> Result<(), freja_proxy::ProxySettingsError> {
+    /// let limits = ProxyLimits::new(
+    ///     128,
+    ///     64 * 1024,
+    ///     64 * 1024,
+    ///     Duration::from_secs(10),
+    ///     Duration::from_secs(30),
+    ///     Duration::from_secs(60),
+    /// )?;
+    /// assert_eq!(limits.connections(), 128);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(
         connections: usize,
         header_bytes: usize,
@@ -81,26 +106,32 @@ impl ProxyLimits {
         })
     }
 
+    /// Returns the maximum number of concurrently admitted flows.
     pub const fn connections(self) -> usize {
         self.connections
     }
 
+    /// Returns the maximum bytes accepted in one HTTP message head.
     pub const fn header_bytes(self) -> usize {
         self.header_bytes
     }
 
+    /// Returns the maximum bytes retained for body inspection.
     pub const fn body_prefix_bytes(self) -> usize {
         self.body_prefix_bytes
     }
 
+    /// Returns the DNS and upstream connection deadline.
     pub const fn connect_timeout(self) -> Duration {
         self.connect_timeout
     }
 
+    /// Returns the deadline applied to individual network reads.
     pub const fn read_timeout(self) -> Duration {
         self.read_timeout
     }
 
+    /// Returns the maximum duration without useful relay progress.
     pub const fn idle_timeout(self) -> Duration {
         self.idle_timeout
     }
@@ -239,6 +270,7 @@ impl CaptureSettings {
         })
     }
 
+    /// Returns the raw capture bound, or `None` when capture is disabled.
     pub const fn maximum_prefix_bytes(self) -> Option<usize> {
         self.maximum_prefix_bytes
     }
@@ -282,18 +314,22 @@ impl TlsInterceptionConfig {
         })
     }
 
+    /// Returns the operator-owned PEM CA certificate path.
     pub fn ca_certificate(&self) -> &Path {
         &self.ca_certificate
     }
 
+    /// Returns the sensitive PEM CA private-key path.
     pub fn ca_private_key(&self) -> &Path {
         &self.ca_private_key
     }
 
+    /// Returns the non-empty allowlist eligible for TLS interception.
     pub fn intercept_hosts(&self) -> &[HostPattern] {
         &self.intercept_hosts
     }
 
+    /// Returns the maximum generated leaf certificates retained in memory.
     pub const fn leaf_cache_entries(&self) -> usize {
         self.leaf_cache_entries
     }

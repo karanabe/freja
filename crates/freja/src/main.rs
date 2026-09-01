@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+//! Freja command-line bootstrap for configuration checks, proxy operation, and replay.
+
 mod ui_adapter;
 
 use std::{path::PathBuf, process::ExitCode};

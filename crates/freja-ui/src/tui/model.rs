@@ -7,31 +7,47 @@ use crate::UiEvent;
 /// Bounded immutable view of one flow.
 #[derive(Debug, Clone)]
 pub struct FlowSnapshot {
+    /// Connection correlation identity.
     pub session_id: SessionId,
+    /// Most recently observed peer description.
     pub client: String,
+    /// Most recently observed target description.
     pub target: String,
+    /// Bounded request metadata in observation order.
     pub http: VecDeque<HttpSnapshot>,
+    /// Bounded findings in observation order.
     pub findings: VecDeque<Finding>,
+    /// Bounded policy traces in observation order.
     pub traces: VecDeque<DecisionTrace>,
+    /// Bounded copied payload prefixes in observation order.
     pub prefixes: VecDeque<PrefixSnapshot>,
+    /// Final client-to-upstream byte count, or zero while unknown.
     pub client_to_upstream_bytes: u64,
+    /// Final upstream-to-client byte count, or zero while unknown.
     pub upstream_to_client_bytes: u64,
+    /// Whether the terminal flow event has been observed.
     pub closed: bool,
 }
 
 /// Request metadata displayed without retaining a live HTTP object.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HttpSnapshot {
+    /// HTTP exchange correlation identity.
     pub transaction_id: TransactionId,
+    /// Normalized HTTP method.
     pub method: String,
+    /// Redacted request target.
     pub target: String,
 }
 
 /// Bounded body bytes copied for hex/ASCII presentation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PrefixSnapshot {
+    /// HTTP exchange identity, or `None` for raw TCP traffic.
     pub transaction_id: Option<TransactionId>,
+    /// Logical traffic direction.
     pub direction: Direction,
+    /// Bounded copied bytes that may contain sensitive payload data.
     pub bytes: Vec<u8>,
 }
 
@@ -141,16 +157,19 @@ impl TuiModel {
         self.selected = index;
     }
 
+    /// Moves selection toward the oldest retained flow without underflowing.
     pub fn select_previous(&mut self) {
         self.selected = self.selected.saturating_sub(1);
     }
 
+    /// Moves selection toward the newest retained flow when one exists.
     pub fn select_next(&mut self) {
         if self.selected.saturating_add(1) < self.flows.len() {
             self.selected += 1;
         }
     }
 
+    /// Replaces the displayed monotonic best-effort delivery counter.
     pub fn set_dropped_events(&mut self, dropped_events: u64) {
         self.dropped_events = dropped_events;
     }
@@ -160,6 +179,7 @@ impl TuiModel {
         self.interactive_status = status;
     }
 
+    /// Returns retained flow snapshots from oldest to newest.
     pub fn flows(&self) -> &VecDeque<FlowSnapshot> {
         &self.flows
     }

@@ -8,11 +8,17 @@ use crate::{RawTls, ValidationError};
 /// Validated TLS behavior without optional interception fields in tunnel mode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TlsConfig {
+    /// Preserve end-to-end TLS and relay opaque encrypted bytes.
     Tunnel,
+    /// Terminate TLS for explicitly allowed hostnames using operator-owned CA material.
     Intercept {
+        /// PEM CA certificate path.
         ca_certificate: PathBuf,
+        /// PEM CA private-key path.
         ca_private_key: PathBuf,
+        /// Non-empty set of host patterns eligible for interception.
         intercept_hosts: Vec<HostPattern>,
+        /// Non-zero in-memory leaf-certificate cache capacity.
         leaf_cache_entries: usize,
     },
 }

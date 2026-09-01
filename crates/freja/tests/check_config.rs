@@ -1,3 +1,5 @@
+//! Integration tests for the CLI configuration-check command.
+
 use std::{
     fs,
     path::PathBuf,

@@ -5,21 +5,33 @@ use freja_domain::RuleId;
 /// Failure to compile an ACL policy.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyError {
+    /// Two declaration-ordered rules used the same stable identity.
     DuplicateRule {
+        /// Duplicated identity.
         rule_id: RuleId,
     },
+    /// An `all` or `any` expression had no operands.
     EmptyBooleanExpression {
+        /// Rule containing the invalid expression.
         rule_id: RuleId,
+        /// Stable operator name (`all` or `any`).
         operator: &'static str,
     },
+    /// An inclusive port range had zero or descending endpoints.
     InvalidPortRange {
+        /// Requested lower endpoint.
         start: u16,
+        /// Requested upper endpoint.
         end: u16,
     },
+    /// A built-in security rule identity violated domain validation.
     BuiltInRule(freja_domain::IdError),
+    /// A TCP detour rule could be evaluated too late or for a non-TCP flow.
     InvalidDetourRule {
+        /// Invalid detour rule.
         rule_id: RuleId,
     },
+    /// Detour was selected as a default despite requiring requested-stage TCP facts.
     InvalidDefaultDetour,
 }
 

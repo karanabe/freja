@@ -8,7 +8,9 @@ use crate::{Finding, Port, TargetHost};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Protocol {
+    /// Opaque byte-stream policy semantics.
     Tcp,
+    /// HTTP request/response policy semantics.
     Http,
 }
 
@@ -37,18 +39,22 @@ impl RequestedTargetFacts {
         }
     }
 
+    /// Returns the client IP observed by the accepting listener.
     pub const fn source_ip(&self) -> IpAddr {
         self.source_ip
     }
 
+    /// Returns the destination named by the client before resolution.
     pub const fn requested_host(&self) -> &TargetHost {
         &self.requested_host
     }
 
+    /// Returns the requested non-zero destination port.
     pub const fn destination_port(&self) -> Port {
         self.destination_port
     }
 
+    /// Returns the protocol semantics used for policy action selection.
     pub const fn protocol(&self) -> Protocol {
         self.protocol
     }
@@ -74,10 +80,12 @@ impl ResolvedTargetFacts {
         }
     }
 
+    /// Returns the pre-resolution facts from which this value was derived.
     pub const fn requested(&self) -> &RequestedTargetFacts {
         &self.requested
     }
 
+    /// Returns the single address that must be evaluated before use.
     pub const fn resolved_ip(&self) -> IpAddr {
         self.resolved_ip
     }
@@ -148,18 +156,22 @@ impl HttpRequestFacts {
         }
     }
 
+    /// Returns the authorized destination associated with the request.
     pub const fn target(&self) -> &ResolvedTargetFacts {
         &self.target
     }
 
+    /// Returns the upper-case HTTP method.
     pub fn method(&self) -> &str {
         &self.method
     }
 
+    /// Returns the normalized request path used for policy matching.
     pub fn path(&self) -> &str {
         &self.path
     }
 
+    /// Returns framing-validated request headers.
     pub const fn headers(&self) -> &SanitizedHeaders {
         &self.headers
     }
@@ -177,12 +189,19 @@ pub struct HttpResponseFacts {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "stage", content = "facts", rename_all = "kebab-case")]
 pub enum ReplayFacts {
+    /// Facts captured before destination resolution.
     Requested(RequestedTargetFacts),
+    /// Facts captured for one resolved destination address.
     Resolved(ResolvedTargetFacts),
+    /// Normalized request facts captured before forwarding.
     HttpRequest(HttpRequestFacts),
+    /// Response facts captured before downstream commitment.
     HttpResponse(HttpResponseFacts),
+    /// A streaming detector finding and the protocol to which it applies.
     Finding {
+        /// Immutable detector output; replay policy decides the action.
         finding: Finding,
+        /// Protocol semantics of the original flow.
         protocol: Protocol,
     },
 }
@@ -197,14 +216,17 @@ impl HttpResponseFacts {
         }
     }
 
+    /// Returns the authorized upstream associated with the response.
     pub const fn target(&self) -> &ResolvedTargetFacts {
         &self.target
     }
 
+    /// Returns the upstream HTTP status code.
     pub const fn status(&self) -> u16 {
         self.status
     }
 
+    /// Returns framing-validated response headers.
     pub const fn headers(&self) -> &SanitizedHeaders {
         &self.headers
     }

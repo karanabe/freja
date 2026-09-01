@@ -5,8 +5,13 @@ use crate::{RawCapturePolicy, RawInspectionPattern, ValidationError};
 /// Validated metadata-only or bounded-prefix capture policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CapturePolicy {
+    /// Store no raw payload bytes in audit or UI snapshots.
     MetadataOnly,
-    Prefix { max_bytes: usize },
+    /// Store a bounded raw prefix after the global body limit is enforced.
+    Prefix {
+        /// Maximum retained bytes per captured direction.
+        max_bytes: usize,
+    },
 }
 
 impl TryFrom<(RawCapturePolicy, usize)> for CapturePolicy {

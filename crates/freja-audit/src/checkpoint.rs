@@ -13,9 +13,13 @@ use crate::RecordHash;
 /// Ed25519 signature over one audit record hash and its segment sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedCheckpoint {
+    /// Last ordinary record covered by the signature.
     pub covers_sequence: AuditSequence,
+    /// Hash of the covered record, which commits to the preceding chain.
     pub record_hash: RecordHash,
+    /// Ed25519 public verification key as lower-case hexadecimal.
     pub public_key_hex: String,
+    /// Ed25519 signature as lower-case hexadecimal.
     pub signature_hex: String,
 }
 
@@ -127,16 +131,25 @@ impl CheckpointSchedule {
 /// Protected checkpoint signing-key setup failure.
 #[derive(Debug)]
 pub enum CheckpointKeyError {
+    /// The signing-seed file or its metadata could not be read.
     Read {
+        /// Requested key path.
         path: PathBuf,
+        /// Underlying filesystem error.
         source: std::io::Error,
     },
+    /// A Unix key file was accessible to group or other users.
     InsecurePermissions {
+        /// Insecure key path.
         path: PathBuf,
+        /// Observed Unix permission bits.
         mode: u32,
     },
+    /// The signing seed was not valid hexadecimal.
     Hex(hex::FromHexError),
+    /// The decoded seed was not exactly 32 bytes.
     InvalidLength,
+    /// A checkpoint schedule used an interval of zero.
     ZeroInterval,
 }
 

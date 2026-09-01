@@ -5,16 +5,41 @@ use serde::{Deserialize, Serialize};
 /// A validation error for a network endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EndpointError {
+    /// A DNS hostname was empty after normalization.
     EmptyHost,
+    /// A DNS hostname exceeded the 253-byte wire-compatible limit.
     HostTooLong,
+    /// A DNS hostname contained an empty label.
     EmptyLabel,
-    LabelTooLong { label: String },
-    InvalidHostCharacter { character: char },
-    InvalidLabelBoundary { label: String },
+    /// One DNS label exceeded 63 bytes.
+    LabelTooLong {
+        /// Offending label.
+        label: String,
+    },
+    /// A DNS hostname contained a character outside the accepted ASCII syntax.
+    InvalidHostCharacter {
+        /// Offending character.
+        character: char,
+    },
+    /// A DNS label began or ended with a hyphen.
+    InvalidLabelBoundary {
+        /// Offending label.
+        label: String,
+    },
+    /// Port zero was supplied where a usable TCP port is required.
     ZeroPort,
+    /// A textual upstream endpoint omitted its port separator and value.
     MissingPort,
-    InvalidPort { value: String },
-    InvalidSocketAddress { value: String },
+    /// A textual port was not a valid `u16` value.
+    InvalidPort {
+        /// Unparseable port text.
+        value: String,
+    },
+    /// A listener address was not a valid numeric socket address.
+    InvalidSocketAddress {
+        /// Unparseable socket-address text.
+        value: String,
+    },
 }
 
 impl fmt::Display for EndpointError {
@@ -122,7 +147,9 @@ impl fmt::Display for HostName {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum TargetHost {
+    /// A numeric address that does not require DNS resolution.
     Ip(IpAddr),
+    /// A validated DNS hostname that must be resolved before connecting.
     Name(HostName),
 }
 

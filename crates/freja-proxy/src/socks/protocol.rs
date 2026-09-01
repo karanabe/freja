@@ -249,20 +249,33 @@ pub(super) const fn reply_for_proxy_error(error: &ProxyError) -> u8 {
 /// SOCKS5 negotiation or authentication failure.
 #[derive(Debug)]
 pub enum SocksError {
+    /// Negotiation or request I/O failed.
     Io {
+        /// Stable protocol lifecycle stage.
         stage: &'static str,
+        /// Underlying transport error.
         source: std::io::Error,
     },
+    /// A protocol lifecycle stage exceeded the configured read budget.
     TimedOut {
+        /// Stable protocol lifecycle stage.
         stage: &'static str,
     },
+    /// The client did not speak SOCKS version 5.
     UnsupportedVersion,
+    /// Client and server shared no permitted authentication method.
     NoAcceptableAuthentication,
+    /// Username/password verification failed without exposing the credential.
     AuthenticationFailed,
+    /// The client requested a command other than CONNECT.
     UnsupportedCommand,
+    /// The client used an unsupported target address encoding.
     UnsupportedAddressType,
+    /// Reserved fields or request structure were invalid.
     MalformedRequest,
+    /// A domain-name target was not valid UTF-8.
     InvalidDomainEncoding(std::string::FromUtf8Error),
+    /// A parsed target violated Freja endpoint invariants.
     InvalidTarget(freja_domain::EndpointError),
 }
 

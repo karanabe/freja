@@ -1,6 +1,27 @@
 #![forbid(unsafe_code)]
 
 //! Immutable UI events and a best-effort bounded publisher.
+//!
+//! [`UiPublisher`] is cloneable across network tasks. Publishing never waits
+//! for capacity and therefore cannot put backpressure on forwarding; dropped
+//! snapshots are counted explicitly. Enable the `tui` feature for the
+//! terminal-owning ratatui consumer.
+//!
+//! # Example
+//!
+//! ```
+//! use freja_ui::{UiEvent, UiPublishOutcome, UiPublisher};
+//!
+//! # fn main() -> Result<(), freja_ui::UiChannelError> {
+//! let (publisher, _receiver) = UiPublisher::channel(1)?;
+//! let event = || UiEvent::OperationalLog { message: "ready".to_owned() };
+//!
+//! assert_eq!(publisher.try_publish(event()), UiPublishOutcome::Published);
+//! assert_eq!(publisher.try_publish(event()), UiPublishOutcome::DroppedFull);
+//! assert_eq!(publisher.dropped_events(), 1);
+//! # Ok(())
+//! # }
+//! ```
 
 use std::{
     error::Error,
@@ -23,37 +44,66 @@ pub mod tui;
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum UiEvent {
     /// One formatted operational log line routed through the bounded TUI channel.
-    OperationalLog { message: String },
+    OperationalLog {
+        /// Bounded, display-ready log text.
+        message: String,
+    },
+    /// A listener admitted a new flow.
     FlowOpened {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// Peer address formatted for presentation.
         client: String,
+        /// Requested or static target formatted for presentation.
         target: String,
     },
+    /// Normalized HTTP request metadata became available.
     HttpObserved {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// HTTP exchange correlation identity.
         transaction_id: TransactionId,
+        /// Normalized method.
         method: String,
+        /// Redacted request target.
         target: String,
     },
+    /// Policy produced an explainable decision.
     DecisionMade {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// HTTP exchange identity when applicable.
         transaction_id: Option<TransactionId>,
+        /// Immutable policy explanation.
         trace: DecisionTrace,
     },
+    /// Inspection produced a finding without directly enforcing it.
     FindingDetected {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// HTTP exchange identity when applicable.
         transaction_id: Option<TransactionId>,
+        /// Immutable detector output with hashed evidence by default.
         finding: Finding,
     },
+    /// Explicit capture produced a bounded body snapshot.
     BodyPrefix {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// HTTP exchange identity when applicable.
         transaction_id: Option<TransactionId>,
+        /// Logical traffic direction.
         direction: Direction,
+        /// Copied bytes that consumers must treat as sensitive.
         bytes: Vec<u8>,
     },
+    /// A flow reached its terminal state.
     FlowClosed {
+        /// Connection correlation identity.
         session_id: SessionId,
+        /// Total bytes relayed from client to upstream.
         client_to_upstream_bytes: u64,
+        /// Total bytes relayed from upstream to client.
         upstream_to_client_bytes: u64,
     },
 }
@@ -61,6 +111,7 @@ pub enum UiEvent {
 /// Failure to create a bounded UI event channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiChannelError {
+    /// Capacity zero would make every best-effort event undeliverable.
     ZeroCapacity,
 }
 
@@ -77,8 +128,11 @@ impl Error for UiChannelError {}
 /// Result of a non-blocking UI publish attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UiPublishOutcome {
+    /// The bounded channel accepted the event.
     Published,
+    /// The event was dropped because the consumer was behind.
     DroppedFull,
+    /// The event was dropped because the consumer had shut down.
     DroppedClosed,
 }
 

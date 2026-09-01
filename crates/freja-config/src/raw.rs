@@ -21,14 +21,23 @@ use crate::{ConfigError, ValidatedConfig};
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawConfig {
+    /// Independent UI, enforcement, and hook selections.
     pub runtime: RuntimeProfile,
+    /// Explicit opt-ins for listener exposure and protected destination classes.
     pub safety: RawSafety,
+    /// Unvalidated resource and timeout bounds.
     pub limits: RawLimits,
+    /// Audit destination, delivery, redaction, and checkpoint settings.
     pub audit: RawAudit,
+    /// Payload capture selection; defaults to metadata only.
     pub capture: RawCapturePolicy,
+    /// Inspection execution mode and detector definitions.
     pub inspection: RawInspection,
+    /// Tunnel or opt-in interception settings.
     pub tls: RawTls,
+    /// Ordered ACL snapshot and generation.
     pub policy: RawPolicy,
+    /// Listener declarations; validation requires at least one.
     pub listeners: Vec<RawListener>,
 }
 
@@ -71,10 +80,15 @@ impl RawConfig {
 #[derive(Debug, Clone, Copy, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawSafety {
+    /// Whether configuration may expose authenticated listeners beyond loopback.
     pub allow_non_loopback: bool,
+    /// Access policy for RFC 1918 and equivalent private addresses.
     pub private_destinations: DestinationAccess,
+    /// Access policy for link-local destinations.
     pub link_local_destinations: DestinationAccess,
+    /// Access policy for loopback destinations.
     pub loopback_destinations: DestinationAccess,
+    /// Access policy for known cloud metadata-service destinations.
     pub metadata_destinations: DestinationAccess,
 }
 
@@ -82,14 +96,23 @@ pub struct RawSafety {
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawLimits {
+    /// Maximum concurrently admitted flows.
     pub connections: usize,
+    /// Maximum HTTP header bytes accepted for one message head.
     pub header_bytes: usize,
+    /// Maximum bytes retained for inspection from one body or direction.
     pub body_prefix_bytes: usize,
+    /// Upstream connection deadline in milliseconds.
     pub connect_timeout_ms: u64,
+    /// Individual network read deadline in milliseconds.
     pub read_timeout_ms: u64,
+    /// Maximum duration without flow progress in milliseconds.
     pub idle_timeout_ms: u64,
+    /// Maximum flows simultaneously paused for interactive interception.
     pub paused_flows: usize,
+    /// Operator decision deadline in milliseconds.
     pub interception_timeout_ms: u64,
+    /// Bounded best-effort UI event channel capacity.
     pub ui_event_capacity: usize,
 }
 
@@ -113,11 +136,17 @@ impl Default for RawLimits {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawAudit {
+    /// JSONL output path, or directory interpreted by bootstrap policy.
     pub path: PathBuf,
+    /// Capacity of the audit-only bounded channel.
     pub channel_capacity: usize,
+    /// Whether saturation blocks traffic or returns an explicit delivery failure.
     pub failure_policy: AuditFailurePolicy,
+    /// Case-insensitive query parameter names whose values must be redacted.
     pub redact_query_parameters: Vec<String>,
+    /// Optional path to a hex-encoded Ed25519 signing seed.
     pub checkpoint_signing_key: Option<PathBuf>,
+    /// Number of ordinary records between signed checkpoints.
     pub checkpoint_interval: u64,
 }
 
@@ -144,8 +173,11 @@ impl Default for RawAudit {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawPolicy {
+    /// Non-zero identity embedded in every compiled decision trace.
     pub generation: u64,
+    /// Action selected when no rule matches.
     pub default_action: RuleAction,
+    /// ACL rules evaluated in declaration order.
     pub rules: Vec<AclRule>,
 }
 

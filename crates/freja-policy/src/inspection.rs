@@ -12,10 +12,26 @@ use crate::RuleAction;
 /// Invalid fixed-pattern inspection configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InspectionError {
-    EmptyPattern { detector_id: DetectorId },
-    EmptyDirections { detector_id: DetectorId },
-    DuplicateDetector { detector_id: DetectorId },
-    UnsupportedDetour { detector_id: DetectorId },
+    /// A detector had no bytes and would match every position.
+    EmptyPattern {
+        /// Invalid detector.
+        detector_id: DetectorId,
+    },
+    /// A detector had no stream direction in which it could run.
+    EmptyDirections {
+        /// Invalid detector.
+        detector_id: DetectorId,
+    },
+    /// Two compiled patterns used the same detector identity.
+    DuplicateDetector {
+        /// Duplicated detector identity.
+        detector_id: DetectorId,
+    },
+    /// A detector attempted a detour after relay selection was committed.
+    UnsupportedDetour {
+        /// Invalid detector.
+        detector_id: DetectorId,
+    },
 }
 
 impl fmt::Display for InspectionError {
@@ -97,6 +113,7 @@ impl InspectionPattern {
         })
     }
 
+    /// Returns the identity copied into each generated finding.
     pub fn detector_id(&self) -> &DetectorId {
         &self.detector_id
     }

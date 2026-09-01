@@ -7,11 +7,17 @@ use crate::{RawAudit, ValidationError};
 /// Validated audit sink and redaction settings.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuditConfig {
+    /// Validated JSONL destination supplied to bootstrap.
     pub path: PathBuf,
+    /// Non-zero audit channel capacity, independent from the UI channel.
     pub channel_capacity: usize,
+    /// Explicit traffic behavior when audit delivery cannot proceed.
     pub failure_policy: AuditFailurePolicy,
+    /// Lower-case query parameter names whose values are redacted before hashing.
     pub redact_query_parameters: Vec<String>,
+    /// Optional Ed25519 signing-seed path for periodic checkpoints.
     pub checkpoint_signing_key: Option<PathBuf>,
+    /// Non-zero record interval when checkpoint signing is enabled.
     pub checkpoint_interval: u64,
 }
 

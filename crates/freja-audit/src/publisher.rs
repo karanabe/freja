@@ -14,14 +14,18 @@ use crate::{AuditContext, AuditEvent, AuditFailurePolicy};
 /// Owned event sent through the bounded audit publisher.
 #[derive(Debug, Clone)]
 pub struct AuditEnvelope {
+    /// Correlation and policy identity copied at event creation.
     pub context: AuditContext,
+    /// Owned typed event transferred to the single consumer.
     pub event: AuditEvent,
 }
 
 /// An explicit audit delivery failure; critical records are never silently discarded.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PublishError {
+    /// The audit consumer shut down before accepting the event.
     ChannelClosed,
+    /// A fail-open publish found the bounded channel full.
     CapacityExhausted,
 }
 
@@ -47,6 +51,7 @@ pub struct AuditPublisher {
 /// Failure to create an audit channel with a valid finite capacity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AuditChannelError {
+    /// Capacity zero would make every critical event undeliverable.
     ZeroCapacity,
 }
 

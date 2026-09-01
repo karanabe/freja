@@ -1,3 +1,5 @@
+//! Integration tests for deterministic audit replay behavior.
+
 use std::{
     fs,
     net::IpAddr,

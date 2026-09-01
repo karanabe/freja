@@ -1,3 +1,5 @@
+//! Architectural dependency-boundary checks for framework-independent crates.
+
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::PathBuf,

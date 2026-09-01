@@ -1,6 +1,43 @@
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 //! Typed, redacted, hash-chained JSONL security audit records.
+//!
+//! Audit delivery uses a channel independent from best-effort UI events.
+//! Producers are cloneable and safe to share between flow tasks; a single
+//! consumer owns sequence assignment, redaction, hashing, and output. Secret
+//! values are removed before a record hash is calculated.
+//!
+//! # Example
+//!
+//! ```
+//! use freja_audit::{
+//!     AuditContext, AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher,
+//!     UnixMillis,
+//! };
+//! use freja_domain::{PolicyGeneration, SessionId};
+//!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let (publisher, mut receiver) =
+//!     AuditPublisher::channel(8, AuditFailurePolicy::FailClosed)?;
+//! publisher.publish(AuditEnvelope {
+//!     context: AuditContext {
+//!         occurred_at: UnixMillis::from_millis(1),
+//!         session_id: SessionId::new(),
+//!         transaction_id: None,
+//!         policy_generation: PolicyGeneration::default(),
+//!     },
+//!     event: AuditEvent::ConnectionAccepted {
+//!         client: "127.0.0.1:50000".to_owned(),
+//!         listener: "127.0.0.1:8080".to_owned(),
+//!     },
+//! }).await?;
+//!
+//! assert!(receiver.recv().await.is_some());
+//! # Ok(())
+//! # }
+//! ```
 
 mod checkpoint;
 mod model;

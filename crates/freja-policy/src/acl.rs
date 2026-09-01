@@ -1,3 +1,40 @@
+//! Ordered, first-match access-control policy.
+//!
+//! Facts are evaluated only at the lifecycle stage represented by
+//! [`PolicyFacts`]. A criterion unavailable at that stage does not match, even
+//! under negation. Callers must evaluate every DNS result independently.
+//!
+//! # Example
+//!
+//! ```
+//! use std::net::IpAddr;
+//! use freja_domain::{
+//!     EnforcementAction, PolicyGeneration, Port, Protocol, RequestedTargetFacts,
+//!     RuleId, TargetHost,
+//! };
+//! use freja_policy::{AclPolicy, AclRule, MatchExpression, PolicyFacts, RuleAction};
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let rule = AclRule {
+//!     id: RuleId::new("deny-tcp")?,
+//!     matcher: MatchExpression::Protocol(Protocol::Tcp),
+//!     action: RuleAction::Deny,
+//! };
+//! let policy = AclPolicy::new(PolicyGeneration::default(), vec![rule], RuleAction::Allow)?;
+//! let facts = RequestedTargetFacts::new(
+//!     IpAddr::from([127, 0, 0, 1]),
+//!     TargetHost::parse("example.test")?,
+//!     Port::new(443)?,
+//!     Protocol::Tcp,
+//! );
+//!
+//! let decision = policy.evaluate(PolicyFacts::Requested(&facts));
+//! assert!(matches!(decision.action, EnforcementAction::TcpClose(_)));
+//! assert_eq!(decision.trace.matched_rule.as_ref().map(RuleId::as_str), Some("deny-tcp"));
+//! # Ok(())
+//! # }
+//! ```
+
 mod error;
 mod model;
 mod policy;

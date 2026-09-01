@@ -75,7 +75,9 @@ impl From<PortRange> for PortRangeRepr {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "kebab-case")]
 pub enum HostPattern {
+    /// Match one normalized DNS hostname exactly.
     Exact(HostName),
+    /// Match the hostname itself or a subdomain at a DNS label boundary.
     Suffix(HostName),
 }
 
@@ -102,8 +104,10 @@ impl HostPattern {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HttpHeaderMatcher {
+    /// Header name compared case-insensitively against sanitized names.
     pub name: String,
     #[serde(default)]
+    /// Optional byte substring required in at least one value; `None` matches presence.
     pub value_contains: Option<String>,
 }
 
@@ -111,16 +115,27 @@ pub struct HttpHeaderMatcher {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "kebab-case")]
 pub enum MatchExpression {
+    /// Match when every nested expression matches; empty lists are rejected.
     All(Vec<Self>),
+    /// Match when any nested expression matches; empty lists are rejected.
     Any(Vec<Self>),
+    /// Match only when the nested expression is available and does not match.
     Not(Box<Self>),
+    /// Match the client address observed by the listener.
     SourceIp(IpNet),
+    /// Match one post-resolution destination address.
     DestinationIp(IpNet),
+    /// Match the client-requested hostname before or after resolution.
     DestinationHost(HostPattern),
+    /// Match the requested destination port.
     DestinationPort(PortRange),
+    /// Match HTTP or opaque TCP policy semantics.
     Protocol(Protocol),
+    /// Match an HTTP method case-insensitively; unavailable before request parsing.
     HttpMethod(BTreeSet<String>),
+    /// Match a normalized HTTP path prefix; unavailable before request parsing.
     HttpPathPrefix(String),
+    /// Match a sanitized HTTP request or response header.
     HttpHeader(HttpHeaderMatcher),
 }
 
@@ -128,8 +143,11 @@ pub enum MatchExpression {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RuleAction {
+    /// Permit the flow at the evaluated stage.
     Allow,
+    /// Select a protocol-appropriate HTTP rejection or TCP close.
     Deny,
+    /// Replace a requested-stage TCP upstream before any relay begins.
     Detour(UpstreamEndpoint),
 }
 
@@ -137,17 +155,24 @@ pub enum RuleAction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AclRule {
+    /// Stable identity recorded in the resulting decision trace.
     pub id: RuleId,
+    /// Boolean expression evaluated at each applicable lifecycle stage.
     pub matcher: MatchExpression,
+    /// Action selected when the expression matches.
     pub action: RuleAction,
 }
 
 /// Facts accepted by the ACL without a broad structure full of absent fields.
 #[derive(Debug, Clone, Copy)]
 pub enum PolicyFacts<'a> {
+    /// Client request before DNS resolution.
     Requested(&'a RequestedTargetFacts),
+    /// One concrete DNS result; callers evaluate every result separately.
     Resolved(&'a ResolvedTargetFacts),
+    /// Normalized request before upstream forwarding.
     HttpRequest(&'a HttpRequestFacts),
+    /// Upstream response before downstream commitment.
     HttpResponse(&'a HttpResponseFacts),
 }
 

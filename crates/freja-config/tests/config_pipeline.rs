@@ -1,3 +1,5 @@
+//! Integration tests for raw, validated, and compiled configuration lifecycle behavior.
+
 use std::{
     fs,
     sync::atomic::{AtomicUsize, Ordering},

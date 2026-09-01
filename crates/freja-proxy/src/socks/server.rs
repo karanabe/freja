@@ -42,6 +42,7 @@ impl Socks5Server {
         })
     }
 
+    /// Returns the operating-system-selected bound address after [`Self::bind`].
     pub const fn local_address(&self) -> SocketAddr {
         self.local_address
     }

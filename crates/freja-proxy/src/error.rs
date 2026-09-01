@@ -6,61 +6,106 @@ use freja_domain::Decision;
 /// Concrete data-plane failure with source preservation at I/O boundaries.
 #[derive(Debug)]
 pub enum ProxyError {
+    /// A TCP listener could not bind its configured address.
     Bind {
+        /// Requested local socket address.
         bind: SocketAddr,
+        /// Underlying socket error.
         source: std::io::Error,
     },
+    /// The operating system could not report a listener's bound address.
     LocalAddress(std::io::Error),
+    /// A listener failed while accepting a connection.
     Accept(std::io::Error),
+    /// DNS lookup failed for an upstream hostname.
     Dns {
+        /// Hostname being resolved.
         host: String,
+        /// Resolver I/O error.
         source: std::io::Error,
     },
+    /// DNS lookup exceeded the configured connection budget.
     DnsTimedOut {
+        /// Hostname being resolved.
         host: String,
     },
+    /// DNS completed successfully but returned no candidate address.
     NoResolvedAddresses {
+        /// Hostname that produced no answers.
         host: String,
     },
+    /// Enforcement rejected the flow before the relevant protocol commitment.
     PolicyDenied {
+        /// Rejected action and its explainable trace.
         decision: Decision,
     },
+    /// Policy attempted to detour a flow that had already been detoured once.
     DetourLoop {
+        /// Second detour decision retained for audit and diagnostics.
         decision: Decision,
     },
+    /// A concrete, policy-approved upstream address could not be connected.
     ConnectFailed {
+        /// Evaluated destination address.
         target: SocketAddr,
+        /// Underlying connection error.
         source: std::io::Error,
     },
+    /// An upstream connection attempt exceeded its deadline.
     ConnectTimedOut {
+        /// Evaluated destination address.
         target: SocketAddr,
     },
+    /// Hyper failed while serving the downstream HTTP/1 connection.
     HttpConnection(hyper::Error),
+    /// Hyper failed during an upstream HTTP/1 lifecycle stage.
     UpstreamHttp {
+        /// Stable stage name such as handshake or request send.
         stage: &'static str,
+        /// Hyper protocol or transport error.
         source: hyper::Error,
     },
+    /// No upstream HTTP response arrived before the configured read deadline.
     UpstreamResponseTimedOut,
+    /// Hyper could not upgrade a committed CONNECT exchange to a byte tunnel.
     HttpUpgrade(hyper::Error),
+    /// The committed CONNECT tunnel could not be registered with its owner task.
     TunnelRegistration,
+    /// A built-in proxy rule identity violated domain validation.
     InternalPolicy(freja_domain::IdError),
+    /// Reading one relay direction failed.
     RelayRead {
+        /// Stable client/upstream direction label.
         direction: &'static str,
+        /// Underlying I/O error.
         source: std::io::Error,
     },
+    /// Writing one relay direction failed.
     RelayWrite {
+        /// Stable client/upstream direction label.
         direction: &'static str,
+        /// Underlying I/O error.
         source: std::io::Error,
     },
+    /// A critical audit event was not accepted under its failure policy.
     Audit(PublishError),
+    /// A typed hook failed or exceeded its execution budget.
     Hook(freja_policy::hook::HookRunError),
+    /// A typed hook plan violated HTTP framing or memory invariants.
     HookMutation(freja_policy::hook::MutationError),
+    /// Interactive interception failed before an operator decision arrived.
     Interactive(freja_policy::hook::InterceptError),
+    /// An operator rejected the flow while rejection remained legal.
     InteractiveRejected,
+    /// SOCKS5 negotiation, authentication, or request parsing failed.
     Socks(crate::socks::SocksError),
+    /// Opt-in TLS interception setup or a handshake failed.
     Tls(crate::tls::TlsError),
+    /// The connection semaphore was closed during server lifecycle management.
     ConcurrencyClosed,
+    /// Graceful shutdown cancelled an in-flight session.
     Shutdown,
+    /// A spawned session task panicked or was cancelled unexpectedly.
     Join(tokio::task::JoinError),
 }
 

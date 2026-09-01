@@ -20,6 +20,9 @@ pub type PingoraHandlerFuture<'a> = Pin<Box<dyn Future<Output = ()> + Send + 'a>
 
 /// Narrow data-plane callback invoked with one Pingora transport stream.
 pub trait PingoraConnectionHandler: Send + Sync + 'static {
+    /// Consumes one Pingora transport until completion or shutdown.
+    ///
+    /// The returned future must not retain the stream after it completes.
     fn serve<'a>(&'a self, stream: Stream, shutdown: &'a ShutdownWatch)
     -> PingoraHandlerFuture<'a>;
 }
@@ -34,10 +37,12 @@ pub struct PingoraServerApp<H> {
 }
 
 impl<H> PingoraServerApp<H> {
+    /// Wraps a runtime-independent connection handler in the Pingora adapter.
     pub const fn new(handler: H) -> Self {
         Self { handler }
     }
 
+    /// Borrows the wrapped handler for bootstrap inspection.
     pub const fn handler(&self) -> &H {
         &self.handler
     }

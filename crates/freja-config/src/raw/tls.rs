@@ -8,10 +8,15 @@ use serde::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawTls {
+    /// Tunnel by default, or explicitly opt in to TLS interception.
     pub handling: TlsHandling,
+    /// PEM CA certificate used to issue per-host leaf certificates.
     pub ca_certificate: Option<PathBuf>,
+    /// PEM CA private key; filesystem permissions are checked at runtime loading.
     pub ca_private_key: Option<PathBuf>,
+    /// Exact or suffix hostname patterns eligible for interception.
     pub intercept_hosts: Vec<HostPattern>,
+    /// Maximum generated leaf certificates retained in memory.
     pub leaf_cache_entries: usize,
 }
 

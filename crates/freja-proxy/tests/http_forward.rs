@@ -1,5 +1,7 @@
 #![allow(clippy::wildcard_imports)]
 
+//! Externally observable HTTP forward-proxy and CONNECT integration tests.
+
 use std::{convert::Infallible, fs, net::IpAddr, sync::Arc, time::Duration};
 
 use bytes::Bytes;

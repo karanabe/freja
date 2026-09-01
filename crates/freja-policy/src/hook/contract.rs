@@ -13,6 +13,7 @@ pub struct HookError {
 }
 
 impl HookError {
+    /// Creates a hook failure from a stable message that is safe to expose in diagnostics.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -31,15 +32,20 @@ impl Error for HookError {}
 /// A request head detached from any server/runtime representation.
 #[derive(Debug, Clone)]
 pub struct HttpRequestHead {
+    /// HTTP method after request-line parsing.
     pub method: Method,
+    /// Normalized request URI; it is not raw wire text.
     pub uri: Uri,
+    /// Framing-validated request headers.
     pub headers: HeaderMap,
 }
 
 /// A response head detached from any server/runtime representation.
 #[derive(Debug, Clone)]
 pub struct HttpResponseHead {
+    /// Upstream response status before downstream commitment.
     pub status: StatusCode,
+    /// Framing-validated response headers.
     pub headers: HeaderMap,
 }
 
@@ -48,10 +54,12 @@ pub struct HttpResponseHead {
 pub struct WireBody(Bytes);
 
 impl WireBody {
+    /// Marks received bytes as still carrying their wire content coding.
     pub fn new(bytes: impl Into<Bytes>) -> Self {
         Self(bytes.into())
     }
 
+    /// Borrows the immutable wire representation.
     pub const fn bytes(&self) -> &Bytes {
         &self.0
     }
@@ -62,10 +70,12 @@ impl WireBody {
 pub struct DecodedBody(Bytes);
 
 impl DecodedBody {
+    /// Marks bytes as decoded and eligible for typed body replacement.
     pub fn new(bytes: impl Into<Bytes>) -> Self {
         Self(bytes.into())
     }
 
+    /// Borrows the immutable decoded representation.
     pub const fn bytes(&self) -> &Bytes {
         &self.0
     }
@@ -74,11 +84,16 @@ impl DecodedBody {
 /// Typed header changes. Hooks never emit HTTP wire bytes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HeaderMutation {
+    /// Insert or replace one end-to-end header.
     Set {
+        /// Header to set; proxy-controlled framing names are rejected when applied.
         name: HeaderName,
+        /// Validated header value.
         value: HeaderValue,
     },
+    /// Remove one end-to-end header.
     Remove {
+        /// Header to remove; proxy-controlled framing names are rejected when applied.
         name: HeaderName,
     },
 }
@@ -86,6 +101,7 @@ pub enum HeaderMutation {
 /// Request/response-head mutation plan.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HeadMutationPlan {
+    /// Ordered changes applied before the proxy reconstructs framing.
     pub headers: Vec<HeaderMutation>,
 }
 
@@ -93,7 +109,9 @@ pub struct HeadMutationPlan {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum BodyMutationPlan {
     #[default]
+    /// Forward the received representation unchanged.
     Keep,
+    /// Replace the body with bounded decoded bytes and rebuild representation headers.
     Replace(DecodedBody),
 }
 
@@ -101,32 +119,47 @@ pub enum BodyMutationPlan {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum ChunkMutationPlan {
     #[default]
+    /// Relay the input chunk unchanged.
     Keep,
+    /// Relay replacement bytes subject to the runtime's output handling.
     Replace(Bytes),
+    /// Suppress this chunk without closing the flow.
     Drop,
 }
 
+/// Asynchronous hook invoked for request metadata before upstream forwarding.
 pub trait HttpRequestHeadHook: Send + Sync {
+    /// Produces a typed request-head plan; implementations must honor the runner's time budget.
     fn call<'a>(&'a self, input: &'a HttpRequestHead) -> HookFuture<'a, HeadMutationPlan>;
 }
 
+/// Asynchronous hook invoked for a bounded request-body representation.
 pub trait HttpRequestBodyHook: Send + Sync {
+    /// Produces a typed body plan without directly changing HTTP framing.
     fn call<'a>(&'a self, input: &'a WireBody) -> HookFuture<'a, BodyMutationPlan>;
 }
 
+/// Asynchronous hook invoked before an upstream response is committed downstream.
 pub trait HttpResponseHeadHook: Send + Sync {
+    /// Produces a typed response-head plan; implementations must be cancellation safe.
     fn call<'a>(&'a self, input: &'a HttpResponseHead) -> HookFuture<'a, HeadMutationPlan>;
 }
 
+/// Asynchronous hook invoked for a bounded response-body representation.
 pub trait HttpResponseBodyHook: Send + Sync {
+    /// Produces a typed body plan without directly changing HTTP framing.
     fn call<'a>(&'a self, input: &'a WireBody) -> HookFuture<'a, BodyMutationPlan>;
 }
 
+/// Asynchronous transform for a client-to-upstream TCP chunk.
 pub trait TcpClientChunkHook: Send + Sync {
+    /// Produces a typed chunk plan within the configured execution budget.
     fn call<'a>(&'a self, input: &'a Bytes) -> HookFuture<'a, ChunkMutationPlan>;
 }
 
+/// Asynchronous transform for an upstream-to-client TCP chunk.
 pub trait TcpUpstreamChunkHook: Send + Sync {
+    /// Produces a typed chunk plan within the configured execution budget.
     fn call<'a>(&'a self, input: &'a Bytes) -> HookFuture<'a, ChunkMutationPlan>;
 }
 
@@ -156,26 +189,32 @@ impl fmt::Debug for HookRegistry {
 }
 
 impl HookRegistry {
+    /// Appends a request-head hook to declaration-order execution.
     pub fn register_request_head(&mut self, hook: Arc<dyn HttpRequestHeadHook>) {
         self.request_head.push(hook);
     }
 
+    /// Appends a request-body hook to declaration-order execution.
     pub fn register_request_body(&mut self, hook: Arc<dyn HttpRequestBodyHook>) {
         self.request_body.push(hook);
     }
 
+    /// Appends a response-head hook to declaration-order execution.
     pub fn register_response_head(&mut self, hook: Arc<dyn HttpResponseHeadHook>) {
         self.response_head.push(hook);
     }
 
+    /// Appends a response-body hook to declaration-order execution.
     pub fn register_response_body(&mut self, hook: Arc<dyn HttpResponseBodyHook>) {
         self.response_body.push(hook);
     }
 
+    /// Appends a client-to-upstream TCP hook to declaration-order execution.
     pub fn register_tcp_client(&mut self, hook: Arc<dyn TcpClientChunkHook>) {
         self.tcp_client.push(hook);
     }
 
+    /// Appends an upstream-to-client TCP hook to declaration-order execution.
     pub fn register_tcp_upstream(&mut self, hook: Arc<dyn TcpUpstreamChunkHook>) {
         self.tcp_upstream.push(hook);
     }

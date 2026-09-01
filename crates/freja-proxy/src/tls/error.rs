@@ -20,37 +20,63 @@ impl fmt::Display for TlsInput {
 /// TLS interception setup or handshake failure.
 #[derive(Debug)]
 pub enum TlsError {
+    /// CA certificate or private-key input could not be read.
     ReadInput {
+        /// Stable input category used in diagnostics.
         input: &'static str,
+        /// Requested PEM path.
         path: PathBuf,
+        /// Underlying filesystem error.
         source: std::io::Error,
     },
+    /// A Unix private-key file was accessible to group or other users.
     InsecurePrivateKeyPermissions {
+        /// Insecure private-key path.
         path: PathBuf,
+        /// Observed Unix permission bits.
         mode: u32,
     },
+    /// The CA private key could not be parsed for certificate issuance.
     CaPrivateKey(rcgen::Error),
+    /// The CA certificate was incompatible with certificate issuance.
     CaCertificate(rcgen::Error),
+    /// The CA certificate input was not valid PEM.
     CaCertificatePem(PemError),
+    /// The certificate input contained no certificate block.
     MissingCaCertificate,
+    /// The target host could not be converted to a rustls server name.
     InvalidServerName {
+        /// Invalid configured or requested hostname.
         host: String,
     },
+    /// Interception negotiated an application protocol outside the supported HTTP set.
     UnsupportedApplicationProtocol {
+        /// Negotiated ALPN rendered for diagnostics.
         protocol: String,
     },
+    /// Downstream and upstream handshakes selected incompatible protocols.
     ApplicationProtocolMismatch {
+        /// Downstream ALPN, if negotiated.
         downstream: Option<String>,
+        /// Upstream ALPN, if negotiated.
         upstream: Option<String>,
     },
+    /// TLS negotiation with the real upstream failed.
     UpstreamHandshake {
+        /// Allowed target hostname.
         host: String,
+        /// Underlying handshake I/O error.
         source: std::io::Error,
     },
+    /// TLS negotiation with the proxy client failed.
     DownstreamHandshake(std::io::Error),
+    /// The downstream handshake exceeded its configured budget.
     DownstreamHandshakeTimedOut,
+    /// A per-host leaf certificate could not be generated.
     LeafCertificate(rcgen::Error),
+    /// Generated material could not form a rustls server configuration.
     ServerConfiguration(rustls::Error),
+    /// A panic poisoned the bounded certificate cache mutex.
     CachePoisoned,
 }
 

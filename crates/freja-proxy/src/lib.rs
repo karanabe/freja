@@ -1,20 +1,31 @@
 #![forbid(unsafe_code)]
+#![deny(missing_docs)]
 
 //! Data-plane engines and isolated networking runtime adapters.
 
 mod destination;
+/// Concrete data-plane errors with preserved I/O and policy sources.
 pub mod error;
+/// Immutable best-effort observer events, separate from critical audit delivery.
 pub mod event;
+/// Hyper-based HTTP/1 explicit forward-proxy engine and CONNECT tunneling.
 pub mod http;
 mod inspection;
 mod metrics;
 #[cfg(feature = "pingora-adapter")]
+/// Optional Pingora 0.8.1 `ServerApp` transport boundary.
 pub mod pingora;
+/// Shared data-plane services and immutable runtime snapshots.
 pub mod runtime;
+/// Validated resource, capture, and TLS interception inputs.
 pub mod settings;
+/// Cloneable graceful-shutdown signaling.
 pub mod shutdown;
+/// SOCKS5 CONNECT protocol and listener implementation.
 pub mod socks;
+/// Static listener-to-upstream TCP relay.
 pub mod tcp;
+/// Opt-in TLS interception and bounded certificate caching.
 pub mod tls;
 
 pub use error::ProxyError;

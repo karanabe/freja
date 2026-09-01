@@ -8,8 +8,19 @@ use super::{BodyMutationPlan, HeadMutationPlan, HeaderMutation, WireBody};
 /// Invalid or unsafe mutation plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MutationError {
-    ProtectedHeader { name: HeaderName },
-    BodyTooLarge { actual: usize, maximum: usize },
+    /// A hook attempted to change proxy-controlled routing or framing metadata.
+    ProtectedHeader {
+        /// Protected header name.
+        name: HeaderName,
+    },
+    /// A replacement exceeded its explicit memory budget.
+    BodyTooLarge {
+        /// Replacement length in bytes.
+        actual: usize,
+        /// Configured maximum replacement length in bytes.
+        maximum: usize,
+    },
+    /// A decoded replacement was requested after content encoding was committed.
     EncodedBodyReplacement,
 }
 

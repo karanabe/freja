@@ -11,14 +11,18 @@ use super::{
 /// Whether hook errors and timeouts preserve traffic or fail the flow.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookFailurePolicy {
+    /// Ignore failed or timed-out hooks and preserve the current traffic representation.
     FailOpen,
+    /// Return the failure to enforcement so the flow can be rejected safely.
     FailClosed,
 }
 
 /// Hook invocation failure at the policy boundary.
 #[derive(Debug)]
 pub enum HookRunError {
+    /// A registered hook returned an explicit failure.
     Failed(HookError),
+    /// A registered hook exceeded its execution budget and was cancelled.
     TimedOut,
 }
 
@@ -50,6 +54,10 @@ pub struct HookRunner {
 }
 
 impl HookRunner {
+    /// Freezes a registry with its invocation mode, timeout, and failure behavior.
+    ///
+    /// Clones share hook implementations through `Arc` but keep immutable runner
+    /// settings, so they may be used concurrently by independent flow tasks.
     pub const fn new(
         mode: HookMode,
         registry: HookRegistry,
@@ -64,6 +72,7 @@ impl HookRunner {
         }
     }
 
+    /// Returns whether hooks are disabled, automatic, or interactive.
     pub const fn mode(&self) -> HookMode {
         self.mode
     }

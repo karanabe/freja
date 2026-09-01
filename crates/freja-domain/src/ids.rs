@@ -48,9 +48,26 @@ uuid_id!(
 /// A validation error for a human-readable domain identifier.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IdError {
-    Empty { kind: &'static str },
-    TooLong { kind: &'static str, maximum: usize },
-    InvalidCharacter { kind: &'static str, character: char },
+    /// A textual identifier contained no bytes.
+    Empty {
+        /// Human-readable identifier category used in diagnostics.
+        kind: &'static str,
+    },
+    /// A textual identifier exceeded its stable byte limit.
+    TooLong {
+        /// Human-readable identifier category used in diagnostics.
+        kind: &'static str,
+        /// Maximum accepted UTF-8 byte length.
+        maximum: usize,
+    },
+    /// A textual identifier contained a character outside its stable alphabet.
+    InvalidCharacter {
+        /// Human-readable identifier category used in diagnostics.
+        kind: &'static str,
+        /// Offending character.
+        character: char,
+    },
+    /// Policy generation zero was supplied even though zero is reserved.
     ZeroPolicyGeneration,
 }
 

@@ -7,7 +7,9 @@ use crate::{ListenEndpoint, Port, UpstreamEndpoint};
 /// Invalid listener-specific policy.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ListenerError {
+    /// An HTTP listener was configured without any permitted CONNECT port.
     EmptyConnectPorts,
+    /// A proxy-authentication realm could not be emitted safely in a challenge.
     InvalidAuthenticationRealm,
 }
 
@@ -29,10 +31,12 @@ impl fmt::Display for ListenerError {
 pub struct ProxyCredentialHash([u8; 32]);
 
 impl ProxyCredentialHash {
+    /// Wraps a SHA-256 digest calculated from the exact `username:password` bytes.
     pub const fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
 
+    /// Returns the digest without exposing the original credential.
     pub const fn as_bytes(&self) -> &[u8; 32] {
         &self.0
     }
@@ -70,10 +74,12 @@ impl ProxyAuthentication {
         })
     }
 
+    /// Returns the validated realm emitted in `Proxy-Authenticate`.
     pub fn realm(&self) -> &str {
         &self.realm
     }
 
+    /// Returns the expected credential digest used for constant-time comparison.
     pub const fn credential_hash(&self) -> ProxyCredentialHash {
         self.credential_hash
     }
@@ -142,6 +148,7 @@ impl HttpForwardListener {
         &self.connect_ports
     }
 
+    /// Returns the authentication requirement, if this listener has one.
     pub const fn authentication(&self) -> Option<&ProxyAuthentication> {
         self.authentication.as_ref()
     }
@@ -164,6 +171,9 @@ pub struct Socks5Listener {
 }
 
 impl Socks5Listener {
+    /// Creates a SOCKS5 listener without authentication.
+    ///
+    /// Configuration validation rejects this form for non-loopback binds.
     pub const fn new(bind: ListenEndpoint) -> Self {
         Self {
             bind,
@@ -172,15 +182,18 @@ impl Socks5Listener {
     }
 
     #[must_use]
+    /// Adds the credential digest required during SOCKS5 negotiation.
     pub const fn with_authentication(mut self, authentication: ProxyCredentialHash) -> Self {
         self.authentication = Some(authentication);
         self
     }
 
+    /// Returns the local bind endpoint.
     pub const fn bind(&self) -> ListenEndpoint {
         self.bind
     }
 
+    /// Returns the configured credential digest, if authentication is enabled.
     pub const fn authentication(&self) -> Option<ProxyCredentialHash> {
         self.authentication
     }
@@ -207,8 +220,11 @@ impl TcpStaticListener {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum ListenerSpec {
+    /// HTTP/1 explicit forward proxy with CONNECT support.
     HttpForward(HttpForwardListener),
+    /// Raw TCP relay to one fixed upstream.
     TcpStatic(TcpStaticListener),
+    /// SOCKS5 CONNECT listener.
     Socks5(Socks5Listener),
 }
 

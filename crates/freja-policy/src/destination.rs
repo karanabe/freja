@@ -12,17 +12,23 @@ use crate::PolicyError;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum DestinationAccess {
+    /// Deny the address class after DNS resolution.
     #[default]
     Protect,
+    /// Explicitly permit the address class, subject to remaining ACL policy.
     Allow,
 }
 
 /// Address-class controls compiled alongside ordered ACL rules.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct DestinationGuardSettings {
+    /// Protection for RFC 1918 and IPv6 unique-local addresses.
     pub private: DestinationAccess,
+    /// Protection for IPv4 and IPv6 link-local addresses.
     pub link_local: DestinationAccess,
+    /// Protection for loopback addresses.
     pub loopback: DestinationAccess,
+    /// Protection for known cloud metadata-service addresses.
     pub metadata: DestinationAccess,
 }
 

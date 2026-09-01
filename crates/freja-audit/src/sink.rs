@@ -12,8 +12,11 @@ use crate::{
 /// JSON encoding or sink I/O failure. A partial write permanently poisons the sink.
 #[derive(Debug)]
 pub enum AuditError {
+    /// A typed event or record could not be encoded as canonical JSON.
     Serialize(serde_json::Error),
+    /// The underlying writer failed; a partial write may have occurred.
     Write(std::io::Error),
+    /// A write was attempted after a possible partial record broke chain continuity.
     SinkPoisoned,
 }
 

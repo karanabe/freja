@@ -8,35 +8,51 @@ use super::{DecodedBody, HeadMutationPlan};
 /// Context copied into a bounded interactive request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct InterceptContext {
+    /// Flow paused for the operator decision.
     pub session_id: SessionId,
+    /// HTTP exchange, or `None` for connection-level/TCP interception.
     pub transaction_id: Option<TransactionId>,
 }
 
 /// Hook stage paused for a bounded interactive decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterceptStage {
+    /// Request metadata before upstream forwarding.
     HttpRequestHead,
+    /// Bounded request body before or during forwarding.
     HttpRequestBody,
+    /// Response metadata before downstream commitment.
     HttpResponseHead,
+    /// Bounded response body before or during forwarding.
     HttpResponseBody,
+    /// Client-to-upstream TCP chunk.
     TcpClientChunk,
+    /// Upstream-to-client TCP chunk.
     TcpUpstreamChunk,
 }
 
 /// TUI/manual action returned through a oneshot response.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InteractiveDecision {
+    /// Resume without mutation.
     Continue,
+    /// Reject or close the flow while the protocol still permits it.
     Reject,
+    /// Apply typed header changes and resume.
     EditHeaders(HeadMutationPlan),
+    /// Replace a bounded body with decoded bytes and resume.
     ReplaceBody(DecodedBody),
+    /// Discard a pending modification and resume unchanged.
     CancelModification,
 }
 
 /// One paused flow delivered through the bounded interactive channel.
 pub struct InterceptRequest {
+    /// Correlation identifiers copied from the paused flow.
     pub context: InterceptContext,
+    /// Lifecycle point awaiting a decision.
     pub stage: InterceptStage,
+    /// Single-use response channel; dropping it reports `ResponderDropped`.
     pub response: oneshot::Sender<InteractiveDecision>,
 }
 
@@ -53,16 +69,22 @@ impl fmt::Debug for InterceptRequest {
 /// Explicit timeout behavior for interactive interception.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterceptTimeoutPolicy {
+    /// Resume unchanged when the operator misses the deadline.
     FailOpen,
+    /// Return an error so enforcement can reject the flow.
     FailClosed,
 }
 
 /// Interactive request failure or bounded-flow saturation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InterceptError {
+    /// The request channel or paused-flow semaphore had no capacity.
     Saturated,
+    /// The interactive consumer has shut down.
     ChannelClosed,
+    /// No response arrived before a fail-closed deadline.
     TimedOut,
+    /// The consumer dropped the oneshot responder without deciding.
     ResponderDropped,
 }
 

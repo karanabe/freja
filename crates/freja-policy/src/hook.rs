@@ -1,4 +1,29 @@
 //! In-process typed hooks and bounded interactive interception.
+//!
+//! Registries contain `Send + Sync` trait objects and can be cloned across
+//! runtime tasks. Registration happens during bootstrap; runners consume an
+//! immutable snapshot. Hooks return typed plans rather than arbitrary HTTP
+//! wire bytes, allowing the proxy to preserve framing and protected headers.
+//!
+//! # Example
+//!
+//! ```
+//! use std::sync::Arc;
+//! use freja_policy::hook::{
+//!     BodyMutationPlan, HookFuture, HookRegistry, HttpRequestBodyHook, WireBody,
+//! };
+//!
+//! struct KeepBody;
+//!
+//! impl HttpRequestBodyHook for KeepBody {
+//!     fn call<'a>(&'a self, _input: &'a WireBody) -> HookFuture<'a, BodyMutationPlan> {
+//!         Box::pin(async { Ok(BodyMutationPlan::Keep) })
+//!     }
+//! }
+//!
+//! let mut registry = HookRegistry::default();
+//! registry.register_request_body(Arc::new(KeepBody));
+//! ```
 
 mod contract;
 mod interactive;

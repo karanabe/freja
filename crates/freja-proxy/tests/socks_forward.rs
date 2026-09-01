@@ -1,3 +1,5 @@
+//! Externally observable SOCKS5 forwarding integration tests.
+
 use std::{net::IpAddr, time::Duration};
 
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};

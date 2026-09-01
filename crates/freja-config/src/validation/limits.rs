@@ -5,14 +5,23 @@ use crate::{RawLimits, ValidationError};
 /// Runtime limits expressed in types and durations rather than raw integers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
+    /// Maximum concurrently admitted flows.
     pub connections: usize,
+    /// Maximum bytes accepted in one HTTP message head.
     pub header_bytes: usize,
+    /// Maximum bytes retained for body inspection.
     pub body_prefix_bytes: usize,
+    /// Deadline for establishing an upstream connection.
     pub connect_timeout: Duration,
+    /// Deadline applied to individual network reads.
     pub read_timeout: Duration,
+    /// Maximum duration without useful flow progress.
     pub idle_timeout: Duration,
+    /// Maximum simultaneous interactive interceptions.
     pub paused_flows: usize,
+    /// Deadline for an interactive decision.
     pub interception_timeout: Duration,
+    /// Capacity of the best-effort UI event channel.
     pub ui_event_capacity: usize,
 }
 

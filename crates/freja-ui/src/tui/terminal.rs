@@ -7,10 +7,14 @@ use super::{TuiModel, render};
 /// Terminal setup, rendering, or input failure.
 #[derive(Debug)]
 pub enum TuiError {
+    /// Terminal initialization, rendering, or input I/O failed.
     Io {
+        /// Stable terminal lifecycle operation.
         operation: &'static str,
+        /// Underlying terminal I/O error.
         source: io::Error,
     },
+    /// The dedicated terminal-owner thread could not be created.
     ThreadSpawn(io::Error),
 }
 

@@ -1,5 +1,7 @@
 #![allow(clippy::wildcard_imports)]
 
+//! Externally observable static TCP relay integration tests.
+
 use std::{
     net::IpAddr,
     sync::{

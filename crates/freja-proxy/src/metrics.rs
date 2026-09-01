@@ -30,18 +30,31 @@ struct MetricCounters {
 /// while a snapshot is read, as expected for lock-free operational metrics.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MetricsSnapshot {
+    /// Connections admitted since process start.
     pub accepted_flows: u64,
+    /// Accepted minus terminally closed flows, using saturating subtraction.
     pub active_flows: u64,
+    /// Flows that emitted a terminal close event.
     pub closed_flows: u64,
+    /// Policy actions actually executed by enforcement.
     pub policy_actions: u64,
+    /// Detector findings observed.
     pub findings: u64,
+    /// Bytes relayed from clients to upstreams.
     pub client_to_upstream_bytes: u64,
+    /// Bytes relayed from upstreams to clients.
     pub upstream_to_client_bytes: u64,
+    /// Successfully established opt-in TLS interceptions.
     pub tls_interceptions: u64,
+    /// Generated leaf-certificate cache hits.
     pub tls_leaf_cache_hits: u64,
+    /// Generated leaf-certificate cache misses.
     pub tls_leaf_cache_misses: u64,
+    /// Interactive operator actions applied.
     pub manual_actions: u64,
+    /// Fail-open critical audit events rejected by their bounded channel.
     pub audit_rejected_events: u64,
+    /// Best-effort observer events dropped without blocking forwarding.
     pub event_sink_dropped_events: u64,
 }
 

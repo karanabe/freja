@@ -6,9 +6,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize)]
 #[serde(tag = "mode", rename_all = "kebab-case")]
 pub enum RawCapturePolicy {
+    /// Retain metadata and evidence hashes without raw payload bytes.
     #[default]
     MetadataOnly,
+    /// Retain at most a bounded prefix from each configured direction.
     Prefix {
+        /// Maximum retained prefix length in bytes.
         max_bytes: usize,
     },
 }
@@ -17,7 +20,9 @@ pub enum RawCapturePolicy {
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct RawInspection {
+    /// Whether inspection completes before forwarding or runs over streamed chunks.
     pub mode: InspectionMode,
+    /// Fixed byte patterns compiled during configuration compilation.
     pub patterns: Vec<RawInspectionPattern>,
 }
 
@@ -25,18 +30,26 @@ pub struct RawInspection {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RawInspectionPattern {
+    /// Stable detector identity included in findings.
     pub detector_id: DetectorId,
+    /// Stable policy rule identity included in resulting decision traces.
     pub rule_id: RuleId,
+    /// Byte signature encoded as hexadecimal text.
     pub pattern_hex: String,
     #[serde(default = "default_severity")]
+    /// Impact assigned to a match; defaults to high.
     pub severity: Severity,
     #[serde(default = "default_confidence")]
+    /// Certainty assigned to a match; defaults to confirmed.
     pub confidence: Confidence,
     #[serde(default = "default_directions")]
+    /// Stream directions in which this detector runs.
     pub directions: Vec<Direction>,
     #[serde(default = "default_action")]
+    /// Policy action considered after the detector produces a finding.
     pub action: RuleAction,
     #[serde(default)]
+    /// Secret-free labels copied into findings.
     pub tags: Vec<String>,
 }
 
