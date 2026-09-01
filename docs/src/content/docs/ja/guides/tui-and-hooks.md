@@ -2,7 +2,7 @@
 title: TUIと型付きHook
 description: ratatuiでflowを観測し、automaticまたはinteractive Hookの挙動を理解します。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - TUI
   - Hook
@@ -22,7 +22,7 @@ enforcement = "observe"
 hooks = "disabled"
 ```
 
-実terminalでFrejaを起動します。flow、HTTP metadata、上限付きhex/ASCII prefix、finding、decision trace、operational log、counterを表示します。operational `tracing` lineはraw terminalへ直接書かず、同じbounded presentation channelを通るためcursor位置とlayoutを壊しません。best-effort queueが満杯でもforwardingは継続し、`ui_dropped_events`が増えます。
+実terminalでFrejaを起動します。flow、HTTP metadata、上限付きhex/ASCII prefix、finding、decision trace、operational log、counterを表示します。operational `tracing` lineはraw terminalへ直接書かず、同じbounded presentation channelを通るためcursor位置とlayoutを壊しません。best-effort queueが満杯でもforwardingは継続し、data-plane metrics snapshotの`event_sink_dropped_events`が増えます。
 
 normal exit、error、panic unwind時にはRAII guardがterminalを復元します。cleanupできない方法でprocessを終了した場合は、shellのterminal reset commandを実行してください。
 

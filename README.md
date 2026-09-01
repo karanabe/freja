@@ -13,8 +13,9 @@ segments, and offline policy replay.
 The seven-crate workspace keeps domain, configuration, policy, inspection,
 audit, hooks, and UI independent of Pingora. Hyper 1.x owns HTTP/1 parsing and
 intercepted HTTP/2 framing. An opt-in `pingora-adapter` feature provides a small
-Pingora 0.8.1 `ServerApp` adapter, while the shipped multi-listener CLI uses the
-replaceable Tokio listener adapter.
+Pingora 0.8.1 `ServerApp` compatibility adapter, while the shipped
+multi-listener CLI directly owns its concrete Tokio listeners. The runtime
+lifecycles remain isolated rather than pretending to be interchangeable.
 
 ## Installation
 

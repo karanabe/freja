@@ -1,8 +1,8 @@
 ---
-title: "ADR 0001: Replaceable listener engine"
+title: "ADR 0001: Framework-isolated runtime adapters"
 description: Keep policy and protocol semantics independent from Pingora or Tokio listener ownership.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - ADR
   - architecture
@@ -21,10 +21,16 @@ semantics Freja needs.
 
 ## Decision
 
-A narrow listener engine owns connection acceptance and passes transport
-streams into Freja protocol engines. Runtime identity is represented by
-`EngineKind`, not by leaking transport types across crates. A pure Tokio
-listener may be selected behind this boundary.
+`freja-proxy` is the framework isolation boundary. The production CLI owns
+concrete Tokio accept loops and passes their streams into Freja protocol
+engines. The optional Pingora module owns its separate `ServerApp` lifecycle
+and delegates each supplied stream to a narrow connection handler.
+
+Tokio and Pingora lifecycle APIs are intentionally not forced through a common
+listener trait. They are not runtime-substitutable today, and an identity-only
+trait would imply a capability the implementation does not provide. The shared
+contract is protocol behavior and framework containment, not identical listener
+or process ownership.
 
 The production CLI selects Tokio because it coordinates HTTP, static TCP, and
 SOCKS5 listeners with Freja-specific metadata and shutdown. A generic Pingora
@@ -32,8 +38,10 @@ SOCKS5 listeners with Freja-specific metadata and shutdown. A generic Pingora
 
 ## Consequences
 
-- Facts, decisions, events, and protocol tests remain reusable when runtime
-  selection changes.
+- Facts, decisions, events, and protocol tests remain independent from runtime
+  framework types.
 - The CLI must provide lifecycle functions that Pingora might otherwise own.
+- Choosing another process runtime requires explicit bootstrap integration; it
+  is not a runtime switch behind a common trait.
 - A future Pingora process integration belongs in the adapter and must not
   modify policy semantics to simplify wiring.

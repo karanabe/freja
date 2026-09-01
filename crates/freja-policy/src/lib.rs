@@ -1,6 +1,7 @@
 #![forbid(unsafe_code)]
 
-//! Deterministic, protocol-independent policy evaluation.
+//! Deterministic policy evaluation and typed hook contracts independent of
+//! concrete server and networking runtime adapters.
 
 pub mod acl;
 pub mod destination;

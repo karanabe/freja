@@ -2,7 +2,7 @@
 title: Engine and protocol boundaries
 description: How Tokio, Pingora ServerApp, Hyper, CONNECT, and relay ownership fit together.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - architecture
   - pingora
@@ -11,20 +11,26 @@ sidebar:
   order: 2
 ---
 
-The listener runtime is replaceable. Protocol semantics and security decisions
-must not change when the transport adapter changes.
+Protocol semantics and security decisions are framework-independent. Runtime
+lifecycle implementations are isolated, but are not currently interchangeable
+behind one listener trait.
 
 ## Runtime adapters
 
-`ListenerEngine` exposes only an `EngineKind`. The shipped CLI uses Tokio
-listeners because it coordinates HTTP, static TCP, and SOCKS5 listeners with
-Freja-specific metadata, limits, shutdown, TUI, and audit resources.
+The shipped CLI directly owns Tokio listeners because it coordinates HTTP,
+static TCP, and SOCKS5 listeners with Freja-specific metadata, limits,
+shutdown, TUI, and audit resources. These accept loops live in `freja-proxy`
+and consume only proxy-owned runtime settings.
 
 The `pingora-adapter` feature compiles a concrete Pingora 0.8.1 `ServerApp`.
 Its `process_new` callback hands one `Stream` to a narrow
 `PingoraConnectionHandler`, awaits ownership completion, and returns `None` so
 the consumed transport never enters Pingora's reuse loop. No policy or protocol
 rule lives in this module.
+
+The Tokio and Pingora entry points remain separate because their service and
+process lifecycles differ. Add a common abstraction only when both runtimes
+need a proven shared operation beyond protocol behavior and type isolation.
 
 Do not introduce Pingora types into `freja-domain`, `freja-config`,
 `freja-policy`, `freja-audit`, or `freja-ui`. Do not use

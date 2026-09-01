@@ -2,7 +2,7 @@
 title: production配置
 description: systemdでFrejaをinstallし、安全にpolicyをreloadして、bounded shutdownとmetricsを運用します。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - 運用
   - systemd
@@ -47,7 +47,7 @@ journalctl -u freja.service -f
 
 operational logは`tracing`からservice標準出力へ出ます。security audit JSONLは`audit.path`へ書きます。よりsensitiveなdataとして保護、rotate、export、retainしてください。FrejaはUnixで新規segmentを`0600`で作成し、同梱state directoryは`0750`です。
 
-embedderは`DataPlaneServices::metrics_snapshot`からprocess-local lock-free counterを取得できます。CLIにはHTTP metrics endpointがありません。snapshotにはflow count、byte、policy action、finding、TLS interception/cache、manual action、audit reject、UI dropがあります。
+embedderは`DataPlaneServices::metrics_snapshot`からprocess-local lock-free counterを取得できます。CLIにはHTTP metrics endpointがありません。snapshotにはflow count、byte、policy action、finding、TLS interception/cache、manual action、audit reject、best-effort event-sink dropがあります。
 
 ## policyをreloadする
 

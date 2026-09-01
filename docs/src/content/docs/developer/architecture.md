@@ -2,7 +2,7 @@
 title: Architecture
 description: Crate boundaries, data flow, runtime snapshots, and invariants for Freja contributors.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - architecture
   - developer
@@ -10,7 +10,7 @@ sidebar:
   order: 1
 ---
 
-Freja separates protocol-independent security decisions from runtime and wire
+Freja separates framework-independent security decisions from runtime and wire
 mechanics. Pingora types exist only in its adapter; domain, configuration,
 policy, inspection, audit, hooks, and UI do not depend on them.
 
@@ -29,7 +29,8 @@ flowchart TD
     X --> S
     S --> I[Streaming or preflight inspection]
     I --> A[Bounded critical audit]
-    I --> U[Best-effort immutable UI events]
+    I --> E[Best-effort data-plane events]
+    E --> U[UI adapter and immutable UI events]
     A --> J[Hash-chained JSONL and signed checkpoints]
     J --> P[Offline replay]
 ```
@@ -73,6 +74,11 @@ streams bodies. CONNECT policy and upstream connection finish before the 200
 response commits. Static TCP and SOCKS5 share destination authorization,
 bounded relay, inspection, hooks, audit, metrics, and shutdown.
 
+Public listener constructors consume proxy-owned `ProxyLimits`, and TLS/capture
+setup uses proxy-owned validated inputs. `freja-config` values are translated
+at the `freja` composition root instead of leaking configuration or UI types
+into the data-plane crate.
+
 TLS interception is hostname-opted. It establishes upstream TCP before CONNECT
 commitment, negotiates downstream TLS, and authenticates upstream TLS with the
 selected `h2` or `http/1.1` ALPN. Rcgen creates SAN-bearing leaves from a
@@ -94,7 +100,9 @@ oneshot response.
 
 Is the bootstrap and error-erasure boundary. It starts multiple listener kinds,
 owns signals and the audit writer, performs compatible SIGHUP reloads, and
-verifies/replays stored input. It selects the normal terminal tracing writer or
+verifies/replays stored input. It translates compiled configuration into
+subsystem-owned runtime inputs and adapts UI-independent data-plane events to
+the current presentation. It selects the normal terminal tracing writer or
 the bounded TUI router before listener startup and disconnects that router
 before joining the terminal thread. The production multi-listener runtime uses
 Tokio; the generic Pingora 0.8.1 `ServerApp` adapter remains compile-tested.

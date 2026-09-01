@@ -1,8 +1,8 @@
 ---
-title: "ADR 0001: 交換可能なlistener engine"
+title: "ADR 0001: frameworkを隔離したruntime adapter"
 description: policy/protocol semanticsをPingora/Tokio listener ownershipから分離します。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - ADR
   - アーキテクチャ
@@ -18,12 +18,15 @@ runtime固有I/O typeがdomain、policy、inspection、audit、Hook、UI APIを�
 
 ## Decision
 
-狭いlistener engineがconnection acceptを所有し、Freja protocol engineへtransport streamを渡します。runtime identityはtransport typeをcrate間へ漏らさず`EngineKind`で表します。この境界の後ろでpure Tokio listenerを選択できます。
+`freja-proxy`をframework isolation境界とします。production CLIはconcrete Tokio accept loopを所有してFreja protocol engineへstreamを渡します。optional Pingora moduleは独立した`ServerApp` lifecycleを所有し、供給された各streamを狭いconnection handlerへ委譲します。
+
+TokioとPingoraのlifecycle APIを共通listener traitへ無理に押し込みません。現時点ではruntime差し替え可能ではなく、identityだけのtraitは実装が提供しない能力を示唆するためです。共有契約はprotocol behaviorとframework typeの隔離であり、同一のlistener/process ownershipではありません。
 
 production CLIはFreja固有metadata/shutdownでHTTP、static TCP、SOCKS5を協調するためTokioを選びます。generic Pingora `ServerApp` transport adapterも独立して実装・compile-testします。
 
 ## Consequence
 
-- runtime選択変更時もfact、decision、event、protocol testを再利用できる
+- fact、decision、event、protocol testをruntime framework型から独立させられる
 - CLIがPingoraなら所有するlifecycle機能を提供する必要がある
+- 別process runtimeの選択には明示的なbootstrap統合が必要で、共通trait背後のruntime switchではない
 - 将来のPingora process統合はadapter内に置き、wiring簡略化のためpolicy semanticsを変えない

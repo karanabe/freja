@@ -2,7 +2,7 @@
 title: 開発とテスト
 description: workspace構造、validation gate、integration test、fuzz target、documentation workflowです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - テスト
   - contribution
@@ -31,7 +31,7 @@ multi-listener CLIがTokioを選択していてもall-feature buildはPingora ad
 - `freja-audit`: redaction-before-hash、sequence/hash chain、checkpoint tamper detection
 - `freja-proxy/tests/http_forward.rs`: absolute-form、framing limit、CONNECT、auth、response policy、inspection、Hook、reload、TLS interception、intercept後HTTP/1.1/HTTP/2 semantic forwarding、pinning failure
 - `tcp_static.rs`/`socks_forward.rs`: relay、DNS reauthorization、detour、limit、inspection、authentication
-- CLI test: configuration、no-overwrite segment、pinned checkpoint replay
+- CLI test: configuration、no-overwrite segment、pinned checkpoint replay、Cargo metadataによるworkspace dependency direction/Pingora isolation境界
 - UI test: ratatui test backend renderとnon-blocking saturation
 
 local logicにはfocused unit test、externally observable network/CLI変更にはintegration testを追加します。

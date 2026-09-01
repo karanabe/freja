@@ -2,7 +2,7 @@
 title: TUI and typed hooks
 description: Observe flows in ratatui and understand automatic or interactive hook behavior.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - tui
   - hooks
@@ -28,7 +28,7 @@ hex/ASCII prefixes, findings, decision traces, operational logs, and counters.
 Operational `tracing` lines use the same bounded presentation channel instead
 of writing into the raw terminal, so they cannot displace the cursor or corrupt
 the layout. If the best-effort queue fills, forwarding continues and
-`ui_dropped_events` increases.
+`event_sink_dropped_events` increases in the data-plane metrics snapshot.
 
 The terminal is restored by an RAII guard after normal exit, errors, and panic
 unwinding. If another process kills Freja without allowing cleanup, run your

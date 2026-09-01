@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 
-//! Protocol-independent domain types shared by Freja's control and data planes.
+//! Runtime- and framework-independent domain types shared by Freja's control
+//! and data planes. Protocol-aware facts and actions remain detached from wire
+//! parsers and networking runtimes.
 
 pub mod decision;
 pub mod endpoint;

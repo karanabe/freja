@@ -2,7 +2,7 @@
 title: Production deployment
 description: Install Freja under systemd, reload policy safely, and operate bounded shutdown and metrics.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - operations
   - systemd
@@ -60,7 +60,7 @@ Freja exposes process-local lock-free counters through
 `DataPlaneServices::metrics_snapshot` for embedders. The CLI does not expose an
 HTTP metrics endpoint. The snapshot includes flow counts, bytes, policy
 actions, findings, TLS interception/cache activity, manual actions, rejected
-audit events, and dropped UI events.
+audit events, and dropped best-effort event-sink deliveries.
 
 ## Reload policy
 

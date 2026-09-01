@@ -2,7 +2,7 @@
 title: Engineとprotocol境界
 description: Tokio、Pingora ServerApp、Hyper、CONNECT、relay ownershipの関係です。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - アーキテクチャ
   - Pingora
@@ -11,13 +11,15 @@ sidebar:
   order: 2
 ---
 
-listener runtimeは交換可能です。transport adapterが変わってもprotocol semanticsとsecurity decisionを変えてはいけません。
+protocol semanticsとsecurity decisionはframework非依存です。runtime lifecycle実装は隔離しますが、現時点では1つのlistener trait背後で交換可能とはしません。
 
 ## Runtime adapter
 
-`ListenerEngine`は`EngineKind`だけを公開します。同梱CLIはFreja固有metadata、limit、shutdown、TUI、audit resourceを使ってHTTP、static TCP、SOCKS5を協調するためTokio listenerを選択します。
+同梱CLIはFreja固有metadata、limit、shutdown、TUI、audit resourceを使ってHTTP、static TCP、SOCKS5を協調するためconcrete Tokio listenerを直接所有します。accept loopは`freja-proxy`内にあり、proxy固有runtime settingだけを受け取ります。
 
 `pingora-adapter` featureはPingora 0.8.1のconcrete `ServerApp`をcompileします。`process_new` callbackは1つの`Stream`を狭い`PingoraConnectionHandler`へ渡し、ownership完了をawaitし、消費済みtransportがPingora reuse loopへ戻らないよう`None`を返します。このmoduleにpolicy/protocol ruleは置きません。
+
+TokioとPingoraではservice/process lifecycleが異なるためentry pointを分けます。両runtimeにprotocol behaviorと型隔離を超える実証済みの共通操作が必要になった時だけ、共通抽象を追加します。
 
 `freja-domain`、`freja-config`、`freja-policy`、`freja-audit`、`freja-ui`へPingora型を導入してはいけません。explicit forward proxyに`pingora-proxy::ProxyHttp`を使いません。
 

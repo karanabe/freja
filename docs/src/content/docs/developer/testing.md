@@ -2,7 +2,7 @@
 title: Development and testing
 description: Workspace layout, validation gates, integration tests, fuzz targets, and documentation workflow.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - testing
   - contributing
@@ -41,7 +41,8 @@ behavior; they must not depend on public network services.
 - `tcp_static.rs` and `socks_forward.rs` cover relay, DNS reauthorization,
   detours, limits, inspection, and authentication.
 - CLI tests cover configuration behavior, no-overwrite audit segments, and
-  replay with pinned checkpoints.
+  replay with pinned checkpoints. A Cargo-metadata integration test also locks
+  the allowed workspace dependency direction and Pingora isolation boundary.
 - UI tests render to ratatui's test backend and verify non-blocking saturation.
 
 Add a focused unit test for local logic and an integration test when externally

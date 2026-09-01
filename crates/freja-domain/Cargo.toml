@@ -1,6 +1,6 @@
 [package]
 name = "freja-domain"
-description = "Protocol-independent domain types and invariants for Freja"
+description = "Runtime-independent domain types and invariants for Freja"
 readme = "README.md"
 keywords = ["freja", "proxy", "networking", "security"]
 categories = ["network-programming"]

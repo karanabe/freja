@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: Freja contributor向けのcrate境界、data flow、runtime snapshot、不変条件です。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-01
 tags:
   - アーキテクチャ
   - 開発者
@@ -10,7 +10,7 @@ sidebar:
   order: 1
 ---
 
-Frejaはprotocol非依存のsecurity decisionをruntime/wire処理から分離します。Pingora型はadapterだけに存在し、domain、configuration、policy、inspection、audit、Hook、UIは依存しません。
+Frejaはframework非依存のsecurity decisionをruntime/wire処理から分離します。protocol固有のfact/actionはdomain modelに含めますが、wire parserやconcrete networking runtimeからは独立させます。Pingora型はadapterだけに存在し、domain、configuration、policy、inspection、audit、Hook、UIは依存しません。
 
 ```mermaid
 flowchart TD
@@ -27,7 +27,8 @@ flowchart TD
     X --> S
     S --> I[Streaming or preflight inspection]
     I --> A[Bounded critical audit]
-    I --> U[Best-effort immutable UI events]
+    I --> E[Best-effort data-plane events]
+    E --> U[UI adapter and immutable UI events]
     A --> J[Hash-chained JSONL and signed checkpoints]
     J --> P[Offline replay]
 ```
@@ -54,6 +55,8 @@ central redaction後にtyped version-1 eventをserializeします。bounded chan
 
 transport behaviorを所有します。HyperがHTTP/1 absolute-formとCONNECTを処理し、Frejaが`Host`再生成、hop-by-hop除去、ambiguous framing拒否、body streamingを担います。CONNECT policyとupstream接続は200 commit前に完了します。static TCPとSOCKS5はdestination authorization、bounded relay、inspection、Hook、audit、metrics、shutdownを共有します。
 
+public listener constructorはproxy所有の`ProxyLimits`を受け取り、TLS/capture setupもproxy所有のvalidated inputを使います。`freja-config`の値は`freja` composition rootで変換し、configuration/UI型をdata-plane crateへ漏らしません。
+
 TLS interceptionはhostname単位のopt-inです。CONNECT commit前にupstream TCPを確立し、downstream TLSをnegotiateして、選択された`h2`/`http/1.1` ALPNでupstream TLSを認証します。Rcgenはprotected CAからSAN付きleafを作り、host+ALPNのbounded cacheへ保存します。Hyperがintercepted HTTP/1.1/HTTP/2をdecodeし、semantic exchangeを同じ上限付きHTTP policy、inspection、typed Hook、audit、replay pipelineへ再接続します。
 
 ### `freja-ui`
@@ -62,7 +65,7 @@ immutable snapshotを受け、isolated threadでRAII restoration guardのもとt
 
 ### `freja`
 
-bootstrap/error-erasure境界です。複数listener、signal、audit writer、compatible SIGHUP reload、stored inputのverify/replayを所有します。listener起動前に通常terminal tracing writerまたはbounded TUI routerを選び、terminal threadをjoinする前にrouterを切断します。production multi-listener runtimeはTokioを使い、generic Pingora 0.8.1 `ServerApp` adapterもcompile-testします。
+bootstrap/error-erasure境界です。複数listener、signal、audit writer、compatible SIGHUP reload、stored inputのverify/replayを所有します。compiled configurationをsubsystem所有runtime inputへ変換し、UI非依存data-plane eventを現在のpresentationへadaptします。listener起動前に通常terminal tracing writerまたはbounded TUI routerを選び、terminal threadをjoinする前にrouterを切断します。production multi-listener runtimeはTokioを使い、generic Pingora 0.8.1 `ServerApp` adapterもcompile-testします。
 
 ## Decision flow
 

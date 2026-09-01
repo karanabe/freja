@@ -1,7 +1,8 @@
 # freja-domain
 
-Protocol-independent domain types and invariants for Freja's control and data
-planes. This crate has no networking runtime, UI framework, or Pingora types.
+Runtime- and framework-independent domain types and invariants for Freja's
+control and data planes. Protocol-aware facts and actions live here without
+networking runtime, UI framework, or Pingora types.
 
 See the [API documentation](https://docs.rs/freja-domain) and the
 [Freja repository](https://github.com/karanabe/freja).
