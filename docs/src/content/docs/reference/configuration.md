@@ -2,7 +2,7 @@
 title: Configuration reference
 description: Complete TOML reference for Freja runtime, safety, limits, listeners, policy, inspection, TLS, audit, and capture.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - configuration
   - reference
@@ -13,26 +13,58 @@ sidebar:
 
 Freja reads one TOML file. Unknown top-level and strict-section fields are
 rejected. Omitted sections use safe defaults, but at least one listener is
-required. Always run:
+required. Commandless `freja` (or `freja run` without `--config`) instead
+creates a loopback-only HTTP listener at the CLI composition root and passes it
+through the same compiler. Validate a file with:
 
 ```sh
 freja check-config --config freja.toml
 ```
 
+## Example configurations
+
+The repository ships four standalone local-test profiles:
+
+| Path | Runtime combination |
+| --- | --- |
+| `examples/config/headless/freja.toml` | Headless, enforce, disabled hooks, streaming inspection |
+| `examples/config/headless/freja.enforce.toml` | Headless, enforce, preflight deny marker |
+| `examples/config/tui/freja.toml` | Default TUI, enforce, interactive request decisions |
+| `examples/config/tui/freja.interactive.toml` | Focused HTTP-only interactive profile with smaller bounds |
+
+Pass a path directly to either CLI command, for example:
+
+```sh
+cargo run -p freja -- check-config --config examples/config/tui/freja.toml
+cargo run -p freja -- run --config examples/config/tui/freja.toml
+```
+
+The profiles reuse the same loopback ports and are intended to run one at a
+time. They allow loopback destinations for the bundled HTTP test origin; review
+that weaker destination guard before adapting one for deployment. See
+`examples/config/README.md` for the profile-specific checks.
+
 ## Runtime
 
 ```toml
 [runtime]
-ui = "headless"
-enforcement = "observe"
-hooks = "disabled"
+ui = "tui"
+enforcement = "enforce"
+hooks = "interactive"
 ```
 
 | Key | Values | Default | Notes |
 | --- | --- | --- | --- |
-| `ui` | `headless`, `tui` | `headless` | Presentation only |
-| `enforcement` | `observe`, `enforce` | `observe` | Whether deny decisions execute |
-| `hooks` | `disabled`, `automatic`, `interactive` | `disabled` | Interactive requires TUI |
+| `ui` | `headless`, `tui` | `tui` | Presentation only |
+| `enforcement` | `observe`, `enforce` | `enforce` | Whether deny decisions execute |
+| `hooks` | `disabled`, `automatic`, `interactive` | `interactive` | Interactive requires TUI |
+
+Omitting `[runtime]` selects that local interactive profile. The choices remain
+independent: TUI does not itself imply enforcement, and observe mode does not
+disable capture or audit. Interactive hooks require TUI because the decision
+responder lives there. The standard headless profile explicitly selects
+`headless`, `enforce`, and `disabled`; `observe` remains available for policy
+evaluation scenarios that must not execute deny actions.
 
 ## Safety
 

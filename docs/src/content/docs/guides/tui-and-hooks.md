@@ -2,7 +2,7 @@
 title: TUI and typed hooks
 description: Observe flows in ratatui and understand automatic or interactive hook behavior.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - tui
   - hooks
@@ -19,9 +19,19 @@ bounded snapshots and never owns live network sessions.
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "observe"
-hooks = "disabled"
+enforcement = "enforce"
+hooks = "interactive"
 ```
+
+The repository's default interactive profile can be started directly:
+
+```sh
+cargo run -p freja -- run --config examples/config/tui/freja.toml
+```
+
+`examples/config/tui/freja.interactive.toml` is a focused HTTP-only variant
+with smaller bounds and preflight inspection. Run only one example profile at
+a time because they share listener ports.
 
 Run Freja in a real terminal. Traffic content in this view is intentionally
 unredacted and may contain credentials, cookies, query secrets, or personal
@@ -64,9 +74,9 @@ shell's terminal reset command.
 
 | Mode | Behavior |
 | --- | --- |
-| `disabled` | Default; no registered hook is called |
+| `disabled` | No registered hook is called; selected by the headless profile |
 | `automatic` | Executes registered in-process hooks with a timeout |
-| `interactive` | Pauses each bounded HTTP request once for a TUI decision |
+| `interactive` | Default; pauses each bounded HTTP request once for a TUI decision |
 
 Interactive mode requires `ui = "tui"`; invalid combinations fail during
 configuration compilation.

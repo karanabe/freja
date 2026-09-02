@@ -2,7 +2,7 @@
 title: Freja ドキュメント
 description: ローカルファーストで説明可能な検査プロキシの設定、運用、保護、拡張方法です。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - 概要
   - プロキシ
@@ -22,9 +22,9 @@ hero:
 
 <div class="landing-shell not-content">
   <section class="landing-intro" aria-labelledby="landing-intro-title">
-    <p class="landing-eyebrow">安全側のデフォルト</p>
+    <p class="landing-eyebrow">interactiveなデフォルト</p>
     <h2 id="landing-intro-title">判断経路を隠さず、ローカル通信を検査する。</h2>
-    <p>loopback listener、metadata-only capture、CONNECTのblind tunnel、無効なHook、observe modeから始めます。enforce、TLS interception、外部公開、payload captureは、配置要件に応じて明示的に有効化します。</p>
+    <p>localではTUI、active enforcement、上限付きinteractive HTTP decisionから始めます。headless運用はHookを無効にしますが、enforcementは有効なままです。TLS interception、外部公開、payload captureは引き続き明示opt-inです。</p>
   </section>
 
   <div class="landing-principles" aria-label="Frejaの設計原則">
@@ -49,15 +49,13 @@ hero:
     <div>
       <p class="landing-eyebrow">最初のローカルリクエスト</p>
       <h2 id="landing-workflow-title">検証して、起動して、観測する。</h2>
-      <p>socketを開く前にサンプル設定をcompileし、loopback proxy経由でHTTPリクエストを1件送ります。</p>
+      <p>組み込み設定を検証し、引数なしでFrejaを起動して、loopback proxy経由でHTTPリクエストを1件送ります。</p>
       <a href="/ja/guides/getting-started/">クイックスタートを実行する <span aria-hidden="true">→</span></a>
     </div>
     <pre aria-label="Frejaのクイックスタート"><code>{`$ cargo build --release -p freja
-$ ./target/release/freja check-config \\
-    --config examples/freja.toml
-configuration valid: 3 listener(s), policy generation 1
+$ ./target/release/freja check-config
+configuration valid: 1 listener(s), policy generation 1
 
-$ ./target/release/freja run \\
-    --config examples/freja.toml`}</code></pre>
+$ ./target/release/freja`}</code></pre>
   </section>
 </div>

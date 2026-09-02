@@ -2,7 +2,7 @@
 
 This directory contains the English and Japanese Freja documentation built
 with Astro Starlight. Product behavior is documented from the Rust
-implementation, `examples/freja.toml`, packaging files, and integration tests;
+implementation, `examples/config/`, packaging files, and integration tests;
 temporary plans are not documentation sources.
 
 ## Local development

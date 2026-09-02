@@ -2,7 +2,7 @@
 title: TUIと型付きHook
 description: ratatuiでflowを観測し、automaticまたはinteractive Hookの挙動を理解します。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - TUI
   - Hook
@@ -18,9 +18,17 @@ TUIは表示modeであり、enforcement modeではありません。immutableで
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "observe"
-hooks = "disabled"
+enforcement = "enforce"
+hooks = "interactive"
 ```
+
+repositoryのdefault interactive profileは直接起動できます。
+
+```sh
+cargo run -p freja -- run --config examples/config/tui/freja.toml
+```
+
+`examples/config/tui/freja.interactive.toml`は、小さい上限とpreflight inspectionを使うHTTP専用variantです。各example profileはlistener portを共有するため、1つずつ起動してください。
 
 実terminalでFrejaを起動します。この画面のtraffic contentは意図的にredactせず、credential、cookie、query secret、個人情報を含む可能性があります。信頼できるlocal terminalだけで使用してください。audit redactionは変更されません。
 
@@ -41,9 +49,9 @@ normal exit、error、panic unwind時にはRAII guardがterminalを復元しま�
 
 | mode | 挙動 |
 | --- | --- |
-| `disabled` | default。登録済みHookも呼び出さない |
+| `disabled` | 登録済みHookを呼び出さない。headless profileが選択 |
 | `automatic` | 登録済みin-process Hookをtimeout付きで実行 |
-| `interactive` | 上限付きHTTP requestごとに1回だけTUI decisionまでpause |
+| `interactive` | default。上限付きHTTP requestごとに1回だけTUI decisionまでpause |
 
 interactive modeには`ui = "tui"`が必要で、不正な組み合わせは設定compile時に失敗します。
 

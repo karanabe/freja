@@ -2,7 +2,7 @@
 title: production配置
 description: systemdでFrejaをinstallし、安全にpolicyをreloadして、bounded shutdownとmetricsを運用します。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-03
 tags:
   - 運用
   - systemd
@@ -23,10 +23,10 @@ sudo install -Dm0644 packaging/freja.sysusers /usr/lib/sysusers.d/freja.conf
 sudo install -Dm0644 packaging/freja.tmpfiles /usr/lib/tmpfiles.d/freja.conf
 sudo systemd-sysusers /usr/lib/sysusers.d/freja.conf
 sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/freja.conf
-sudo install -Dm0640 examples/freja.toml /etc/freja/freja.toml
+sudo install -Dm0640 examples/config/headless/freja.toml /etc/freja/freja.toml
 ```
 
-`/etc/freja/freja.toml`を編集し、`audit.path = "/var/lib/freja"`を設定します。repositoryのサンプルは非privileged quick start向けにlocal fileを使います。同梱serviceは`/var/lib/freja`と`/run/freja`だけにwriteし、`freja` userで動作し、すべてのcapabilityをdropし、filesystem、kernel、process、syscall、address-family制限を適用します。
+`/etc/freja/freja.toml`を編集し、`audit.path = "/var/lib/freja"`を設定します。repositoryのサンプルは非privileged quick start向けにcurrent directoryを使います。同梱serviceは`/var/lib/freja`と`/run/freja`だけにwriteし、`freja` userで動作し、すべてのcapabilityをdropし、filesystem、kernel、process、syscall、address-family制限を適用します。
 
 enable前に検証します。
 

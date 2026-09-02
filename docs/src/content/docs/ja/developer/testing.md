@@ -2,7 +2,7 @@
 title: 開発とテスト
 description: workspace構造、validation gate、integration test、fuzz target、documentation workflowです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - テスト
   - contribution
@@ -11,7 +11,7 @@ sidebar:
   order: 5
 ---
 
-FrejaはRust edition 2024を使い、workspaceのminimum Rust versionはratatui 0.30.2と解決済みTLS certificate stackに合わせた1.88です。Pingora compatibilityは0.8.1へ固定しています。
+FrejaはRust edition 2024を使い、workspaceで宣言および検証するminimum Rust versionは1.98です。Pingora compatibilityは0.8.1へ固定しています。
 
 ## 必須gate
 
@@ -35,6 +35,25 @@ multi-listener CLIがTokioを選択していてもall-feature buildはPingora ad
 - UI test: ratatui test backendによるsplit/片側全幅trafficとdiagnostics render、pane/終了/editor key state、型付きrequest draft、non-blocking saturation、terminal-control escape。HTTP integration suiteはmanual header/bodyの原子的mutationとframing再構築をupstream serverで検証
 
 local logicにはfocused unit test、externally observable network/CLI変更にはintegration testを追加します。
+
+## ローカルHTTPテストorigin
+
+非公開の`examples/http-test-server` packageは、public network serviceへ依存せずに手動でproxyを確認するためのAxum originです。defaultでは`127.0.0.1:3001`にbindし、GET、POST、PUT、PATCH、DELETE、HEAD、OPTIONS、任意methodのrequest echo routeを提供します。status、redirect、delay、streaming、固定size responseも上限付きで試せます。
+
+Frejaで`examples/config/headless/freja.toml`を使い、それぞれ別のterminalで実行します。
+
+```sh
+cargo run --manifest-path examples/http-test-server/Cargo.toml
+cargo run -p freja -- run --config examples/config/headless/freja.toml
+curl --noproxy "" --proxy http://127.0.0.1:8080 \
+  http://127.0.0.1:3001/get?name=freja
+curl --noproxy "" --proxy http://127.0.0.1:8080 \
+  http://127.0.0.1:3001/post --data 'hello through Freja'
+```
+
+`--noproxy ""`はenvironmentのloopback除外によってFrejaが迂回されるのを防ぎます。sample configurationはlocal test専用にloopback destinationを許可しています。serverは受信したmethod、URI、header一式、body全体のsize、最大4 KiBのbody previewをterminalへ表示します。credential/Cookieを含むすべてのheader値は、開発用として意図的に伏字にしません。binary previewはBase64、terminal control characterはescapeされます。URI、header、body previewはsensitiveなままなので、合成したsecretとpayloadだけを使ってください。route一覧と上限は`examples/http-test-server/README.md`に記載しています。
+
+`examples/config/headless/`と`examples/config/tui/`以下のstandalone fileで、enforceするheadless運用、focused blocking detector、および広い上限またはfocusedな上限のinteractive TUIを試せます。CLI integration suiteは同梱する全templateへ`check-config`を実行し、schema変更でsampleが暗黙に無効にならないことを確認します。
 
 ## Fuzz target
 

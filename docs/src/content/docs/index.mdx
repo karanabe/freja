@@ -2,7 +2,7 @@
 title: Freja documentation
 description: Configure, operate, secure, and extend the local-first explainable inspection proxy.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - overview
   - proxy
@@ -22,9 +22,9 @@ hero:
 
 <div class="landing-shell not-content">
   <section class="landing-intro" aria-labelledby="landing-intro-title">
-    <p class="landing-eyebrow">Conservative by default</p>
+    <p class="landing-eyebrow">Interactive by default</p>
     <h2 id="landing-intro-title">Inspect local traffic without hiding the decision path.</h2>
-    <p>Start with loopback listeners, metadata-only capture, blind CONNECT tunnels, disabled hooks, and observe mode. Opt in to enforcement, interception, remote exposure, or payload capture only when the deployment needs them.</p>
+    <p>Start locally with the TUI, active enforcement, and bounded interactive HTTP decisions. Headless operation disables hooks but keeps enforcement active. TLS interception, remote exposure, and payload capture remain explicit opt-ins.</p>
   </section>
 
   <div class="landing-principles" aria-label="Freja principles">
@@ -49,15 +49,13 @@ hero:
     <div>
       <p class="landing-eyebrow">First local request</p>
       <h2 id="landing-workflow-title">Validate, run, inspect.</h2>
-      <p>Compile the example configuration before opening any listener, then send one HTTP request through the loopback proxy.</p>
+      <p>Validate the built-in configuration, start Freja without arguments, then send one HTTP request through the loopback proxy.</p>
       <a href="/guides/getting-started/">Run the quick start <span aria-hidden="true">→</span></a>
     </div>
     <pre aria-label="Freja quick start"><code>{`$ cargo build --release -p freja
-$ ./target/release/freja check-config \\
-    --config examples/freja.toml
-configuration valid: 3 listener(s), policy generation 1
+$ ./target/release/freja check-config
+configuration valid: 1 listener(s), policy generation 1
 
-$ ./target/release/freja run \\
-    --config examples/freja.toml`}</code></pre>
+$ ./target/release/freja`}</code></pre>
   </section>
 </div>

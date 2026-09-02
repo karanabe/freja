@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: Freja contributor向けのcrate境界、data flow、runtime snapshot、不変条件です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - アーキテクチャ
   - 開発者
@@ -43,7 +43,7 @@ validated identifier、endpoint、runtime mode、目的別fact、finding、decis
 
 唯一のconfiguration compilerです。typestate pathにより、socketを開く前に不正なmode組み合わせ、zero bound、安全でないremote exposure、無制限capture、不正credential digest、empty CONNECT/interception allowlist、不正policy/detectorを拒否します。
 
-内部では`raw`がSerde向けTOML model、`validation`がsemantic/cross-field invariant、`compiled`がimmutableなpolicy/inspection programの構築を所有します。listener、resource limit、audit、inspection、TLSのruleは各stage内の担当moduleへ分離し、crate rootはstableなpublic APIだけを公開します。
+内部では`raw`がSerde向けTOML model、`validation`がsemantic/cross-field invariant、`compiled`がimmutableなpolicy/inspection programの構築を所有します。listener、resource limit、audit、inspection、TLSのruleは各stage内の担当moduleへ分離し、crate rootはstableなpublic APIだけを公開します。commandless/config-free startupでは`freja` composition rootが`RawConfig::default()`へloopback HTTP listener 1件を追加し、socketを開く前に完全なcompilerを通します。`freja-config`自体はlistenerを暗黙生成しません。
 
 ### `freja-policy`
 
@@ -109,6 +109,7 @@ HTTP request/response factとinspection findingは追加policy stageになりま
 - CONNECT tunnel commit後にHTTP responseを出さない
 - body mutationはdecoded-body typeへ適用しframingを再構築する
 - forwardingはUI publicationを待たず、critical audit failureを黙殺しない
-- payload capture、Hook、TLS interception、remote exposureはopt-in
+- default runtimeはTui + Enforce + Interactive、標準headless profileはHeadless + Enforce + Disabled。各choiceは独立
+- payload capture、TLS interception、remote exposureはopt-in
 - connection、header、body prefix、cache、header/body read、upstream connect、relay無通信、paused flow、channelはbounded
 - library crateはunsafeを禁止し、concrete error enumを公開する

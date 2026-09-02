@@ -2,7 +2,7 @@
 title: Production deployment
 description: Install Freja under systemd, reload policy safely, and operate bounded shutdown and metrics.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-03
 tags:
   - operations
   - systemd
@@ -25,11 +25,11 @@ sudo install -Dm0644 packaging/freja.sysusers /usr/lib/sysusers.d/freja.conf
 sudo install -Dm0644 packaging/freja.tmpfiles /usr/lib/tmpfiles.d/freja.conf
 sudo systemd-sysusers /usr/lib/sysusers.d/freja.conf
 sudo systemd-tmpfiles --create /usr/lib/tmpfiles.d/freja.conf
-sudo install -Dm0640 examples/freja.toml /etc/freja/freja.toml
+sudo install -Dm0640 examples/config/headless/freja.toml /etc/freja/freja.toml
 ```
 
 Edit `/etc/freja/freja.toml` and set `audit.path = "/var/lib/freja"`; the
-repository example uses a local file for its unprivileged quick start. The packaged service writes only below
+repository example uses the current directory for its unprivileged quick start. The packaged service writes only below
 `/var/lib/freja` and `/run/freja`, runs as the `freja` user, drops all
 capabilities, and applies filesystem, kernel, process, syscall, and
 address-family restrictions.

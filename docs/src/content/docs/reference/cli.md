@@ -14,22 +14,26 @@ The binary is named `freja`. Every command returns zero on success and a
 non-zero exit status after printing a contextual error chain on failure.
 
 ```text
-freja <COMMAND>
+freja [COMMAND]
 
 Commands:
   check-config  Parse, validate, and compile a configuration without opening listeners
-  run           Run configured proxy listeners
+  run           Run proxy listeners from a file or the built-in defaults
   replay        Verify and evaluate stored facts with a candidate configuration
   help          Print help
 ```
 
+Running `freja` without a command is equivalent to `freja run` without
+`--config`: it starts the built-in local interactive proxy.
+
 ## `check-config`
 
 ```sh
-freja check-config --config <PATH>
+freja check-config [--config <PATH>]
 ```
 
-Short option: `-c`. This follows the complete
+Short option: `-c`. Without a path, this validates the built-in configuration
+used by config-free `run`. With a path, this follows the complete
 `RawConfig -> ValidatedConfig -> CompiledConfig` path. It checks TOML keys,
 endpoints, unsafe mode combinations, resource bounds, listener exposure,
 credentials, required TLS configuration fields, ACL structure, and detector
@@ -42,10 +46,15 @@ Successful output reports listener count and policy generation.
 ## `run`
 
 ```sh
-freja run --config <PATH>
+freja run [--config <PATH>]
 ```
 
-Short option: `-c`. Freja compiles the configuration, creates bounded audit/UI
+The command itself may also be omitted when using built-in defaults. Short
+option: `-c`. Without `--config`, Freja builds a configuration with one
+HTTP forward listener on `127.0.0.1:8080`, TUI + enforce + interactive runtime,
+CONNECT port 443, tunnel TLS handling, metadata-only audit capture, and the
+normal protected destination classes. Supplying a path replaces that complete
+configuration. Freja compiles the selected source, creates bounded audit/UI
 publishers, initializes optional TLS interception and TUI state, binds every
 listener, and waits for shutdown or an early listener or audit-writer failure.
 
@@ -82,7 +91,7 @@ Replay does not open listeners or modify the source audit segment.
 | --- | --- |
 | SIGINT | Graceful shutdown |
 | SIGTERM | Graceful shutdown |
-| SIGHUP | Validate and atomically reload the compatible policy snapshot |
+| SIGHUP | Reload the compatible file-backed policy snapshot; warn and ignore when built-in defaults are active |
 
 Signals are Unix behavior. A rejected SIGHUP candidate leaves the active
 snapshot unchanged and writes an operational warning. Changes that require new

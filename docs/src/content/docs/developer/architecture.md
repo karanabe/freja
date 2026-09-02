@@ -2,7 +2,7 @@
 title: Architecture
 description: Crate boundaries, data flow, runtime snapshots, and invariants for Freja contributors.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - architecture
   - developer
@@ -55,7 +55,10 @@ Internally, `raw` owns the Serde-facing TOML model, `validation` owns semantic
 and cross-field invariants, and `compiled` builds the immutable policy and
 inspection programs. Listener, resource-limit, audit, inspection, and TLS
 rules are isolated within their owning stage; the crate root only exposes the
-stable public API.
+stable public API. For commandless/config-free startup, the `freja` composition
+root adds one loopback HTTP listener to `RawConfig::default()` and still runs
+the complete compiler before opening sockets; `freja-config` itself does not
+invent a listener.
 
 ### `freja-policy`
 
@@ -175,7 +178,9 @@ fields. Resource-owning configuration remains restart-only.
 - Body mutation operates on decoded-body types and rebuilds framing.
 - Forwarding never waits for UI publication; critical audit failure is never
   silently ignored.
-- Payload capture, hooks, TLS interception, and remote exposure are opt-ins.
+- The default runtime is Tui + Enforce + Interactive; the standard headless
+  profile is Headless + Enforce + Disabled. These choices remain independent.
+- Payload capture, TLS interception, and remote exposure are opt-ins.
 - Connections, headers, body prefixes, caches, header/body reads, upstream
   connects, relay inactivity, paused flows, and channels are bounded.
 - Library crates forbid unsafe code and expose concrete error enums.

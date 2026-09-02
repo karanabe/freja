@@ -2,7 +2,7 @@
 title: 設定リファレンス
 description: runtime、safety、limit、listener、policy、inspection、TLS、audit、captureの完全なTOMLリファレンスです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - 設定
   - リファレンス
@@ -11,26 +11,48 @@ sidebar:
   order: 2
 ---
 
-Frejaは1つのTOML fileを読みます。未知のtop-level/strict section fieldは拒否します。省略sectionには安全なdefaultを使いますが、listenerは最低1件必要です。必ず次を実行してください。
+Frejaは1つのTOML fileを読みます。未知のtop-level/strict section fieldは拒否します。省略sectionには安全なdefaultを使いますが、fileにはlistenerが最低1件必要です。commandなしの`freja`（または`--config`なしの`freja run`）はCLI composition rootでloopback限定HTTP listenerを追加し、同じcompilerを通します。fileは次のcommandで検証します。
 
 ```sh
 freja check-config --config freja.toml
 ```
 
+## サンプル設定
+
+repositoryにはlocal test向けのstandalone profileが4つあります。
+
+| path | runtimeの組み合わせ |
+| --- | --- |
+| `examples/config/headless/freja.toml` | headless、enforce、Hook無効、streaming inspection |
+| `examples/config/headless/freja.enforce.toml` | headless、enforce、preflight deny marker |
+| `examples/config/tui/freja.toml` | default TUI、enforce、interactive request decision |
+| `examples/config/tui/freja.interactive.toml` | 小さい上限を持つHTTP専用interactive profile |
+
+どちらのCLI commandにもpathを直接渡せます。
+
+```sh
+cargo run -p freja -- check-config --config examples/config/tui/freja.toml
+cargo run -p freja -- run --config examples/config/tui/freja.toml
+```
+
+各profileは同じloopback portを使うため、1つずつ起動してください。同梱HTTP test originへ接続するためloopback destinationを許可しているので、配置用に変更する前に、この弱いdestination guardを見直してください。profile別の確認方法は`examples/config/README.md`にあります。
+
 ## Runtime
 
 ```toml
 [runtime]
-ui = "headless"
-enforcement = "observe"
-hooks = "disabled"
+ui = "tui"
+enforcement = "enforce"
+hooks = "interactive"
 ```
 
 | key | value | default | 説明 |
 | --- | --- | --- | --- |
-| `ui` | `headless`, `tui` | `headless` | 表示だけを選択 |
-| `enforcement` | `observe`, `enforce` | `observe` | deny decisionを実行するか |
-| `hooks` | `disabled`, `automatic`, `interactive` | `disabled` | interactiveにはTUIが必要 |
+| `ui` | `headless`, `tui` | `tui` | 表示だけを選択 |
+| `enforcement` | `observe`, `enforce` | `enforce` | deny decisionを実行するか |
+| `hooks` | `disabled`, `automatic`, `interactive` | `interactive` | interactiveにはTUIが必要 |
+
+`[runtime]`を省略すると、このlocal interactive profileを選択します。各選択は引き続き独立です。TUI自体がenforcementを暗黙に有効化するわけではなく、observe modeでもcaptureとauditは無効になりません。interactive Hookはdecision responderがTUIにあるため、TUIが必須です。標準headless profileは`headless`、`enforce`、`disabled`を明示します。`observe`はdeny actionを実行せずpolicyを評価する必要がある場合に利用できます。
 
 ## Safety
 

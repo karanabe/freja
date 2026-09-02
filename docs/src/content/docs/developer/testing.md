@@ -2,7 +2,7 @@
 title: Development and testing
 description: Workspace layout, validation gates, integration tests, fuzz targets, and documentation workflow.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - testing
   - contributing
@@ -11,9 +11,8 @@ sidebar:
   order: 5
 ---
 
-Freja uses Rust edition 2024. The workspace's minimum declared Rust version is
-1.88, matching ratatui 0.30.2 and the resolved TLS certificate stack. Pingora
-compatibility is fixed at 0.8.1.
+Freja uses Rust edition 2024. The workspace's minimum declared and validated
+Rust version is 1.98. Pingora compatibility is fixed at 0.8.1.
 
 ## Required gates
 
@@ -52,6 +51,42 @@ behavior; they must not depend on public network services.
 
 Add a focused unit test for local logic and an integration test when externally
 observable network or CLI behavior changes.
+
+## Local HTTP test origin
+
+The non-published `examples/http-test-server` package provides an Axum
+origin for manual proxy checks without depending on a public network service.
+It binds to `127.0.0.1:3001` by default and exposes request echo routes for GET,
+POST, PUT, PATCH, DELETE, HEAD, OPTIONS, and arbitrary methods. It also provides
+bounded status, redirect, delay, streaming, and fixed-size response routes.
+
+With Freja using `examples/config/headless/freja.toml`, run these in separate
+terminals:
+
+```sh
+cargo run --manifest-path examples/http-test-server/Cargo.toml
+cargo run -p freja -- run --config examples/config/headless/freja.toml
+curl --noproxy "" --proxy http://127.0.0.1:8080 \
+  http://127.0.0.1:3001/get?name=freja
+curl --noproxy "" --proxy http://127.0.0.1:8080 \
+  http://127.0.0.1:3001/post --data 'hello through Freja'
+```
+
+`--noproxy ""` prevents environment-level loopback exclusions from bypassing
+Freja. The sample configuration permits loopback destinations specifically for
+local testing. The server prints each received method, URI, header set, total
+body size, and at most 4 KiB of body preview to its terminal. All header values,
+including credentials and cookies, are intentionally unredacted. Binary
+previews are Base64 encoded, and terminal control characters are escaped. URIs,
+headers, and body previews remain sensitive, so use only synthetic secrets and
+payloads. Its full route table and limits are documented in
+`examples/http-test-server/README.md`.
+
+The standalone files under `examples/config/headless/` and
+`examples/config/tui/` cover enforced headless operation, a focused blocking
+detector, and interactive TUI runs with broad or focused bounds. The CLI
+integration suite executes `check-config` against every shipped template so
+schema changes cannot silently leave an example invalid.
 
 ## Fuzz targets
 

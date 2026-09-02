@@ -2,7 +2,7 @@
 title: 型付きHook設計
 description: Hook stage、mutation contract、interactive flow state、拡張ruleです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - Hook
   - アーキテクチャ
@@ -11,7 +11,7 @@ sidebar:
   order: 3
 ---
 
-APIが安定するまでHookは`freja-policy::hook`に置きます。defaultはdisabledで、native dynamic-library loading pathはありません。
+APIが安定するまでHookは`freja-policy::hook`に置きます。application defaultは上限付きinteractive brokerを使い、headless profileはHookを無効にします。native dynamic-library loading pathはありません。
 
 ## Stage contract
 

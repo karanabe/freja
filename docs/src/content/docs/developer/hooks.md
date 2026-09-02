@@ -2,7 +2,7 @@
 title: Typed hook design
 description: Hook stages, mutation contracts, interactive flow state, and extension rules.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-03
 tags:
   - hooks
   - architecture
@@ -11,8 +11,9 @@ sidebar:
   order: 3
 ---
 
-Hooks remain in `freja-policy::hook` while the API stabilizes. They are disabled
-by default and have no native dynamic-library loading path.
+Hooks remain in `freja-policy::hook` while the API stabilizes. The application
+default uses the bounded interactive broker; the headless profile disables
+hooks. There is no native dynamic-library loading path.
 
 ## Stage contracts
 
