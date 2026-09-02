@@ -948,6 +948,7 @@ dependencies = [
  "freja-domain",
  "freja-policy",
  "http",
+ "httparse",
  "ratatui",
  "serde",
  "serde_json",

@@ -40,7 +40,7 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - authoritativeなHTTP/1 parse/forwardingはHyperが処理。private TUI Raw framerはbounded observerだけでprotocol decisionを行えない。data planeはconflicting framing、oversized header、ambiguous target、unsafe hop-by-hop forwardingを拒否
 - connection、header/body/TUI content、retained TUI row、DNS/connect/idle/interception timeout、leaf cache、audit/UI queue、paused flow、manual editをbounded化
 - streaming signatureはbounded overlapを保持し、preflightはprefix budgetだけ保持
-- Hookはwire byteを出力できずhop-by-hop framingを変更不可。interactive requestはboundedでCLI timeoutはfail-closed
+- Hookはwire byteを出力できずhop-by-hop framingを変更不可。interactive requestはboundedでCLI timeoutはfail-closed。HTTP/1.1 editorはlocal draftを型付き変更へ変換するためだけに`httparse`を使い、routing/start-line fieldを固定し、protected header編集を拒否して、data plane側でlimit再検証とframing再構築を行う
 
 ### Auditとsensitive data
 

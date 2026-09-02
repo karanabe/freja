@@ -49,9 +49,9 @@ sequenceDiagram
     Flow->>Flow: validate and apply or reject
 ```
 
-queue capacityとpaused-flow semaphoreは独立です。saturation、closed channel、timeout、dropped responderは別errorです。各HTTP requestはupstream forwarding前に1回pauseします。snapshotはparsed method、URI、version、header、および`limits.body_prefix_bytes`でboundedなcomplete bodyを持ちます。best-effort UI eventがdropされても操作できるよう、このsnapshotはreliable pause channelでcopyされます。上限超過bodyはpauseせず413になります。CONNECTはcommit前にempty bodyで1回pauseします。decisionはContinue、Reject、EditHeaders、ReplaceBody、CancelModificationのいずれかです。
+queue capacityとpaused-flow semaphoreは独立です。saturation、closed channel、timeout、dropped responderは別errorです。各HTTP requestはupstream forwarding前に1回pauseします。snapshotはparsed method、URI、version、header、および`limits.body_prefix_bytes`でboundedなcomplete bodyを持ちます。best-effort UI eventがdropされても操作できるよう、このsnapshotはreliable pause channelでcopyされます。上限超過bodyはpauseせず413になります。CONNECTはcommit前にempty bodyで1回pauseします。decisionはContinue、Reject、EditHeaders、ReplaceBody、ModifyRequest、CancelModificationのいずれかです。`ModifyRequest`は`HeadMutationPlan`と`BodyMutationPlan`を組み合わせ、TUIの1回の原子的editを表します。細粒度variantはembedder向けに維持します。
 
-HTTP responseはTUIへ表示しますがpauseしません。TCP trafficもinteractive broker境界ではobserve-onlyで、paused-flow permitを取得せずoperatorを待ちません。registered typed response/TCP Hookはin-process embedding mechanismとして残し、manual TCP drop/mutationはdeferredです。manual HTTP editはboundedで、contentではなくactionをauditします。Rejectはprotocol commit前だけ有効で、CONNECT commit後に別HTTP responseは生成できません。
+HTTP responseはTUIへ表示しますがpauseしません。TCP trafficもinteractive broker境界ではobserve-onlyで、paused-flow permitを取得せずoperatorを待ちません。registered typed response/TCP Hookはin-process embedding mechanismとして残し、manual TCP drop/mutationはdeferredです。TUIはHTTP/1.1 text draftを型付きheader/body変更へparseし、wire byteを直接出力しません。manual HTTP editはboundedで、contentではなくactionをauditします。Rejectはprotocol commit前だけ有効で、CONNECT commit後に別HTTP responseは生成できません。
 
 ## 拡張policy
 

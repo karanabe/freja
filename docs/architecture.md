@@ -29,8 +29,10 @@ TUI-only `UiCaptureSettings` additionally install bounded, non-blocking ingress
 observers for exact plain HTTP/1 Raw display. Hyper remains the authoritative
 HTTP engine; the private capture-only framer cannot affect forwarding. HTTP
 interactive mode pauses one complete bounded request, while responses and TCP
-traffic remain observe-only. Exact Raw for intercepted HTTP and HTTP/2 remains
-explicitly unavailable.
+traffic remain observe-only. The TUI's HTTP/1.1 text editor turns its copied
+snapshot into a typed, atomic header/body mutation without taking ownership of
+the live flow or routing decisions. Exact Raw for intercepted HTTP and HTTP/2
+remains explicitly unavailable.
 
 The maintained, rendered architecture reference is
 [`src/content/docs/developer/architecture.md`](src/content/docs/developer/architecture.md).

@@ -60,13 +60,15 @@ interactive controlは意図的に狭くしています。Frejaは`limits.body_p
 | key | action |
 | --- | --- |
 | `1` / `2` | Traffic / Diagnosticsを選択 |
-| `v` | split/focused traffic detailを切替 |
+| `v` | split / request全幅 / response全幅をcycle |
 | `m` | Pretty / Raw / Hexをcycle |
 | `h` / `l` | request/client側またはresponse/upstream側を選択 |
-| Tab | pane間でfocusを移動 |
+| Ctrl+`j` / Ctrl+`k`、Tab | 上下のpane間でfocusを移動 |
 | `j` / `k`、arrow | flow選択またはfocused paneをscroll |
 | PageDown / PageUp | 10 row scroll |
-| `q` | 終了してterminalを復元 |
+| Enter | focused paneをfloating表示へ拡大 |
+| `q` | floating表示を閉じて戻る |
+| Ctrl+C / `Q` | 終了してterminalを復元 |
 
 requestのpause中は次を操作できます。
 
@@ -74,13 +76,15 @@ requestのpause中は次を操作できます。
 | --- | --- |
 | `c` | 変更せずcontinue |
 | `r` | protocol commit前にreject |
-| `e` | 上限付き`name:value` header置換を入力 |
-| `b` | 上限付きbody置換を入力 |
+| `e` | HTTP/1.1 request editorをNormal modeで開く |
+| `i` | HTTP/1.1 request editorをInsert modeで開く |
 | `x` | 保留中の変更をcancel |
-| Enter | editor入力をsubmit |
-| Esc | editorを閉じる。通常時は終了しない |
 
-manual headerは8 KiB、bodyは4 KiBが上限です。bounded queue、`limits.paused_flows`、`limits.interception_timeout_ms`により無期限の蓄積を防ぎます。CLIのtimeout動作はfail-closedです。
+Normal modeからは`i`でInsert modeへ入り、arrowまたは`h`/`j`/`k`/`l`で移動し、`s`またはCtrl+Sでvalidateしてsubmitします。Insert modeのEnterは改行を挿入し、EscでNormal modeへ戻ります。draftを破棄する`q`はNormal modeだけで有効です。Ctrl+Cと`Q`はどちらのmodeでもapplicationを終了します。
+
+同梱editorはtextとして表現できるHTTP/1.1 requestを対象にします。end-to-end headerとUTF-8 bodyを1つの原子的decisionで変更でき、重複headerと複数行bodyにも対応します。method、request target、version、Host、hop-by-hop field、framing headerはread-onlyです。submit時に`httparse`でparseし、型付きmutation planへ変換して設定済みheader/body byte上限を検証した後、proxyが`Content-Length`を再構築します。HTTP/2と非UTF-8 requestは観測できますがtext editorでは開けません。
+
+bounded queue、`limits.paused_flows`、`limits.interception_timeout_ms`により無期限の蓄積を防ぎます。CLIのtimeout動作はfail-closedです。
 
 CONNECT成功後はtunnelなのでHTTP reject/redirectを挿入できません。manual actionは編集内容を保存せず監査します。
 

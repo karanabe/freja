@@ -4,6 +4,7 @@ use std::time::Duration;
 
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
+mod editor;
 mod input;
 mod model;
 mod render;
@@ -113,6 +114,18 @@ mod tests {
         assert_eq!(model.display_mode, DisplayMode::Raw);
         terminal.draw(|frame| render(frame, &model)).unwrap();
         assert!(rendered_text(&terminal).contains("POST http://example.test/api HTTP/1.1\\r"));
+
+        model.cycle_layout();
+        terminal.draw(|frame| render(frame, &model)).unwrap();
+        let request_wide = rendered_text(&terminal);
+        assert!(request_wide.contains("Request [Raw]"));
+        assert!(!request_wide.contains("Response [Raw]"));
+
+        model.cycle_layout();
+        terminal.draw(|frame| render(frame, &model)).unwrap();
+        let response_wide = rendered_text(&terminal);
+        assert!(!response_wide.contains("Request [Raw]"));
+        assert!(response_wide.contains("Response [Raw]"));
     }
 
     #[test]
@@ -141,6 +154,8 @@ mod tests {
                 version: http::Version::HTTP_11,
                 headers: http::HeaderMap::new(),
                 body: WireBody::new("complete"),
+                maximum_head_bytes: 1_024,
+                maximum_body_bytes: 1_024,
             },
             response,
         };

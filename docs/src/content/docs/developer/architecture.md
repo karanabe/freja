@@ -116,7 +116,10 @@ oneshot response.
 Traffic rows are bounded by configuration. Screen 1 correlates HTTP by
 `TransactionId` and TCP by `SessionId`; screen 2 separates evidence, logs, and
 statistics. HTTP interactive mode sends one complete bounded request snapshot
-to the operator. Responses and TCP data never wait for a TUI decision.
+to the operator. The HTTP/1.1 text editor owns only that copied snapshot and
+converts a validated draft to an atomic typed header/body plan; method, target,
+version, routing, and framing remain data-plane responsibilities. Responses and
+TCP data never wait for a TUI decision.
 
 ### `freja`
 

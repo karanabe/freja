@@ -57,7 +57,10 @@ serialization, and replay parsing.
 - Streaming signatures retain bounded overlap; preflight holds only its prefix
   budget.
 - Hooks cannot emit wire bytes or modify hop-by-hop framing. Interactive
-  requests are bounded and the CLI uses fail-closed timeout behavior.
+  requests are bounded and the CLI uses fail-closed timeout behavior. The
+  HTTP/1.1 editor uses `httparse` only to translate a local draft into typed
+  changes; it locks routing/start-line fields, rejects protected-header edits,
+  and relies on the data plane to revalidate limits and rebuild framing.
 
 ### Audit and sensitive data
 

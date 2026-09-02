@@ -91,6 +91,13 @@ pub enum HeaderMutation {
         /// Validated header value.
         value: HeaderValue,
     },
+    /// Append one value without discarding existing values for the same name.
+    Append {
+        /// Header to append; proxy-controlled framing names are rejected when applied.
+        name: HeaderName,
+        /// Validated header value.
+        value: HeaderValue,
+    },
     /// Remove one end-to-end header.
     Remove {
         /// Header to remove; proxy-controlled framing names are rejected when applied.
@@ -103,6 +110,19 @@ pub enum HeaderMutation {
 pub struct HeadMutationPlan {
     /// Ordered changes applied before the proxy reconstructs framing.
     pub headers: Vec<HeaderMutation>,
+}
+
+/// Combined typed mutation for one interactively paused HTTP request.
+///
+/// Keeping the head and body plans together lets an operator submit one
+/// atomic edit while the HTTP engine remains responsible for validation and
+/// framing reconstruction.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct HttpRequestMutationPlan {
+    /// Ordered end-to-end header mutations.
+    pub head: HeadMutationPlan,
+    /// Bounded decoded-body mutation.
+    pub body: BodyMutationPlan,
 }
 
 /// Bounded decoded-body mutation plan.

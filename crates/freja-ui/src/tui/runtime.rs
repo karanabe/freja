@@ -56,7 +56,7 @@ impl TuiTask {
     }
 }
 
-/// Runs the terminal event loop until `q` or producer shutdown.
+/// Runs the terminal event loop until Ctrl+C, `Q`, or producer shutdown.
 ///
 /// # Errors
 ///
@@ -70,7 +70,6 @@ pub fn run_tui(
     let mut terminal = TerminalGuard::enter()?;
     let mut model = TuiModel::new(retained_rows, 256);
     let mut pending = VecDeque::new();
-    let mut editor = None;
     loop {
         let mut disconnected = false;
         loop {
@@ -87,10 +86,10 @@ pub fn run_tui(
         model.set_dropped_events(metrics.dropped_events());
         model.set_interactive_state(
             paused_transactions(&pending),
-            editor_status(&model, &pending, editor.as_ref()),
+            editor_status(&model, &pending),
         );
         terminal.draw(&model)?;
-        if disconnected || handle_input(&mut model, &mut pending, &mut editor)? {
+        if disconnected || handle_input(&mut model, &mut pending)? {
             return Ok(());
         }
     }

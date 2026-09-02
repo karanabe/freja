@@ -37,6 +37,7 @@ freja-ui = { version = "0.1.0", path = "crates/freja-ui" }
 hex = "0.4.3"
 http = "1.3.1"
 http-body-util = "0.1.3"
+httparse = "1.10.1"
 hyper = { version = "1.7.0", features = ["client", "http1", "http2", "server"] }
 hyper-util = { version = "0.1.16", features = ["client-legacy", "http1", "server", "tokio"] }
 ipnet = { version = "2.11.0", features = ["serde"] }

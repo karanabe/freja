@@ -3,7 +3,7 @@ use std::{error::Error, fmt, sync::Arc, time::Duration};
 use freja_domain::{SessionId, TransactionId};
 use tokio::sync::{Semaphore, mpsc, oneshot};
 
-use super::{DecodedBody, HeadMutationPlan, WireBody};
+use super::{DecodedBody, HeadMutationPlan, HttpRequestMutationPlan, WireBody};
 
 /// Immutable parsed request copied into an interactive TUI decision.
 #[derive(Debug, Clone)]
@@ -18,6 +18,10 @@ pub struct HttpRequestSnapshot {
     pub headers: http::HeaderMap,
     /// Fully collected bounded request body.
     pub body: WireBody,
+    /// Maximum edited request-head bytes accepted by the data plane.
+    pub maximum_head_bytes: usize,
+    /// Maximum edited request-body bytes accepted by the data plane.
+    pub maximum_body_bytes: usize,
 }
 
 /// Context copied into a bounded interactive request.
@@ -40,6 +44,8 @@ pub enum InteractiveDecision {
     EditHeaders(HeadMutationPlan),
     /// Replace a bounded body with decoded bytes and resume.
     ReplaceBody(DecodedBody),
+    /// Atomically apply typed header and body changes and resume.
+    ModifyRequest(HttpRequestMutationPlan),
     /// Discard a pending modification and resume unchanged.
     CancelModification,
 }

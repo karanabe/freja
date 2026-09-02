@@ -96,13 +96,15 @@ in-process hooks; configuration alone does not load hook code.
 | Key | Action |
 | --- | --- |
 | `1` / `2` | Select Traffic / Diagnostics |
-| `v` | Toggle split and focused traffic detail |
+| `v` | Cycle split / request-wide / response-wide detail |
 | `m` | Cycle Pretty / Raw / Hex |
 | `h` / `l` | Select request/client or response/upstream side |
-| Tab | Move focus between panes |
+| Ctrl+`j` / Ctrl+`k`, Tab | Move focus between vertical panes |
 | `j` / `k`, arrows | Select a flow or scroll the focused pane |
 | PageDown / PageUp | Scroll by ten rows |
-| `q` | Quit and restore the terminal |
+| Enter | Expand the focused pane into a floating view |
+| `q` | Close the floating view and return |
+| Ctrl+C / `Q` | Quit and restore the terminal |
 
 When a request is paused, the TUI supports:
 
@@ -110,15 +112,27 @@ When a request is paused, the TUI supports:
 | --- | --- |
 | `c` | Continue unchanged |
 | `r` | Reject before protocol commitment |
-| `e` | Enter a bounded `name:value` header replacement |
-| `b` | Enter a bounded replacement body |
+| `e` | Open the HTTP/1.1 request editor in Normal mode |
+| `i` | Open the HTTP/1.1 request editor in Insert mode |
 | `x` | Cancel the pending modification |
-| Enter | Submit editor input |
-| Esc | Close the editor; otherwise return without exiting |
 
-Manual header input is capped at 8 KiB and body input at 4 KiB. The bounded
-queue, `limits.paused_flows`, and `limits.interception_timeout_ms` prevent
-indefinite accumulation. The CLI uses fail-closed behavior on timeout.
+From Normal mode, use `i` to enter Insert mode, arrows or
+`h`/`j`/`k`/`l` in Normal mode to move, and `s` or Ctrl+S to validate and
+submit. In Insert mode, Enter inserts a newline and Esc returns to Normal mode;
+`q` discards the draft only from Normal mode. Ctrl+C and `Q` still terminate
+the application from either mode.
+
+The shipped editor accepts textual HTTP/1.1 requests. It can atomically change
+end-to-end headers and a UTF-8 body, including repeated headers and multiline
+bodies. Method, request target, version, Host, hop-by-hop fields, and framing
+headers remain read-only. Submission is parsed with `httparse`, converted to a
+typed mutation plan, and checked against the configured header/body byte limits;
+the proxy then reconstructs `Content-Length`. HTTP/2 and non-UTF-8 requests
+remain observable but cannot be opened in the text editor.
+
+The bounded queue, `limits.paused_flows`, and
+`limits.interception_timeout_ms` prevent indefinite accumulation. The CLI uses
+fail-closed behavior on timeout.
 
 After a successful CONNECT response the connection is a tunnel, so an HTTP
 reject or redirect cannot be injected. Manual actions are audited without

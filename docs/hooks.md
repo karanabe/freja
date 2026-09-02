@@ -13,8 +13,10 @@ Interactive interception uses a bounded request channel, a paused-flow
 semaphore, a oneshot response, and an explicit timeout policy. Each HTTP
 request pauses once with a complete bounded snapshot before upstream
 forwarding; responses and TCP traffic never wait for an operator. TUI actions
-are continue, reject, edit headers, replace a bounded body, and cancel
-modification. Native dynamic libraries are not loaded as plugins.
+are continue, reject, edit headers, replace a bounded body, atomically modify
+request headers and body, and cancel modification. The TUI's HTTP/1.1 text
+editor parses a draft into that typed combined plan; it never emits arbitrary
+wire bytes. Native dynamic libraries are not loaded as plugins.
 
 The maintained hook design is
 [`src/content/docs/developer/hooks.md`](src/content/docs/developer/hooks.md).

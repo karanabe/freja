@@ -23,8 +23,8 @@ use freja_policy::{
     hook::{
         BodyMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HookFailurePolicy,
         HookFuture, HookRegistry, HookRunner, HttpRequestBodyHook, HttpRequestHead,
-        HttpRequestHeadHook, InteractiveBroker, InteractiveDecision, InterceptTimeoutPolicy,
-        WireBody,
+        HttpRequestHeadHook, HttpRequestMutationPlan, InteractiveBroker, InteractiveDecision,
+        InterceptTimeoutPolicy, WireBody,
     },
 };
 use freja_proxy::{

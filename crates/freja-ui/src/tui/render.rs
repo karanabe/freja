@@ -5,7 +5,7 @@ use ratatui::{
     layout::{Constraint, Direction as LayoutDirection, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Line,
-    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap},
 };
 
 use super::{
@@ -25,6 +25,12 @@ pub fn render(frame: &mut Frame<'_>, model: &TuiModel) {
     match model.page {
         TuiPage::Traffic => render_traffic(frame, model),
         TuiPage::Diagnostics => render_diagnostics(frame, model),
+    }
+    if let Some(pane) = model.expanded_pane {
+        render_expanded_pane(frame, model, pane);
+    }
+    if model.editor.is_some() {
+        render_request_editor(frame, model);
     }
 }
 
@@ -61,7 +67,8 @@ fn render_traffic(frame: &mut Frame<'_>, model: &TuiModel) {
             render_side(frame, model, SelectedSide::Request, details[0]);
             render_side(frame, model, SelectedSide::Response, details[1]);
         }
-        DetailLayout::Focused => render_side(frame, model, model.selected_side, areas[1]),
+        DetailLayout::Request => render_side(frame, model, SelectedSide::Request, areas[1]),
+        DetailLayout::Response => render_side(frame, model, SelectedSide::Response, areas[1]),
     }
 }
 
@@ -93,7 +100,7 @@ fn render_flows(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
         ListItem::new(format!("{protocol} {state:6} {identity} {summary}"))
     });
     let title = format!(
-        "Flows [1 Traffic]  mode={:?} layout={:?}  sensitive content",
+        "Flows [1 Traffic]  mode={:?} layout={:?}  Ctrl+j/k pane | Enter expand",
         model.display_mode, model.layout
     );
     let border_style = if model.focus == FocusPane::Flows {
@@ -158,7 +165,75 @@ fn side_title(row: &TrafficRow, side: SelectedSide, mode: DisplayMode) -> String
         (TrafficKind::Tcp, SelectedSide::Request) => "Client -> Upstream",
         (TrafficKind::Tcp, SelectedSide::Response) => "Upstream -> Client",
     };
-    format!("{side_name} [{mode:?}]  m mode | v layout | h/l side")
+    format!("{side_name} [{mode:?}]  m mode | v split/request/response | h/l side")
+}
+
+fn render_expanded_pane(frame: &mut Frame<'_>, model: &TuiModel, pane: FocusPane) {
+    let area = floating_area(frame.area(), 94, 92);
+    frame.render_widget(Clear, area);
+    match pane {
+        FocusPane::Flows => render_flows(frame, model, area),
+        FocusPane::Detail => render_side(frame, model, model.selected_side, area),
+        FocusPane::Evidence => render_evidence(frame, model, area),
+        FocusPane::Logs => render_operational_logs(frame, model, area),
+    }
+}
+
+fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {
+    let Some(editor) = model.editor.as_ref() else {
+        return;
+    };
+    let area = floating_area(frame.area(), 96, 94);
+    frame.render_widget(Clear, area);
+    let areas = Layout::default()
+        .direction(LayoutDirection::Vertical)
+        .constraints([Constraint::Min(4), Constraint::Length(3)])
+        .split(area);
+    let visible_rows = areas[0].height.saturating_sub(2);
+    let scroll = editor
+        .cursor_line()
+        .saturating_sub(visible_rows.saturating_sub(1));
+    frame.render_widget(
+        Paragraph::new(escape_terminal_bytes(editor.display_text().as_bytes()))
+            .block(
+                Block::default()
+                    .title(format!("HTTP/1.1 Request Editor [{:?}]", editor.mode()))
+                    .title_style(Style::default().fg(Color::Yellow))
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(Color::Cyan)),
+            )
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0)),
+        areas[0],
+    );
+    frame.render_widget(
+        Paragraph::new(editor.status()).block(
+            Block::default()
+                .title("Typed edit — start line and framing headers are protected")
+                .borders(Borders::ALL),
+        ),
+        areas[1],
+    );
+}
+
+fn floating_area(area: Rect, width: u16, height: u16) -> Rect {
+    let vertical = Layout::default()
+        .direction(LayoutDirection::Vertical)
+        .constraints([
+            Constraint::Percentage(100_u16.saturating_sub(height) / 2),
+            Constraint::Percentage(height),
+            Constraint::Min(0),
+        ])
+        .split(area);
+    let horizontal = Layout::default()
+        .direction(LayoutDirection::Horizontal)
+        .constraints([
+            Constraint::Percentage(100_u16.saturating_sub(width) / 2),
+            Constraint::Percentage(width),
+            Constraint::Min(0),
+        ])
+        .split(vertical[1]);
+    horizontal[1]
 }
 
 fn side_lines(side: &SideSnapshot, kind: TrafficKind, mode: DisplayMode) -> Vec<Line<'static>> {
@@ -336,11 +411,17 @@ fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
         });
         findings.chain(traces).collect()
     });
+    let border_style = if model.focus == FocusPane::Evidence {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default()
+    };
     frame.render_widget(
         Paragraph::new(lines)
             .block(
                 Block::default()
                     .title("Findings / DecisionTrace [2 Diagnostics]")
+                    .border_style(border_style)
                     .borders(Borders::ALL),
             )
             .wrap(Wrap { trim: false })
@@ -355,11 +436,17 @@ fn render_operational_logs(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) 
         .iter()
         .map(|message| Line::from(escape_terminal_bytes(message.as_bytes())))
         .collect::<Vec<_>>();
+    let border_style = if model.focus == FocusPane::Logs {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default()
+    };
     frame.render_widget(
         Paragraph::new(lines)
             .block(
                 Block::default()
                     .title("Operational logs")
+                    .border_style(border_style)
                     .borders(Borders::ALL),
             )
             .wrap(Wrap { trim: false })
@@ -388,7 +475,7 @@ fn render_stats(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
             model.paused_flows,
             escape_terminal_bytes(model.interactive_status.as_bytes())
         )),
-        Line::from("1 traffic | 2 diagnostics | Tab focus | j/k scroll | q quit"),
+        Line::from("1/2 page | Ctrl+j/k pane | j/k scroll | Enter expand | q back | Ctrl+c/Q quit"),
     ];
     frame.render_widget(
         Paragraph::new(lines).block(Block::default().title("Statistics").borders(Borders::ALL)),

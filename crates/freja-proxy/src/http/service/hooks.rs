@@ -1,7 +1,7 @@
 use freja_domain::{HookMode, TransactionId};
 use freja_policy::hook::{
     BodyMutationPlan, HttpRequestHead, HttpRequestSnapshot, HttpResponseHead, InteractiveDecision,
-    WireBody, apply_body_mutation, apply_head_mutation,
+    WireBody, apply_body_mutation, apply_head_mutation, apply_http_mutation,
 };
 use http::{Request, Response};
 use hyper::body::Incoming;
@@ -24,6 +24,8 @@ impl HttpService {
             version: request.version(),
             headers: request.headers().clone(),
             body: WireBody::new(bytes::Bytes::new()),
+            maximum_head_bytes: self.limits.header_bytes,
+            maximum_body_bytes: 0,
         };
         match self
             .services
@@ -36,6 +38,15 @@ impl HttpService {
             Some(InteractiveDecision::ReplaceBody(replacement)) => apply_body_mutation(
                 &WireBody::new(bytes::Bytes::new()),
                 &BodyMutationPlan::Replace(replacement),
+                0,
+            )
+            .map(|_| ())
+            .map_err(ProxyError::HookMutation),
+            Some(InteractiveDecision::ModifyRequest(plan)) => apply_http_mutation(
+                request.headers_mut(),
+                &WireBody::new(bytes::Bytes::new()),
+                &plan.head,
+                &plan.body,
                 0,
             )
             .map(|_| ())

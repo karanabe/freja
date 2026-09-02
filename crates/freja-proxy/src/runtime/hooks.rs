@@ -37,6 +37,7 @@ impl DataPlaneServices {
             Ok(InteractiveDecision::Reject) => "reject",
             Ok(InteractiveDecision::EditHeaders(_)) => "edit-headers",
             Ok(InteractiveDecision::ReplaceBody(_)) => "replace-body",
+            Ok(InteractiveDecision::ModifyRequest(_)) => "modify-request",
             Ok(InteractiveDecision::CancelModification) => "cancel-modification",
             Err(_) => "failed",
         };

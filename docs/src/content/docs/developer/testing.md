@@ -44,8 +44,11 @@ behavior; they must not depend on public network services.
 - CLI tests cover configuration behavior, no-overwrite audit segments, and
   replay with pinned checkpoints. A Cargo-metadata integration test also locks
   the allowed workspace dependency direction and Pingora isolation boundary.
-- UI tests render split traffic and diagnostics pages to ratatui's test backend
-  and verify non-blocking saturation and terminal-control escaping.
+- UI tests render split and side-wide traffic plus diagnostics pages to
+  ratatui's test backend, exercise pane/exit/editor key states, validate typed
+  request drafts, and verify non-blocking saturation and terminal-control
+  escaping. The HTTP integration suite verifies atomic manual header/body
+  mutation and framing reconstruction at the upstream server.
 
 Add a focused unit test for local logic and an integration test when externally
 observable network or CLI behavior changes.

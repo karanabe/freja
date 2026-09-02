@@ -5,6 +5,8 @@ use freja_policy::hook::InterceptRequest;
 
 use crate::UiEvent;
 
+use super::editor::{RequestEditError, RequestEditor};
+
 /// Top-level TUI page selected by the operator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum TuiPage {
@@ -21,8 +23,10 @@ pub enum DetailLayout {
     /// Request and response sides each receive half of the width.
     #[default]
     Split,
-    /// The selected side receives the full detail width.
-    Focused,
+    /// The request side receives the full detail width.
+    Request,
+    /// The response side receives the full detail width.
+    Response,
 }
 
 /// Representation used for the selected traffic side.
@@ -174,6 +178,8 @@ pub struct TuiModel {
     pub(super) display_mode: DisplayMode,
     pub(super) selected_side: SelectedSide,
     pub(super) focus: FocusPane,
+    pub(super) expanded_pane: Option<FocusPane>,
+    pub(super) editor: Option<RequestEditor>,
     pub(super) detail_scroll: u16,
     pub(super) diagnostics_scroll: u16,
     pub(super) log_scroll: u16,
@@ -182,6 +188,7 @@ pub struct TuiModel {
     pub(super) capture_truncations: u64,
     pub(super) paused_flows: usize,
     pub(super) interactive_status: String,
+    pub(super) input_notice: Option<String>,
 }
 
 impl Default for TuiModel {
@@ -206,6 +213,8 @@ impl TuiModel {
             display_mode: DisplayMode::Pretty,
             selected_side: SelectedSide::Request,
             focus: FocusPane::Flows,
+            expanded_pane: None,
+            editor: None,
             detail_scroll: 0,
             diagnostics_scroll: 0,
             log_scroll: 0,
@@ -214,6 +223,7 @@ impl TuiModel {
             capture_truncations: 0,
             paused_flows: 0,
             interactive_status: "idle".to_owned(),
+            input_notice: None,
         }
     }
 
@@ -363,19 +373,28 @@ impl TuiModel {
     pub fn show_traffic(&mut self) {
         self.page = TuiPage::Traffic;
         self.focus = FocusPane::Flows;
+        self.expanded_pane = None;
     }
 
     /// Selects the Diagnostics page.
     pub fn show_diagnostics(&mut self) {
         self.page = TuiPage::Diagnostics;
         self.focus = FocusPane::Evidence;
+        self.expanded_pane = None;
     }
 
-    /// Toggles split and focused traffic details.
-    pub fn toggle_layout(&mut self) {
+    /// Cycles split, request-wide, and response-wide traffic details.
+    pub fn cycle_layout(&mut self) {
         self.layout = match self.layout {
-            DetailLayout::Split => DetailLayout::Focused,
-            DetailLayout::Focused => DetailLayout::Split,
+            DetailLayout::Split => {
+                self.selected_side = SelectedSide::Request;
+                DetailLayout::Request
+            }
+            DetailLayout::Request => {
+                self.selected_side = SelectedSide::Response;
+                DetailLayout::Response
+            }
+            DetailLayout::Response => DetailLayout::Split,
         };
         self.detail_scroll = 0;
     }
@@ -404,12 +423,42 @@ impl TuiModel {
 
     /// Cycles focus through the panes available on the active page.
     pub fn cycle_focus(&mut self) {
+        self.focus_next();
+    }
+
+    /// Moves focus to the next vertically adjacent pane.
+    pub fn focus_next(&mut self) {
         self.focus = match (self.page, self.focus) {
             (TuiPage::Traffic, FocusPane::Flows) => FocusPane::Detail,
             (TuiPage::Traffic, _) => FocusPane::Flows,
             (TuiPage::Diagnostics, FocusPane::Evidence) => FocusPane::Logs,
             (TuiPage::Diagnostics, _) => FocusPane::Evidence,
         };
+    }
+
+    /// Moves focus to the previous vertically adjacent pane.
+    pub fn focus_previous(&mut self) {
+        self.focus = match (self.page, self.focus) {
+            (TuiPage::Traffic, FocusPane::Detail) => FocusPane::Flows,
+            (TuiPage::Traffic, _) => FocusPane::Detail,
+            (TuiPage::Diagnostics, FocusPane::Logs) => FocusPane::Evidence,
+            (TuiPage::Diagnostics, _) => FocusPane::Logs,
+        };
+    }
+
+    /// Expands the focused pane into a floating overlay.
+    pub fn expand_focused_pane(&mut self) {
+        self.expanded_pane = Some(self.focus);
+    }
+
+    /// Closes the floating pane overlay.
+    pub fn close_expanded_pane(&mut self) {
+        self.expanded_pane = None;
+    }
+
+    /// Returns the pane currently displayed as a floating overlay.
+    pub const fn expanded_pane(&self) -> Option<FocusPane> {
+        self.expanded_pane
     }
 
     /// Moves selection toward the oldest retained row.
@@ -482,6 +531,33 @@ impl TuiModel {
         row.request.body_incomplete = false;
         row.request.body_truncated = false;
         self.selected = index;
+    }
+
+    pub(super) fn open_request_editor(
+        &mut self,
+        request: &InterceptRequest,
+    ) -> Result<(), RequestEditError> {
+        self.editor = Some(RequestEditor::new(&request.request)?);
+        Ok(())
+    }
+
+    pub(super) fn set_input_notice(&mut self, notice: String) {
+        self.input_notice = Some(notice);
+    }
+
+    pub(super) fn clear_input_notice(&mut self) {
+        self.input_notice = None;
+    }
+
+    pub(super) fn apply_edited_request(&mut self, headers: Vec<(String, Vec<u8>)>, body: Vec<u8>) {
+        let Some(row) = self.rows.get_mut(self.selected) else {
+            return;
+        };
+        row.request.headers = headers;
+        row.request.observed_body_bytes = u64::try_from(body.len()).unwrap_or(u64::MAX);
+        row.request.body = body;
+        row.request.body_incomplete = false;
+        row.request.body_truncated = false;
     }
 
     /// Returns retained traffic rows from oldest to newest.

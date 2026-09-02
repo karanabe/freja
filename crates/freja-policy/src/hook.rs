@@ -33,8 +33,8 @@ mod runner;
 pub use contract::{
     BodyMutationPlan, ChunkMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HookError,
     HookFuture, HookRegistry, HttpRequestBodyHook, HttpRequestHead, HttpRequestHeadHook,
-    HttpResponseBodyHook, HttpResponseHead, HttpResponseHeadHook, TcpClientChunkHook,
-    TcpUpstreamChunkHook, WireBody,
+    HttpRequestMutationPlan, HttpResponseBodyHook, HttpResponseHead, HttpResponseHeadHook,
+    TcpClientChunkHook, TcpUpstreamChunkHook, WireBody,
 };
 pub use interactive::{
     HttpRequestSnapshot, InteractiveBroker, InteractiveDecision, InterceptContext, InterceptError,
@@ -178,6 +178,33 @@ mod tests {
         assert_eq!(error, MutationError::ProtectedHeader { name });
     }
 
+    #[test]
+    fn append_mutation_preserves_repeated_end_to_end_headers() {
+        let mut headers = HeaderMap::new();
+        let name = http::header::HeaderName::from_static("x-review");
+        headers.append(name.clone(), HeaderValue::from_static("first"));
+
+        apply_head_mutation(
+            &mut headers,
+            &HeadMutationPlan {
+                headers: vec![HeaderMutation::Append {
+                    name: name.clone(),
+                    value: HeaderValue::from_static("second"),
+                }],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            headers
+                .get_all(name)
+                .iter()
+                .map(http::HeaderValue::as_bytes)
+                .collect::<Vec<_>>(),
+            vec![b"first".as_slice(), b"second".as_slice()]
+        );
+    }
+
     #[tokio::test]
     async fn paused_flow_limit_and_timeout_are_explicit() {
         let (broker, mut receiver) = InteractiveBroker::channel(
@@ -222,6 +249,8 @@ mod tests {
             version: http::Version::HTTP_11,
             headers: http::HeaderMap::new(),
             body: WireBody::new(Bytes::new()),
+            maximum_head_bytes: 1_024,
+            maximum_body_bytes: 1_024,
         }
     }
 }

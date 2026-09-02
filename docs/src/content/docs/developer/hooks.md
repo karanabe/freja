@@ -75,13 +75,17 @@ parsed method, URI, headers, and complete body bounded by
 through the reliable pause channel so the request remains operable even if a
 best-effort UI event was dropped. An oversized body receives 413 instead of pausing.
 CONNECT pauses once with an empty body before commitment. The decision is one
-of Continue, Reject, EditHeaders, ReplaceBody, or CancelModification.
+of Continue, Reject, EditHeaders, ReplaceBody, ModifyRequest, or
+CancelModification. `ModifyRequest` combines a `HeadMutationPlan` and
+`BodyMutationPlan` so the TUI can submit one atomic edit; granular variants
+remain available to embedders.
 
 HTTP responses remain visible to the TUI but are never paused. TCP traffic is
 also observe-only at the interactive broker boundary; it does not acquire a
 paused-flow permit or wait for an operator. Registered typed response/TCP hooks
 remain an in-process embedding mechanism, while manual TCP drop/mutation is
-deferred. Manual HTTP edits are bounded and audited by action without content.
+deferred. The TUI parses an HTTP/1.1 text draft into typed header/body changes;
+it does not emit wire bytes. Manual HTTP edits are bounded and audited by action without content.
 Reject is legal only before protocol commitment; after CONNECT commitment the
 system cannot synthesize another HTTP response.
 

@@ -123,6 +123,10 @@ pub fn apply_head_mutation(
                 validate_mutable_header(name)?;
                 headers.insert(name, value.clone());
             }
+            HeaderMutation::Append { name, value } => {
+                validate_mutable_header(name)?;
+                headers.append(name, value.clone());
+            }
             HeaderMutation::Remove { name } => {
                 validate_mutable_header(name)?;
                 headers.remove(name);

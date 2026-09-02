@@ -20,7 +20,9 @@ Freja never falls back to unauthenticated upstream TLS.
 TUI traffic content is bounded but intentionally unredacted. Exact plain
 HTTP/1 Raw observers are installed only in TUI mode, publish without blocking,
 and cannot influence Hyper's authoritative protocol decisions. Operators must
-protect terminal access and screen recordings.
+protect terminal access and screen recordings. The HTTP/1.1 editor converts a
+local text draft to bounded typed header/body changes while keeping routing and
+framing validation in the data plane.
 
 The maintained threat analysis is
 [`src/content/docs/developer/threat-model.md`](src/content/docs/developer/threat-model.md).

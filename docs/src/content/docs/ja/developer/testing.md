@@ -32,7 +32,7 @@ multi-listener CLIがTokioを選択していてもall-feature buildはPingora ad
 - `freja-proxy/tests/http_forward.rs`: absolute-form、framing limit、CONNECT、auth、response policy、inspection、Hook、reload、TLS interception、intercept後HTTP/1.1/HTTP/2 semantic forwarding、pinning failure、TUI専用plain HTTP/1 request/response ingress exact capture
 - `tcp_static.rs`/`socks_forward.rs`: relay、DNS reauthorization、detour、limit、inspection、authentication
 - CLI test: configuration、no-overwrite segment、pinned checkpoint replay、Cargo metadataによるworkspace dependency direction/Pingora isolation境界
-- UI test: ratatui test backendによるsplit traffic/diagnostics render、non-blocking saturation、terminal-control escape
+- UI test: ratatui test backendによるsplit/片側全幅trafficとdiagnostics render、pane/終了/editor key state、型付きrequest draft、non-blocking saturation、terminal-control escape。HTTP integration suiteはmanual header/bodyの原子的mutationとframing再構築をupstream serverで検証
 
 local logicにはfocused unit test、externally observable network/CLI変更にはintegration testを追加します。
 

@@ -10,7 +10,7 @@ use super::{
 };
 use freja_policy::hook::{
     BodyMutationPlan, HttpRequestSnapshot, InteractiveDecision, WireBody, apply_body_mutation,
-    apply_head_mutation, normalize_replaced_body_headers,
+    apply_head_mutation, apply_http_mutation, normalize_replaced_body_headers,
 };
 
 impl HttpService {
@@ -150,6 +150,8 @@ impl HttpService {
             version: parts.version,
             headers: parts.headers.clone(),
             body: WireBody::new(body.clone()),
+            maximum_head_bytes: self.limits.header_bytes,
+            maximum_body_bytes: self.limits.body_prefix_bytes,
         };
         match self
             .services
@@ -167,6 +169,16 @@ impl HttpService {
                 )
                 .map_err(ProxyError::HookMutation)?;
                 normalize_replaced_body_headers(&mut parts.headers);
+            }
+            Some(InteractiveDecision::ModifyRequest(plan)) => {
+                body = apply_http_mutation(
+                    &mut parts.headers,
+                    &WireBody::new(body),
+                    &plan.head,
+                    &plan.body,
+                    self.limits.body_prefix_bytes,
+                )
+                .map_err(ProxyError::HookMutation)?;
             }
             Some(InteractiveDecision::Reject) => {
                 return Err(ProxyError::InteractiveRejected);

@@ -170,9 +170,17 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
         assert_eq!(snapshot.body.bytes().as_ref(), b"old");
         request
             .response
-            .send(InteractiveDecision::ReplaceBody(DecodedBody::new(
-                "manual-body",
-            )))
+            .send(InteractiveDecision::ModifyRequest(
+                HttpRequestMutationPlan {
+                    head: HeadMutationPlan {
+                        headers: vec![HeaderMutation::Set {
+                            name: "x-manual-review".parse().unwrap(),
+                            value: "accepted".parse().unwrap(),
+                        }],
+                    },
+                    body: BodyMutationPlan::Replace(DecodedBody::new("manual-body")),
+                },
+            ))
             .unwrap();
         assert!(
             tokio::time::timeout(Duration::from_millis(100), intercepts.recv())
@@ -199,6 +207,7 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
     assert_eq!(&response_body, b"ok");
     let upstream = String::from_utf8(observed.await.unwrap()).unwrap();
     assert!(upstream.contains("content-length: 11\r\n"));
+    assert!(upstream.contains("x-manual-review: accepted\r\n"));
     assert!(upstream.ends_with("\r\n\r\nmanual-body"));
     drop(client);
     responder.await.unwrap();
@@ -208,7 +217,7 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::ManualModification { action } if action == "replace-body"
+        AuditEvent::ManualModification { action } if action == "modify-request"
     )));
 }
 
