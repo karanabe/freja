@@ -17,7 +17,7 @@
 //! };
 //! use freja_domain::{PolicyGeneration, SessionId};
 //!
-//! # #[tokio::main]
+//! # #[tokio::main(flavor = "current_thread")]
 //! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let (publisher, mut receiver) =
 //!     AuditPublisher::channel(8, AuditFailurePolicy::FailClosed)?;

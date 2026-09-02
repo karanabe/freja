@@ -6,7 +6,6 @@ keywords = ["freja", "proxy", "tui", "ratatui"]
 categories = ["command-line-utilities"]
 version.workspace = true
 edition.workspace = true
-authors.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
@@ -30,7 +29,7 @@ httparse = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
-tokio.workspace = true
+tokio = { workspace = true, features = ["sync"] }
 
 [lints]
 workspace = true

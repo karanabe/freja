@@ -14,17 +14,16 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-authors = ["karanabe"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/karanabe/freja"
 readme = "README.md"
-rust-version = "1.88"
+rust-version = "1.98"
 publish = ["crates-io"]
 
 [workspace.dependencies]
 arc-swap = "1.7.1"
 async-trait = "0.1.89"
-base64 = "0.22.1"
+base64 = "0.23.1"
 bytes = "1.11.1"
 clap = { version = "4.5.46", features = ["derive"] }
 ed25519-dalek = "2.2.0"
@@ -48,7 +47,7 @@ rustls = { version = "0.23.35", default-features = false, features = ["ring", "s
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.143"
 sha2 = "0.10.9"
-tokio = { version = "1.47.1", features = ["full"] }
+tokio = "1.47.1"
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "tls12"] }
 toml = "0.9.5"
 tracing = "0.1.41"
