@@ -4,7 +4,7 @@ Freja's HTTP, CONNECT/TLS, static TCP, and SOCKS5 data-plane engines. Enable
 the `pingora-adapter` feature for the optional Pingora `ServerApp` adapter.
 
 See the [API documentation](https://docs.rs/freja-proxy) and the
-[engine boundary](https://github.com/karanabe/freja/blob/master/docs/adr/0001-engine-boundary.md).
+[engine boundary](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/adr/0001-engine-boundary.md).
 
 ### License
 
