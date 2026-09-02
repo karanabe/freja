@@ -1,0 +1,47 @@
+[runtime]
+ui = "tui"
+enforcement = "enforce"
+hooks = "interactive"
+
+[safety]
+# Required only for requests to the bundled loopback HTTP test origin.
+loopback_destinations = "allow"
+
+[limits]
+connections = 128
+header_bytes = 65536
+body_prefix_bytes = 16384
+connect_timeout_ms = 5000
+read_timeout_ms = 10000
+idle_timeout_ms = 30000
+paused_flows = 8
+interception_timeout_ms = 30000
+ui_event_capacity = 256
+# Interactive mode must retain at least the complete bounded request prefix.
+ui_content_bytes = 16384
+ui_retained_rows = 64
+
+[audit]
+path = "."
+channel_capacity = 256
+failure_policy = "fail-closed"
+redact_query_parameters = ["access_token", "api_key", "password", "secret", "token"]
+checkpoint_interval = 1000
+
+[capture]
+mode = "metadata-only"
+
+[inspection]
+mode = "preflight"
+
+[tls]
+handling = "tunnel"
+
+[policy]
+generation = 4
+default_action = "allow"
+
+[[listeners]]
+kind = "http-forward"
+bind = "127.0.0.1:8080"
+connect_ports = [443]

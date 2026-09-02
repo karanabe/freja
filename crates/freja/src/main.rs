@@ -14,6 +14,7 @@ const MAXIMUM_TUI_LOG_LINE_BYTES: usize = 16 * 1024;
 
 mod audit_writer;
 mod check;
+mod configuration;
 mod proxy;
 mod replay;
 mod tracing_setup;
@@ -34,24 +35,27 @@ use tracing_setup::TuiTracingRouter;
 #[command(
     name = "freja",
     version,
-    about = "Local-first explainable inspection proxy"
+    about = "Local-first explainable inspection proxy",
+    after_help = "Running without a command starts the built-in local interactive proxy."
 )]
 struct Cli {
     #[command(subcommand)]
-    command: Command,
+    command: Option<Command>,
 }
 
 #[derive(Debug, Subcommand)]
 enum Command {
     /// Parse, validate, and compile a configuration without opening listeners.
     CheckConfig {
+        /// TOML path; omit to validate the built-in defaults.
         #[arg(short, long)]
-        config: PathBuf,
+        config: Option<PathBuf>,
     },
-    /// Run configured proxy listeners.
+    /// Run proxy listeners from a file or the built-in defaults.
     Run {
+        /// TOML path; omit to use the built-in defaults.
         #[arg(short, long)]
-        config: PathBuf,
+        config: Option<PathBuf>,
     },
     /// Verify and evaluate recorded facts/captured prefixes with a candidate configuration.
     Replay {
@@ -79,32 +83,49 @@ async fn main() -> ExitCode {
 
 async fn run(cli: Cli) -> AppResult<()> {
     match cli.command {
-        Command::CheckConfig { config } => {
+        Some(Command::CheckConfig { config }) => {
             initialize_tracing().context("failed to initialize tracing")?;
-            check_config(&config)
+            check_config(config.as_deref())
         }
-        Command::Run { config } => run_proxy_command(&config).await,
-        Command::Replay {
+        Some(Command::Run { config }) => run_proxy_command(config.as_deref()).await,
+        Some(Command::Replay {
             audit,
             config,
             checkpoint_public_key,
-        } => {
+        }) => {
             initialize_tracing().context("failed to initialize tracing")?;
             replay_audit(&audit, &config, checkpoint_public_key.as_deref())
         }
+        None => run_proxy_command(None).await,
     }
 }
 #[cfg(test)]
 mod tests {
     use std::{fs, io::Cursor, io::Write as _};
 
+    use clap::Parser as _;
     use freja_domain::SessionId;
     use freja_ui::{UiEvent, UiPublisher};
     use tracing_subscriber::fmt::MakeWriter as _;
 
     use super::{
-        TuiTracingRouter, create_audit_segment, read_bounded_replay_line, validate_replay_schema,
+        Cli, Command, TuiTracingRouter, create_audit_segment, read_bounded_replay_line,
+        validate_replay_schema,
     };
+
+    #[test]
+    fn run_accepts_an_omitted_configuration_path() {
+        let cli = Cli::try_parse_from(["freja", "run"]).unwrap();
+
+        assert!(matches!(cli.command, Some(Command::Run { config: None })));
+    }
+
+    #[test]
+    fn omitted_command_selects_the_built_in_run_path() {
+        let cli = Cli::try_parse_from(["freja"]).unwrap();
+
+        assert!(cli.command.is_none());
+    }
 
     #[test]
     fn replay_line_reader_rejects_oversized_input_before_json_parsing() {

@@ -1,0 +1,56 @@
+[runtime]
+ui = "headless"
+enforcement = "enforce"
+hooks = "disabled"
+
+[safety]
+# Loopback upstreams are allowed only to make this a useful local example.
+loopback_destinations = "allow"
+
+[limits]
+connections = 1024
+header_bytes = 65536
+body_prefix_bytes = 65536
+connect_timeout_ms = 10000
+read_timeout_ms = 30000
+idle_timeout_ms = 60000
+paused_flows = 16
+interception_timeout_ms = 30000
+ui_event_capacity = 1024
+ui_content_bytes = 65536
+ui_retained_rows = 128
+
+[audit]
+# An existing directory receives a unique, owner-only segment on every run.
+path = "."
+channel_capacity = 1024
+failure_policy = "fail-closed"
+redact_query_parameters = ["access_token", "api_key", "password", "secret", "token"]
+checkpoint_interval = 1000
+
+[capture]
+mode = "metadata-only"
+
+[inspection]
+mode = "streaming"
+
+[tls]
+handling = "tunnel"
+
+[policy]
+generation = 1
+default_action = "allow"
+
+[[listeners]]
+kind = "http-forward"
+bind = "127.0.0.1:8080"
+connect_ports = [443]
+
+[[listeners]]
+kind = "socks5"
+bind = "127.0.0.1:1080"
+
+[[listeners]]
+kind = "tcp-static"
+bind = "127.0.0.1:9000"
+upstream = "127.0.0.1:9001"

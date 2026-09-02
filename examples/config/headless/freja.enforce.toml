@@ -1,0 +1,58 @@
+[runtime]
+ui = "headless"
+enforcement = "enforce"
+hooks = "disabled"
+
+[safety]
+# Required only for requests to the bundled loopback HTTP test origin.
+loopback_destinations = "allow"
+
+[limits]
+connections = 128
+header_bytes = 65536
+body_prefix_bytes = 16384
+connect_timeout_ms = 5000
+read_timeout_ms = 10000
+idle_timeout_ms = 30000
+paused_flows = 8
+interception_timeout_ms = 15000
+ui_event_capacity = 256
+ui_content_bytes = 16384
+ui_retained_rows = 64
+
+[audit]
+path = "."
+channel_capacity = 256
+failure_policy = "fail-closed"
+redact_query_parameters = ["access_token", "api_key", "password", "secret", "token"]
+checkpoint_interval = 1000
+
+[capture]
+mode = "metadata-only"
+
+[inspection]
+# Preflight can reject the complete bounded request before releasing body bytes.
+mode = "preflight"
+
+[[inspection.patterns]]
+detector_id = "freja-deny-marker"
+rule_id = "deny-freja-marker"
+# ASCII: freja-deny
+pattern_hex = "6672656a612d64656e79"
+severity = "high"
+confidence = "confirmed"
+directions = ["http-request-body"]
+action = "deny"
+tags = ["local-example"]
+
+[tls]
+handling = "tunnel"
+
+[policy]
+generation = 2
+default_action = "allow"
+
+[[listeners]]
+kind = "http-forward"
+bind = "127.0.0.1:8080"
+connect_ports = [443]

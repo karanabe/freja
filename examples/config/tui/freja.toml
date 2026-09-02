@@ -1,7 +1,7 @@
 [runtime]
-ui = "headless"
-enforcement = "observe"
-hooks = "disabled"
+ui = "tui"
+enforcement = "enforce"
+hooks = "interactive"
 
 [safety]
 # Loopback upstreams are allowed only to make this a useful local example.
@@ -21,7 +21,6 @@ ui_content_bytes = 65536
 ui_retained_rows = 128
 
 [audit]
-# An existing directory receives a unique, owner-only segment on every run.
 path = "."
 channel_capacity = 1024
 failure_policy = "fail-closed"
@@ -38,7 +37,7 @@ mode = "streaming"
 handling = "tunnel"
 
 [policy]
-generation = 1
+generation = 3
 default_action = "allow"
 
 [[listeners]]

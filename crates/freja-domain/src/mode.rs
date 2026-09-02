@@ -26,7 +26,7 @@ pub enum EnforcementMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum HookMode {
-    /// Never invoke registered hooks; this is the secure default.
+    /// Never invoke registered hooks.
     #[default]
     Disabled,
     /// Invoke registered hooks without pausing for an operator.
@@ -47,7 +47,12 @@ pub enum TlsHandling {
 }
 
 /// Independent runtime choices for presentation, enforcement, and hooks.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+///
+/// The default is the local interactive profile: TUI presentation, active
+/// policy enforcement, and bounded operator decisions. Standard headless
+/// operation is selected explicitly with [`UiMode::Headless`],
+/// [`EnforcementMode::Enforce`], and [`HookMode::Disabled`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct RuntimeProfile {
     /// Presentation mode; it does not alter policy enforcement.
@@ -56,4 +61,14 @@ pub struct RuntimeProfile {
     pub enforcement: EnforcementMode,
     /// Invocation mode for registered transformation hooks.
     pub hooks: HookMode,
+}
+
+impl Default for RuntimeProfile {
+    fn default() -> Self {
+        Self {
+            ui: UiMode::Tui,
+            enforcement: EnforcementMode::Enforce,
+            hooks: HookMode::Interactive,
+        }
+    }
 }

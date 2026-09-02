@@ -6,7 +6,7 @@ use std::{
 };
 
 use freja_config::{CompiledConfig, ConfigError, RawConfig, TlsConfig, ValidationError};
-use freja_domain::{HookMode, ListenerSpec, UiMode};
+use freja_domain::{EnforcementMode, HookMode, ListenerSpec, UiMode};
 
 static TEMP_FILE_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
@@ -37,7 +37,7 @@ fn compiled_config_loads_a_file_through_the_full_pipeline() {
 }
 
 #[test]
-fn safe_loopback_config_compiles() {
+fn omitted_runtime_uses_the_interactive_tui_profile() {
     let raw = RawConfig::parse(
         r#"
             [[listeners]]
@@ -50,8 +50,9 @@ fn safe_loopback_config_compiles() {
 
     let compiled = raw.validate().unwrap().compile().unwrap();
     assert_eq!(compiled.listeners().len(), 1);
-    assert_eq!(compiled.runtime().hooks, HookMode::Disabled);
-    assert_eq!(compiled.runtime().ui, UiMode::Headless);
+    assert_eq!(compiled.runtime().ui, UiMode::Tui);
+    assert_eq!(compiled.runtime().enforcement, EnforcementMode::Enforce);
+    assert_eq!(compiled.runtime().hooks, HookMode::Interactive);
     assert!(matches!(compiled.tls(), TlsConfig::Tunnel));
     assert_eq!(compiled.audit().path, std::path::PathBuf::from("."));
     assert_eq!(compiled.limits().ui_content_bytes, 64 * 1_024);
@@ -209,6 +210,7 @@ fn interactive_hooks_require_tui() {
     let error = RawConfig::parse(
         r#"
             [runtime]
+            ui = "headless"
             hooks = "interactive"
 
             [[listeners]]

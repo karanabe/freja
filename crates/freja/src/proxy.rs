@@ -19,12 +19,13 @@ use crate::ui_adapter::UiDataPlaneEventSink;
 
 use super::{
     audit_writer::spawn_audit_writer,
+    configuration::{compile_configuration, configuration_description},
     tracing_setup::{TuiTracingRouter, initialize_tracing, initialize_tui_tracing},
 };
 
-pub(super) async fn run_proxy_command(path: &Path) -> AppResult<()> {
-    let compiled = CompiledConfig::load(path)
-        .with_context(|| format!("could not compile configuration {}", path.display()))?;
+pub(super) async fn run_proxy_command(path: Option<&Path>) -> AppResult<()> {
+    let compiled = compile_configuration(path)
+        .with_context(|| format!("could not compile {}", configuration_description(path)))?;
     if compiled.runtime().ui == UiMode::Tui {
         let (ui, receiver) = UiPublisher::channel(compiled.limits().ui_event_capacity)
             .context("could not create bounded UI event channel")?;
@@ -49,11 +50,12 @@ struct PreparedTui {
 }
 
 async fn run_proxy(
-    path: &Path,
+    path: Option<&Path>,
     compiled: CompiledConfig,
     tui: Option<PreparedTui>,
     tracing_router: Option<TuiTracingRouter>,
 ) -> AppResult<()> {
+    info!(source = %configuration_description(path), "runtime configuration selected");
     let proxy_limits = proxy_limits(compiled.limits())?;
     let capture = capture_settings(compiled.capture())?;
     let (audit_publisher, audit_receiver) = AuditPublisher::channel(
@@ -101,7 +103,7 @@ async fn run_proxy(
     let mut audit_task = spawn_audit_writer(&compiled, audit_receiver)?;
 
     let (shutdown, signal) = shutdown_channel();
-    let reload_task = spawn_reload_task(path.to_path_buf(), &compiled, services.clone())?;
+    let reload_task = spawn_reload_task(path.map(Path::to_path_buf), &compiled, services.clone())?;
     let (mut tui_exit, tui_thread) = if let Some(prepared) = tui {
         let metrics = prepared.ui.metrics();
         let task = spawn_tui(
@@ -287,7 +289,7 @@ impl ReloadFingerprint {
 
 #[cfg(unix)]
 fn spawn_reload_task(
-    path: PathBuf,
+    path: Option<PathBuf>,
     baseline: &CompiledConfig,
     services: DataPlaneServices,
 ) -> AppResult<Option<tokio::task::JoinHandle<()>>> {
@@ -297,7 +299,11 @@ fn spawn_reload_task(
     let fingerprint = ReloadFingerprint::from_config(baseline);
     Ok(Some(tokio::spawn(async move {
         while hangup.recv().await.is_some() {
-            let candidate = match CompiledConfig::load(&path) {
+            let Some(path) = path.as_ref() else {
+                warn!("configuration reload ignored while using built-in defaults");
+                continue;
+            };
+            let candidate = match CompiledConfig::load(path) {
                 Ok(candidate) => candidate,
                 Err(error) => {
                     warn!(error = %error, "configuration reload rejected");
@@ -323,7 +329,7 @@ fn spawn_reload_task(
 
 #[cfg(not(unix))]
 fn spawn_reload_task(
-    _path: PathBuf,
+    _path: Option<PathBuf>,
     _baseline: &CompiledConfig,
     _services: DataPlaneServices,
 ) -> AppResult<Option<tokio::task::JoinHandle<()>>> {

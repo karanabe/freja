@@ -1,12 +1,13 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use freja::{AppResult, ResultExt};
-use freja_config::CompiledConfig;
 use tracing::info;
 
-pub(super) fn check_config(path: &PathBuf) -> AppResult<()> {
-    let compiled = CompiledConfig::load(path)
-        .with_context(|| format!("could not compile configuration {}", path.display()))?;
+use super::configuration::{compile_configuration, configuration_description};
+
+pub(super) fn check_config(path: Option<&Path>) -> AppResult<()> {
+    let compiled = compile_configuration(path)
+        .with_context(|| format!("could not compile {}", configuration_description(path)))?;
     info!(
         listeners = compiled.listeners().len(),
         policy_generation = compiled.policy().generation().get(),
