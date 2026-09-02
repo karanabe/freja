@@ -56,7 +56,7 @@ behavior, not an earlier milestone plan.
    - `TlsHandling`: Tunnel or Intercept.
 
    TUI is a presentation mode, not an enforcement mode. The application
-   default is Tui + Enforce + Interactive, while the standard headless profile
+   default is Tui + Observe + Interactive, while the standard headless profile
    is Headless + Enforce + Disabled. TLS interception, payload capture, and
    remote exposure remain separate opt-ins.
 

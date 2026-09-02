@@ -19,7 +19,7 @@ Data-plane events are split by reliability: the bounded audit publisher uses
 an explicit fail-open or fail-closed policy, while a separate non-blocking
 data-plane event sink may drop immutable snapshots and increments a drop
 metric. The `freja` composition root adapts those runtime facts to the bounded
-UI publisher. The default runtime is Tui + Enforce + Interactive; the standard
+UI publisher. The default runtime is Tui + Observe + Interactive; the standard
 headless profile is Headless + Enforce + Disabled. Payload capture, remote
 exposure, and TLS interception remain opt-ins.
 

@@ -37,12 +37,11 @@ commandless startupは次の値を使います。
 
 - HTTP forward listener 1件を`127.0.0.1:8080`にbind
 - TUIが上限付きlive traffic snapshotを表示
-- enforcementがACLとinspection decisionを実行
+- observe-only enforcementがACL、destination guard、inspection、CONNECT portのdeny/detour decisionを記録するが実行しない
 - interactive Hookが上限付きHTTP requestをcontinue、reject、editのdecisionまでpause
 - payload audit captureとTLS interceptionは無効
 - auditは起動ごとにuniqueなlocal `freja-<timestamp>-<pid>-<counter>.jsonl` segmentへ書く
-- loopback、private、link-local、metadata destinationはprotectのまま
-- CONNECT先はport 443に限定
+- loopback、private、link-local、metadata destinationをprotectに設定し、CONNECT policyにはport 443だけを含める。これらのpolicy denyでtrafficをblockするにはenforce modeが必要
 
 ## bind前に検証する
 

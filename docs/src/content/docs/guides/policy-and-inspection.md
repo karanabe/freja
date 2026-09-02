@@ -65,7 +65,9 @@ identifiable.
 
 Resolved-address guards run independently of ordered ACLs. Loopback, private,
 link-local, and known metadata-service addresses default to `protect`;
-unspecified and multicast addresses are always rejected.
+unspecified and multicast addresses always produce deny decisions. Observe mode
+records these decisions while allowing traffic to continue; enforce mode blocks
+them.
 
 ```toml
 [safety]

@@ -37,7 +37,7 @@ fn compiled_config_loads_a_file_through_the_full_pipeline() {
 }
 
 #[test]
-fn omitted_runtime_uses_the_interactive_tui_profile() {
+fn omitted_runtime_uses_the_interactive_observe_profile() {
     let raw = RawConfig::parse(
         r#"
             [[listeners]]
@@ -51,7 +51,7 @@ fn omitted_runtime_uses_the_interactive_tui_profile() {
     let compiled = raw.validate().unwrap().compile().unwrap();
     assert_eq!(compiled.listeners().len(), 1);
     assert_eq!(compiled.runtime().ui, UiMode::Tui);
-    assert_eq!(compiled.runtime().enforcement, EnforcementMode::Enforce);
+    assert_eq!(compiled.runtime().enforcement, EnforcementMode::Observe);
     assert_eq!(compiled.runtime().hooks, HookMode::Interactive);
     assert!(matches!(compiled.tls(), TlsConfig::Tunnel));
     assert_eq!(compiled.audit().path, std::path::PathBuf::from("."));

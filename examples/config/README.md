@@ -8,7 +8,7 @@ ports, so run only one Freja configuration at a time.
 | --- | --- | --- |
 | `headless/freja.toml` | Enforce policy without a terminal UI or interactive hooks | HTTP `8080`, SOCKS5 `1080`, static TCP `9000` |
 | `headless/freja.enforce.toml` | Enforce a bounded preflight body detector | HTTP `8080` |
-| `tui/freja.toml` | Default interactive TUI profile; enforce policy and pause HTTP requests for a decision or edit | HTTP `8080`, SOCKS5 `1080`, static TCP `9000` |
+| `tui/freja.toml` | Multi-listener interactive TUI profile; enforce policy and pause HTTP requests for a decision or edit | HTTP `8080`, SOCKS5 `1080`, static TCP `9000` |
 | `tui/freja.interactive.toml` | Focused HTTP-only interactive profile with smaller bounds and preflight inspection | HTTP `8080` |
 
 Validate and run any configuration by path:

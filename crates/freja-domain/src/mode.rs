@@ -48,8 +48,8 @@ pub enum TlsHandling {
 
 /// Independent runtime choices for presentation, enforcement, and hooks.
 ///
-/// The default is the local interactive profile: TUI presentation, active
-/// policy enforcement, and bounded operator decisions. Standard headless
+/// The default is the local interactive profile: TUI presentation, observe-only
+/// policy evaluation, and bounded operator decisions. Standard headless
 /// operation is selected explicitly with [`UiMode::Headless`],
 /// [`EnforcementMode::Enforce`], and [`HookMode::Disabled`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -67,7 +67,7 @@ impl Default for RuntimeProfile {
     fn default() -> Self {
         Self {
             ui: UiMode::Tui,
-            enforcement: EnforcementMode::Enforce,
+            enforcement: EnforcementMode::Observe,
             hooks: HookMode::Interactive,
         }
     }

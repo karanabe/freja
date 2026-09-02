@@ -53,7 +53,7 @@ policyの意味を変更するたびに`policy.generation`を増やしてくだ�
 
 ## destination保護
 
-resolved address guardはordered ACLとは独立して動作します。loopback、private、link-local、既知metadata-service addressのdefaultは`protect`で、unspecifiedとmulticastは常に拒否します。
+resolved address guardはordered ACLとは独立して動作します。loopback、private、link-local、既知metadata-service addressのdefaultは`protect`で、unspecifiedとmulticastは常にdeny decisionを生成します。observe modeはtrafficを継続しながらdecisionを記録し、enforce modeはblockします。
 
 ```toml
 [safety]

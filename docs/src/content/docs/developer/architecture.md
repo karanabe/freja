@@ -188,8 +188,10 @@ fields. Resource-owning configuration remains restart-only.
 - Body mutation operates on decoded-body types and rebuilds framing.
 - Forwarding never waits for UI publication; critical audit failure is never
   silently ignored.
-- The default runtime is Tui + Enforce + Interactive; the standard headless
-  profile is Headless + Enforce + Disabled. These choices remain independent.
+- The default runtime is Tui + Observe + Interactive; the standard headless
+  profile is Headless + Enforce + Disabled. Observe leaves policy actions
+  unexecuted, while interactive operator decisions remain effective. These
+  choices remain independent.
 - Payload capture, TLS interception, and remote exposure are opt-ins.
 - Connections, headers, body prefixes, caches, header/body reads, upstream
   connects, relay inactivity, paused flows, and channels are bounded.

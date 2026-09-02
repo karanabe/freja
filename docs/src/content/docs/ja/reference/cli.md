@@ -40,7 +40,7 @@ short optionは`-c`です。pathを省略すると、config-free `run`が使う�
 freja run [--config <PATH>]
 ```
 
-組み込み設定を使う場合はcommand自体も省略できます。short optionは`-c`です。`--config`を省略すると、`127.0.0.1:8080`のHTTP forward listener 1件、TUI + enforce + interactive runtime、CONNECT port 443、tunnel TLS、metadata-only audit capture、通常のprotected destination classからなる組み込み設定を使います。pathを指定すると、この完全な設定を置き換えます。選択したsourceをcompileし、bounded audit/UI publisher、optional TLS interception、TUI stateを初期化し、全listenerをbindしてshutdown、早期listener failure、またはaudit writer failureを待ちます。
+組み込み設定を使う場合はcommand自体も省略できます。short optionは`-c`です。`--config`を省略すると、`127.0.0.1:8080`のHTTP forward listener 1件、TUI + observe + interactive runtime、port 443を含むCONNECT policy、tunnel TLS、metadata-only audit capture、通常のprotected destination classからなる組み込み設定を使います。observe modeはACL、destination guard、inspection、CONNECT portのdeny/detour decisionを記録しますが実行せず、operatorによるinteractive rejectは引き続き有効です。pathを指定すると、この完全な設定を置き換えます。選択したsourceをcompileし、bounded audit/UI publisher、optional TLS interception、TUI stateを初期化し、全listenerをbindしてshutdown、早期listener failure、またはaudit writer failureを待ちます。
 
 `RUST_LOG`でoperational diagnosticsを制御できます。
 

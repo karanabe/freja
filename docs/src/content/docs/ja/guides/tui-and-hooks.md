@@ -18,17 +18,17 @@ TUIは表示modeであり、enforcement modeではありません。immutableで
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "enforce"
+enforcement = "observe"
 hooks = "interactive"
 ```
 
-repositoryのdefault interactive profileは直接起動できます。
+組み込みinteractive profileは直接起動できます。
 
 ```sh
-cargo run -p freja -- run --config examples/config/tui/freja.toml
+cargo run -p freja
 ```
 
-`examples/config/tui/freja.interactive.toml`は、小さい上限とpreflight inspectionを使うHTTP専用variantです。各example profileはlistener portを共有するため、1つずつ起動してください。
+`examples/config/tui/freja.toml`はmulti-listener TUI profile向けにenforcementを明示的に有効化します。`examples/config/tui/freja.interactive.toml`は、小さい上限とpreflight inspectionを使うHTTP専用enforcement variantです。各example profileはlistener portを共有するため、1つずつ起動してください。
 
 実terminalでFrejaを起動します。この画面のtraffic contentは意図的にredactせず、credential、cookie、query secret、個人情報を含む可能性があります。信頼できるlocal terminalだけで使用してください。audit redactionは変更されません。
 
@@ -54,7 +54,7 @@ normal exit、error、panic unwind時にはRAII guardがterminalを復元しま�
 | `automatic` | 登録済みin-process Hookをtimeout付きで実行 |
 | `interactive` | default。上限付きHTTP requestごとに1回だけTUI decisionまでpause |
 
-interactive modeには`ui = "tui"`が必要で、不正な組み合わせは設定compile時に失敗します。
+interactive modeには`ui = "tui"`が必要で、不正な組み合わせは設定compile時に失敗します。enforcementが制御するのはpolicy actionでありoperator responseではないため、observe modeでもcontinue、reject、edit decisionは有効です。
 
 automatic HookはHTTP request head/body、HTTP response head/body、両方向のTCP chunkという6つのtyped stageを維持します。HTTP Hookは型付きheaderまたはdecoded-body mutation planを返します。hop-by-hop header変更は拒否し、body置換後はHTTP engineがframingと`Content-Length`を再構築します。Hookは任意HTTP wire byteを書けません。
 

@@ -51,12 +51,15 @@ freja run [--config <PATH>]
 
 The command itself may also be omitted when using built-in defaults. Short
 option: `-c`. Without `--config`, Freja builds a configuration with one
-HTTP forward listener on `127.0.0.1:8080`, TUI + enforce + interactive runtime,
-CONNECT port 443, tunnel TLS handling, metadata-only audit capture, and the
-normal protected destination classes. Supplying a path replaces that complete
-configuration. Freja compiles the selected source, creates bounded audit/UI
-publishers, initializes optional TLS interception and TUI state, binds every
-listener, and waits for shutdown or an early listener or audit-writer failure.
+HTTP forward listener on `127.0.0.1:8080`, TUI + observe + interactive runtime,
+a CONNECT policy containing port 443, tunnel TLS handling, metadata-only audit
+capture, and the normal protected destination classes. Observe mode records
+ACL, destination-guard, inspection, and CONNECT-port deny or detour decisions
+without executing them; interactive operator rejection remains effective.
+Supplying a path replaces that complete configuration. Freja compiles the
+selected source, creates bounded audit/UI publishers, initializes optional TLS
+interception and TUI state, binds every listener, and waits for shutdown or an
+early listener or audit-writer failure.
 
 Set `RUST_LOG` to control operational diagnostics:
 

@@ -34,7 +34,7 @@ mod tests {
         let compiled = compile_configuration(None).unwrap();
 
         assert_eq!(compiled.runtime().ui, UiMode::Tui);
-        assert_eq!(compiled.runtime().enforcement, EnforcementMode::Enforce);
+        assert_eq!(compiled.runtime().enforcement, EnforcementMode::Observe);
         assert_eq!(compiled.runtime().hooks, HookMode::Interactive);
         assert!(!compiled.safety().allow_non_loopback);
         let [ListenerSpec::HttpForward(listener)] = compiled.listeners() else {

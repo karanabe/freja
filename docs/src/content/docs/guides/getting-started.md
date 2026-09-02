@@ -41,13 +41,15 @@ Commandless startup uses these choices:
 
 - one HTTP forward listener binds to `127.0.0.1:8080`;
 - the TUI presents bounded live traffic snapshots;
-- enforcement executes ACL and inspection decisions;
+- observe-only enforcement records ACL, destination-guard, inspection, and
+  CONNECT-port deny or detour decisions without executing them;
 - interactive hooks pause bounded HTTP requests for continue, reject, or edit;
 - payload audit capture and TLS interception remain disabled;
 - audit is written to a unique local `freja-<timestamp>-<pid>-<counter>.jsonl`
   segment on every run;
-- loopback, private, link-local, and metadata destinations remain protected;
-- CONNECT is limited to port 443.
+- loopback, private, link-local, and metadata destinations are configured as
+  protected, and the CONNECT policy contains only port 443; these policy
+  denials require enforce mode to block traffic.
 
 ## Validate before binding
 

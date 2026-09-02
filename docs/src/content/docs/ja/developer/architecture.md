@@ -111,7 +111,7 @@ HTTP request/response factとinspection findingは追加policy stageになりま
 - CONNECT tunnel commit後にHTTP responseを出さない
 - body mutationはdecoded-body typeへ適用しframingを再構築する
 - forwardingはUI publicationを待たず、critical audit failureを黙殺しない
-- default runtimeはTui + Enforce + Interactive、標準headless profileはHeadless + Enforce + Disabled。各choiceは独立
+- default runtimeはTui + Observe + Interactive、標準headless profileはHeadless + Enforce + Disabled。Observeはpolicy actionを実行せず、interactiveなoperator decisionは引き続き有効。各choiceは独立
 - payload capture、TLS interception、remote exposureはopt-in
 - connection、header、body prefix、cache、header/body read、upstream connect、relay無通信、paused flow、channelはbounded
 - library crateはunsafeを禁止し、concrete error enumを公開する

@@ -19,19 +19,21 @@ bounded snapshots and never owns live network sessions.
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "enforce"
+enforcement = "observe"
 hooks = "interactive"
 ```
 
-The repository's default interactive profile can be started directly:
+The built-in interactive profile can be started directly:
 
 ```sh
-cargo run -p freja -- run --config examples/config/tui/freja.toml
+cargo run -p freja
 ```
 
-`examples/config/tui/freja.interactive.toml` is a focused HTTP-only variant
-with smaller bounds and preflight inspection. Run only one example profile at
-a time because they share listener ports.
+`examples/config/tui/freja.toml` explicitly enables enforcement for a
+multi-listener TUI profile. `examples/config/tui/freja.interactive.toml` is a
+focused HTTP-only enforcement variant with smaller bounds and preflight
+inspection. Run only one example profile at a time because they share listener
+ports.
 
 Run Freja in a real terminal. Traffic content in this view is intentionally
 unredacted and may contain credentials, cookies, query secrets, or personal
@@ -81,7 +83,9 @@ shell's terminal reset command.
 | `interactive` | Default; pauses each bounded HTTP request once for a TUI decision |
 
 Interactive mode requires `ui = "tui"`; invalid combinations fail during
-configuration compilation.
+configuration compilation. Continue, reject, and edit decisions remain
+effective in observe mode because enforcement controls policy actions rather
+than the operator response.
 
 Automatic hooks retain six typed stages: HTTP request head/body, HTTP response
 head/body, and TCP chunks in both directions. HTTP hooks return typed header or

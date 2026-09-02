@@ -12,7 +12,7 @@ sidebar:
 ---
 
 Freja reads one TOML file. Unknown top-level and strict-section fields are
-rejected. Omitted sections use safe defaults, but at least one listener is
+rejected. Omitted sections use documented defaults, but at least one listener is
 required. Commandless `freja` (or `freja run` without `--config`) instead
 creates a loopback-only HTTP listener at the CLI composition root and passes it
 through the same compiler. Validate a file with:
@@ -29,7 +29,7 @@ The repository ships four standalone local-test profiles:
 | --- | --- |
 | `examples/config/headless/freja.toml` | Headless, enforce, disabled hooks, streaming inspection |
 | `examples/config/headless/freja.enforce.toml` | Headless, enforce, preflight deny marker |
-| `examples/config/tui/freja.toml` | Default TUI, enforce, interactive request decisions |
+| `examples/config/tui/freja.toml` | Multi-listener TUI, enforce, interactive request decisions |
 | `examples/config/tui/freja.interactive.toml` | Focused HTTP-only interactive profile with smaller bounds |
 
 Pass a path directly to either CLI command, for example:
@@ -49,22 +49,23 @@ that weaker destination guard before adapting one for deployment. See
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "enforce"
+enforcement = "observe"
 hooks = "interactive"
 ```
 
 | Key | Values | Default | Notes |
 | --- | --- | --- | --- |
 | `ui` | `headless`, `tui` | `tui` | Presentation only |
-| `enforcement` | `observe`, `enforce` | `enforce` | Whether deny decisions execute |
+| `enforcement` | `observe`, `enforce` | `observe` | Whether deny decisions execute |
 | `hooks` | `disabled`, `automatic`, `interactive` | `interactive` | Interactive requires TUI |
 
 Omitting `[runtime]` selects that local interactive profile. The choices remain
-independent: TUI does not itself imply enforcement, and observe mode does not
-disable capture or audit. Interactive hooks require TUI because the decision
-responder lives there. The standard headless profile explicitly selects
-`headless`, `enforce`, and `disabled`; `observe` remains available for policy
-evaluation scenarios that must not execute deny actions.
+independent: TUI does not itself imply enforcement. Observe mode records deny
+and detour decisions while allowing traffic to continue and does not disable
+capture or audit. Interactive hooks require TUI because the decision responder
+lives there, and an operator rejection remains effective in observe mode. The
+standard headless profile explicitly selects `headless`, `enforce`, and
+`disabled`; select `enforce` whenever policy actions must execute.
 
 ## Safety
 
@@ -78,9 +79,10 @@ metadata_destinations = "protect"
 ```
 
 Each destination control accepts `protect` or `allow`. Unspecified and
-multicast IPs are always rejected. `allow_non_loopback` only permits validation
-to continue: remote HTTP and SOCKS5 still require authentication, and remote
-static TCP is always unsupported.
+multicast IPs always produce deny decisions. Observe mode records destination
+guard denials without executing them; enforce mode blocks them.
+`allow_non_loopback` only permits validation to continue: remote HTTP and
+SOCKS5 still require authentication, and remote static TCP is always unsupported.
 
 Known metadata addresses include `169.254.169.254`, `100.100.100.200`, and
 `fd00:ec2::254`. Guards run after DNS against every address.

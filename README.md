@@ -70,9 +70,11 @@ terminal. This development-only log intentionally includes credential and
 cookie header values.
 
 Freja's default runtime profile is local and interactive: `ui = "tui"`,
-`enforcement = "enforce"`, and `hooks = "interactive"`. CONNECT remains a blind
-tunnel, audit capture remains metadata-only, and sensitive destination classes
-remain protected. The headless profile explicitly selects `ui = "headless"`,
+`enforcement = "observe"`, and `hooks = "interactive"`. CONNECT remains a blind
+tunnel and audit capture remains metadata-only. ACL, destination-guard,
+inspection, and CONNECT-port deny or detour decisions are recorded but not
+executed by default; interactive operator rejection remains effective. The
+headless profile explicitly selects `ui = "headless"`,
 `enforcement = "enforce"`, and `hooks = "disabled"`. A
 non-loopback HTTP or SOCKS5 listener requires both explicit exposure opt-in and
 a SHA-256 credential digest; remote static TCP listeners are rejected because
@@ -106,7 +108,7 @@ The default runtime profile enables local interactive inspection:
 ```toml
 [runtime]
 ui = "tui"
-enforcement = "enforce"
+enforcement = "observe"
 hooks = "interactive"
 ```
 
