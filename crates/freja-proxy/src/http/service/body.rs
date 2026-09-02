@@ -18,10 +18,11 @@ impl HttpService {
         &self,
         request: Request<Incoming>,
         transaction_id: TransactionId,
+        interactive_uri: Option<http::Uri>,
     ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
         if self.services.hooks().mode() == HookMode::Interactive {
             return self
-                .prepare_interactive_request(request, transaction_id)
+                .prepare_interactive_request(request, transaction_id, interactive_uri)
                 .await;
         }
         let (mut parts, body) = request.into_parts();
@@ -101,6 +102,7 @@ impl HttpService {
         &self,
         request: Request<Incoming>,
         transaction_id: TransactionId,
+        interactive_uri: Option<http::Uri>,
     ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
         let (mut parts, body) = request.into_parts();
         let original = match collect_bounded(
@@ -146,7 +148,7 @@ impl HttpService {
         let context = super::audit_context(self.session_id, Some(transaction_id), &self.services);
         let snapshot = HttpRequestSnapshot {
             method: parts.method.clone(),
-            uri: parts.uri.clone(),
+            uri: interactive_uri.unwrap_or_else(|| parts.uri.clone()),
             version: parts.version,
             headers: parts.headers.clone(),
             body: WireBody::new(body.clone()),
@@ -155,7 +157,7 @@ impl HttpService {
         };
         match self
             .services
-            .interactive_http_request(context, transaction_id, snapshot)
+            .interactive_http_request(context, self.peer.ip(), transaction_id, snapshot)
             .await?
         {
             Some(InteractiveDecision::EditHeaders(plan)) => {

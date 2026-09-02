@@ -29,7 +29,7 @@ impl HttpService {
         };
         match self
             .services
-            .interactive_http_request(context, transaction_id, snapshot)
+            .interactive_http_request(context, self.peer.ip(), transaction_id, snapshot)
             .await?
         {
             Some(InteractiveDecision::EditHeaders(plan)) => {

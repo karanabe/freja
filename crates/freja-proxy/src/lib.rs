@@ -30,7 +30,7 @@ pub mod tls;
 
 pub use error::ProxyError;
 pub use event::{DataPlaneEvent, DataPlaneEventSink};
-pub use http::HttpForwardServer;
+pub use http::{HttpForwardServer, HttpRepeatExecutor};
 pub use metrics::{DataPlaneMetrics, MetricsSnapshot};
 pub use runtime::DataPlaneServices;
 pub use settings::{

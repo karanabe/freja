@@ -12,6 +12,7 @@ impl DataPlaneServices {
     pub(crate) async fn interactive_http_request(
         &self,
         context: freja_audit::AuditContext,
+        source_ip: std::net::IpAddr,
         transaction_id: freja_domain::TransactionId,
         request: HttpRequestSnapshot,
     ) -> Result<Option<InteractiveDecision>, ProxyError> {
@@ -28,6 +29,7 @@ impl DataPlaneServices {
                 InterceptContext {
                     session_id: context.session_id,
                     transaction_id,
+                    source_ip,
                 },
                 request,
             )

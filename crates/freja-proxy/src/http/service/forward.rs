@@ -92,6 +92,7 @@ impl HttpService {
             .path_and_query()
             .map_or("/", |value| value.as_str())
             .to_owned();
+        let repeat_uri = canonical_intercepted_uri(target.authority(), &path_and_query);
         if let Err(error) = headers::strip_hop_by_hop(request.headers_mut()) {
             return Ok(text_response(StatusCode::BAD_REQUEST, &error.to_string()));
         }
@@ -139,7 +140,10 @@ impl HttpService {
             ));
         }
         let request_method = request.method().clone();
-        let request = match self.prepare_request_body(request, transaction_id).await? {
+        let request = match self
+            .prepare_request_body(request, transaction_id, repeat_uri)
+            .await?
+        {
             Ok(request) => request,
             Err(response) => return Ok(response),
         };
@@ -173,6 +177,7 @@ impl HttpService {
             Ok(target) => target,
             Err(error) => return Ok(text_response(StatusCode::BAD_REQUEST, &error.to_string())),
         };
+        let repeat_uri = Some(request.uri().clone());
         let policy_path = target.origin_uri().map_or_else(
             || "/".to_owned(),
             |uri| {
@@ -243,7 +248,10 @@ impl HttpService {
         }
 
         let request_method = request.method().clone();
-        let request = match self.prepare_request_body(request, transaction_id).await? {
+        let request = match self
+            .prepare_request_body(request, transaction_id, repeat_uri)
+            .await?
+        {
             Ok(request) => request,
             Err(response) => return Ok(response),
         };
@@ -543,4 +551,13 @@ fn intercepted_upstream_uri(
             .build()
             .ok(),
     }
+}
+
+fn canonical_intercepted_uri(authority: &str, path_and_query: &str) -> Option<http::Uri> {
+    http::Uri::builder()
+        .scheme("https")
+        .authority(authority)
+        .path_and_query(path_and_query)
+        .build()
+        .ok()
 }

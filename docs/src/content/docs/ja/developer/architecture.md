@@ -51,7 +51,7 @@ validated identifier、endpoint、runtime mode、目的別fact、finding、decis
 
 ### `freja-audit`
 
-central redaction後にtyped version-1 eventをserializeします。bounded channelと明示的fail-open/fail-closedはUI deliveryから独立しています。各recordは直前recordへlinkし、optional Ed25519 checkpointは外部pinされたkeyにより保持位置をauthenticateします。
+central redaction後にtyped version-2 eventをserializeし、replayはversion 1との互換性を維持します。bounded channelと明示的fail-open/fail-closedはUI deliveryから独立しています。各recordは直前recordへlinkし、optional Ed25519 checkpointは外部pinされたkeyにより保持位置をauthenticateします。
 
 ### `freja-proxy`
 
@@ -64,10 +64,12 @@ TUIがattachedの場合に限り、proxy所有の`UiCaptureSettings`がplain exp
 TLS interceptionはhostname単位のopt-inです。CONNECT commit前にupstream TCPを確立し、downstream TLSをnegotiateして、選択された`h2`/`http/1.1` ALPNでupstream TLSを認証します。Rcgenはprotected CAからSAN付きleafを作り、host+ALPNのbounded cacheへ保存します。Hyperがintercepted HTTP/1.1/HTTP/2をdecodeし、semantic exchangeを同じ上限付きHTTP policy、inspection、typed Hook、audit、replay pipelineへ再接続します。
 TUIはこれらintercepted exchangeをsemantic表示します。persistent intercepted HTTP/1とHTTP/2 framingの正確なRaw captureは、transaction correlationを専用設計するまで意図的にunavailableです。
 
+trackedなsequential HTTP repeat executorはUI型へ依存せず、TUIから型付きの上限付きdraftを受け取ります。freshなflow IDを割り当て、policy inputとして元source IPだけを維持し、通常のdestination、HTTP policy、inspection、Hook、authenticated TLS、audit、replay fact境界へ再投入します。interactive pauseとlistener authenticationだけをskipします。request/result channelとresponse retentionはそれぞれboundedです。
+
 ### `freja-ui`
 
 immutable snapshotを受け、isolated threadでRAII restoration guardのもとterminalを所有します。TUI modeではCLIがoperational tracingをbounded immutable UI eventへformatするため、raw terminalへ同時に書くproducerはありません。UI saturationはsnapshotまたはlog lineをdropしてmetricを増やします。interactive requestは別のbounded channel、paused-flow semaphore、timeout、oneshot responseを使います。
-traffic rowは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。HTTP/1.1 text editorはそのcopy済みsnapshotだけを所有し、validate済みdraftを原子的な型付きheader/body planへ変換します。method、target、version、routing、framingはdata planeの責務のままです。responseとTCP dataはTUI decisionを待ちません。
+traffic rowとrepeat workspaceは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離し、screen 3は複数のHTTP/1.1 repeat draftと各draftの最新resultだけを保持します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。HTTP/1.1 text editorはそのcopy済みsnapshotだけを所有し、validate済みdraftを原子的な型付きheader/body planへ変換します。method、target、version、routing、framingはdata planeの責務のままです。responseとTCP dataはTUI decisionを待ちません。
 
 ### `freja`
 

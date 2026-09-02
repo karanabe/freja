@@ -8,8 +8,9 @@ use freja_policy::hook::{
     HookFailurePolicy, HookRegistry, HookRunner, InteractiveBroker, InterceptTimeoutPolicy,
 };
 use freja_proxy::{
-    CaptureSettings, DataPlaneServices, HttpForwardServer, ProxyLimits, Socks5Server,
-    StaticTcpServer, TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings, shutdown_channel,
+    CaptureSettings, DataPlaneServices, HttpForwardServer, HttpRepeatExecutor, ProxyLimits,
+    Socks5Server, StaticTcpServer, TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings,
+    shutdown_channel,
 };
 use freja_ui::{UiEvent, UiPublisher, tui::spawn_tui};
 use tokio::task::JoinSet;
@@ -49,6 +50,7 @@ struct PreparedTui {
     receiver: tokio::sync::mpsc::Receiver<UiEvent>,
 }
 
+#[allow(clippy::too_many_lines)]
 async fn run_proxy(
     path: Option<&Path>,
     compiled: CompiledConfig,
@@ -93,6 +95,8 @@ async fn run_proxy(
         intercept_receiver = Some(receiver);
     }
     services = attach_tui_services(services, &compiled, tui.as_ref())?;
+    let (repeat_executor, repeat_sender, repeat_result_receiver) =
+        prepare_repeat_services(&compiled, &services, proxy_limits);
     let servers = bind_configured_servers(&compiled, &services, proxy_limits).await?;
     if servers.is_empty() {
         return Err(AppError::msg(
@@ -110,6 +114,8 @@ async fn run_proxy(
             prepared.receiver,
             metrics,
             intercept_receiver.take(),
+            repeat_sender,
+            repeat_result_receiver,
             compiled.limits().ui_retained_rows,
         )
         .context("could not start terminal UI")?;
@@ -119,6 +125,9 @@ async fn run_proxy(
         (None, None)
     };
     let mut listeners = JoinSet::new();
+    if let Some(executor) = repeat_executor {
+        listeners.spawn(executor.run(signal.clone()));
+    }
     for server in servers {
         listeners.spawn(server.run(signal.clone()));
     }
@@ -155,6 +164,35 @@ async fn run_proxy(
         return Err(error);
     }
     Ok(())
+}
+
+type PreparedRepeat = (
+    Option<HttpRepeatExecutor>,
+    Option<tokio::sync::mpsc::Sender<freja_policy::hook::RepeatRequest>>,
+    Option<tokio::sync::mpsc::Receiver<freja_policy::hook::RepeatResult>>,
+);
+
+fn prepare_repeat_services(
+    compiled: &CompiledConfig,
+    services: &DataPlaneServices,
+    limits: ProxyLimits,
+) -> PreparedRepeat {
+    if compiled.runtime().hooks != HookMode::Interactive {
+        return (None, None, None);
+    }
+    let capacity = compiled.limits().ui_retained_rows;
+    let (request_sender, request_receiver) = tokio::sync::mpsc::channel(capacity);
+    let (result_sender, result_receiver) = tokio::sync::mpsc::channel(capacity);
+    (
+        Some(HttpRepeatExecutor::new(
+            request_receiver,
+            result_sender,
+            services.clone(),
+            limits,
+        )),
+        Some(request_sender),
+        Some(result_receiver),
+    )
 }
 
 fn attach_tui_services(

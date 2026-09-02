@@ -28,6 +28,7 @@
 mod contract;
 mod interactive;
 mod mutation;
+mod repeat;
 mod runner;
 
 pub use contract::{
@@ -43,6 +44,9 @@ pub use interactive::{
 pub use mutation::{
     MutationError, apply_body_mutation, apply_head_mutation, apply_http_mutation,
     normalize_replaced_body_headers,
+};
+pub use repeat::{
+    HttpResponseSnapshot, RepeatFailureCategory, RepeatOutcome, RepeatRequest, RepeatResult,
 };
 pub use runner::{HookFailurePolicy, HookRunError, HookRunner};
 
@@ -217,6 +221,7 @@ mod tests {
         let context = InterceptContext {
             session_id: SessionId::new(),
             transaction_id: TransactionId::new(),
+            source_ip: "127.0.0.1".parse().unwrap(),
         };
         let first_broker = broker.clone();
         let first = tokio::spawn(async move {

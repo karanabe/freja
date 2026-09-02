@@ -167,6 +167,8 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
         let request = intercepts.recv().await.unwrap();
         let snapshot = &request.request;
         assert_eq!(snapshot.method, http::Method::POST);
+        assert_eq!(snapshot.uri.to_string(), format!("http://{origin}/manual"));
+        assert_eq!(request.context.source_ip, IpAddr::from([127, 0, 0, 1]));
         assert_eq!(snapshot.body.bytes().as_ref(), b"old");
         request
             .response

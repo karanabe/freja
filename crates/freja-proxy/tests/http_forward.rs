@@ -23,13 +23,14 @@ use freja_policy::{
     hook::{
         BodyMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HookFailurePolicy,
         HookFuture, HookRegistry, HookRunner, HttpRequestBodyHook, HttpRequestHead,
-        HttpRequestHeadHook, HttpRequestMutationPlan, InteractiveBroker, InteractiveDecision,
-        InterceptTimeoutPolicy, WireBody,
+        HttpRequestHeadHook, HttpRequestMutationPlan, HttpRequestSnapshot, InteractiveBroker,
+        InteractiveDecision, InterceptContext, InterceptTimeoutPolicy, RepeatOutcome,
+        RepeatRequest, WireBody,
     },
 };
 use freja_proxy::{
-    DataPlaneEvent, DataPlaneEventSink, DataPlaneServices, HttpForwardServer, ProxyLimits,
-    TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings, shutdown_channel,
+    DataPlaneEvent, DataPlaneEventSink, DataPlaneServices, HttpForwardServer, HttpRepeatExecutor,
+    ProxyLimits, TlsInterceptionConfig, TlsInterceptor, UiCaptureSettings, shutdown_channel,
 };
 use http_body_util::{BodyExt, Full};
 use hyper::{Request, Response, service::service_fn};
@@ -60,6 +61,8 @@ mod inspection;
 mod limits;
 #[path = "http_forward/policy.rs"]
 mod policy;
+#[path = "http_forward/repeat.rs"]
+mod repeat;
 #[path = "http_forward/runtime.rs"]
 mod runtime;
 #[path = "http_forward/support.rs"]

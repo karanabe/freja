@@ -1,13 +1,15 @@
 use std::{collections::VecDeque, thread};
 
-use freja_policy::hook::InterceptRequest;
+use freja_policy::hook::{InterceptRequest, RepeatRequest, RepeatResult};
 use tokio::sync::{mpsc, oneshot};
 
 use crate::{UiEvent, UiMetrics};
 
 use super::{TuiError, TuiModel};
 use super::{
-    input::{drain_intercepts, editor_status, handle_input, paused_transactions},
+    input::{
+        drain_intercepts, drain_repeat_results, editor_status, handle_input, paused_transactions,
+    },
     terminal::TerminalGuard,
 };
 
@@ -21,13 +23,22 @@ pub fn spawn_tui(
     receiver: mpsc::Receiver<UiEvent>,
     metrics: UiMetrics,
     intercept_receiver: Option<mpsc::Receiver<InterceptRequest>>,
+    repeat_sender: Option<mpsc::Sender<RepeatRequest>>,
+    repeat_receiver: Option<mpsc::Receiver<RepeatResult>>,
     retained_rows: usize,
 ) -> Result<TuiTask, TuiError> {
     let (exit_sender, exit_receiver) = oneshot::channel();
     let thread = thread::Builder::new()
         .name("freja-tui".to_owned())
         .spawn(move || {
-            let result = run_tui(receiver, &metrics, intercept_receiver, retained_rows);
+            let result = run_tui(
+                receiver,
+                &metrics,
+                intercept_receiver,
+                repeat_sender.as_ref(),
+                repeat_receiver,
+                retained_rows,
+            );
             let _send_result = exit_sender.send(());
             result
         })
@@ -65,6 +76,8 @@ pub fn run_tui(
     mut receiver: mpsc::Receiver<UiEvent>,
     metrics: &UiMetrics,
     mut intercept_receiver: Option<mpsc::Receiver<InterceptRequest>>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
+    mut repeat_receiver: Option<mpsc::Receiver<RepeatResult>>,
     retained_rows: usize,
 ) -> Result<(), TuiError> {
     let mut terminal = TerminalGuard::enter()?;
@@ -83,13 +96,14 @@ pub fn run_tui(
             }
         }
         drain_intercepts(&mut intercept_receiver, &mut pending, &mut model);
+        drain_repeat_results(&mut repeat_receiver, &mut model);
         model.set_dropped_events(metrics.dropped_events());
         model.set_interactive_state(
             paused_transactions(&pending),
             editor_status(&model, &pending),
         );
         terminal.draw(&model)?;
-        if disconnected || handle_input(&mut model, &mut pending)? {
+        if disconnected || handle_input(&mut model, &mut pending, repeat_sender)? {
             return Ok(());
         }
     }

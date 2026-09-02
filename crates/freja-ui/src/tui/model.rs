@@ -1,7 +1,10 @@
 use std::collections::VecDeque;
 
 use freja_domain::{DecisionTrace, Direction, Finding, SessionId, TransactionId};
-use freja_policy::hook::InterceptRequest;
+use freja_policy::hook::{
+    HttpRequestSnapshot, InterceptContext, InterceptRequest, RepeatOutcome, RepeatRequest,
+    RepeatResult, WireBody,
+};
 
 use crate::UiEvent;
 
@@ -15,6 +18,8 @@ pub enum TuiPage {
     Traffic,
     /// Findings, decision traces, operational logs, and counters.
     Diagnostics,
+    /// Retained, editable HTTP/1.1 repeat workspaces.
+    Repeat,
 }
 
 /// Traffic detail layout.
@@ -63,6 +68,24 @@ pub enum FocusPane {
     Evidence,
     /// Operational log history.
     Logs,
+    /// Retained repeat-workspace list.
+    RepeatWorkspaces,
+    /// Request and latest-result detail for a repeat workspace.
+    RepeatDetail,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum EditorTarget {
+    Interactive,
+    Repeat(TransactionId),
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct RepeatWorkspace {
+    pub(super) source: InterceptContext,
+    pub(super) request: HttpRequestSnapshot,
+    pub(super) latest_result: Option<RepeatResult>,
+    pub(super) in_flight: bool,
 }
 
 /// Protocol-level unit represented by one Flows row.
@@ -180,6 +203,10 @@ pub struct TuiModel {
     pub(super) focus: FocusPane,
     pub(super) expanded_pane: Option<FocusPane>,
     pub(super) editor: Option<RequestEditor>,
+    pub(super) editor_target: Option<EditorTarget>,
+    pub(super) repeat_workspaces: Vec<RepeatWorkspace>,
+    pub(super) repeat_selected: usize,
+    repeat_return_page: TuiPage,
     pub(super) detail_scroll: u16,
     pub(super) diagnostics_scroll: u16,
     pub(super) log_scroll: u16,
@@ -215,6 +242,10 @@ impl TuiModel {
             focus: FocusPane::Flows,
             expanded_pane: None,
             editor: None,
+            editor_target: None,
+            repeat_workspaces: Vec::new(),
+            repeat_selected: 0,
+            repeat_return_page: TuiPage::Traffic,
             detail_scroll: 0,
             diagnostics_scroll: 0,
             log_scroll: 0,
@@ -357,6 +388,17 @@ impl TuiModel {
                 side_mut(&mut self.rows[index], direction).wire = WireState::Failed(reason);
                 self.capture_failures = self.capture_failures.saturating_add(1);
             }
+            UiEvent::WireCaptureUnavailable {
+                session_id,
+                transaction_id,
+                direction,
+                reason,
+            } => {
+                let Some(index) = self.ensure_http_row(session_id, transaction_id) else {
+                    return;
+                };
+                side_mut(&mut self.rows[index], direction).wire = WireState::Unavailable(reason);
+            }
             UiEvent::FlowClosed {
                 session_id,
                 client_to_upstream_bytes,
@@ -380,6 +422,27 @@ impl TuiModel {
     pub fn show_diagnostics(&mut self) {
         self.page = TuiPage::Diagnostics;
         self.focus = FocusPane::Evidence;
+        self.expanded_pane = None;
+    }
+
+    /// Selects the retained Repeat page without discarding its workspaces.
+    pub fn show_repeat(&mut self) {
+        if self.page != TuiPage::Repeat {
+            self.repeat_return_page = self.page;
+        }
+        self.page = TuiPage::Repeat;
+        self.focus = FocusPane::RepeatWorkspaces;
+        self.expanded_pane = None;
+    }
+
+    /// Returns from Repeat to the page that opened it while retaining workspaces.
+    pub fn leave_repeat(&mut self) {
+        self.page = self.repeat_return_page;
+        self.focus = match self.page {
+            TuiPage::Traffic => FocusPane::Flows,
+            TuiPage::Diagnostics => FocusPane::Evidence,
+            TuiPage::Repeat => FocusPane::RepeatWorkspaces,
+        };
         self.expanded_pane = None;
     }
 
@@ -433,6 +496,8 @@ impl TuiModel {
             (TuiPage::Traffic, _) => FocusPane::Flows,
             (TuiPage::Diagnostics, FocusPane::Evidence) => FocusPane::Logs,
             (TuiPage::Diagnostics, _) => FocusPane::Evidence,
+            (TuiPage::Repeat, FocusPane::RepeatWorkspaces) => FocusPane::RepeatDetail,
+            (TuiPage::Repeat, _) => FocusPane::RepeatWorkspaces,
         };
     }
 
@@ -443,6 +508,8 @@ impl TuiModel {
             (TuiPage::Traffic, _) => FocusPane::Detail,
             (TuiPage::Diagnostics, FocusPane::Logs) => FocusPane::Evidence,
             (TuiPage::Diagnostics, _) => FocusPane::Logs,
+            (TuiPage::Repeat, FocusPane::RepeatDetail) => FocusPane::RepeatWorkspaces,
+            (TuiPage::Repeat, _) => FocusPane::RepeatDetail,
         };
     }
 
@@ -463,12 +530,24 @@ impl TuiModel {
 
     /// Moves selection toward the oldest retained row.
     pub fn select_previous(&mut self) {
+        if self.page == TuiPage::Repeat {
+            self.repeat_selected = self.repeat_selected.saturating_sub(1);
+            self.detail_scroll = 0;
+            return;
+        }
         self.selected = self.selected.saturating_sub(1);
         self.detail_scroll = 0;
     }
 
     /// Moves selection toward the newest retained row.
     pub fn select_next(&mut self) {
+        if self.page == TuiPage::Repeat {
+            if self.repeat_selected.saturating_add(1) < self.repeat_workspaces.len() {
+                self.repeat_selected += 1;
+                self.detail_scroll = 0;
+            }
+            return;
+        }
         if self.selected.saturating_add(1) < self.rows.len() {
             self.selected += 1;
             self.detail_scroll = 0;
@@ -538,7 +617,193 @@ impl TuiModel {
         request: &InterceptRequest,
     ) -> Result<(), RequestEditError> {
         self.editor = Some(RequestEditor::new(&request.request)?);
+        self.editor_target = Some(EditorTarget::Interactive);
         Ok(())
+    }
+
+    pub(super) fn create_repeat_workspace(&mut self, request: &InterceptRequest) -> bool {
+        if let Some(index) = self
+            .repeat_workspaces
+            .iter()
+            .position(|workspace| workspace.source.transaction_id == request.context.transaction_id)
+        {
+            self.repeat_selected = index;
+            self.show_repeat();
+            return true;
+        }
+        if self.repeat_workspaces.len() >= self.maximum_rows {
+            self.set_input_notice(format!(
+                "repeat workspace limit ({}) reached; delete one before adding another",
+                self.maximum_rows
+            ));
+            return false;
+        }
+        if request.request.version != http::Version::HTTP_11
+            || request.request.method == http::Method::CONNECT
+            || !matches!(request.request.uri.scheme_str(), Some("http" | "https"))
+            || request.request.uri.authority().is_none()
+        {
+            self.set_input_notice(
+                "repeat supports absolute-form HTTP/1.1 requests, excluding CONNECT".to_owned(),
+            );
+            return false;
+        }
+        if let Err(error) = RequestEditor::new(&request.request) {
+            self.set_input_notice(format!("repeat requires an editable text request: {error}"));
+            return false;
+        }
+        self.repeat_workspaces.push(RepeatWorkspace {
+            source: request.context,
+            request: request.request.clone(),
+            latest_result: None,
+            in_flight: false,
+        });
+        self.repeat_selected = self.repeat_workspaces.len().saturating_sub(1);
+        self.show_repeat();
+        true
+    }
+
+    pub(super) fn open_repeat_editor(&mut self) -> Result<(), RequestEditError> {
+        let Some(workspace) = self.repeat_workspaces.get(self.repeat_selected) else {
+            return Ok(());
+        };
+        self.editor = Some(RequestEditor::new(&workspace.request)?);
+        self.editor_target = Some(EditorTarget::Repeat(workspace.source.transaction_id));
+        Ok(())
+    }
+
+    pub(super) fn apply_repeat_edit(
+        &mut self,
+        source_transaction_id: TransactionId,
+        headers: http::HeaderMap,
+        body: Vec<u8>,
+    ) {
+        let Some(workspace) = self
+            .repeat_workspaces
+            .iter_mut()
+            .find(|workspace| workspace.source.transaction_id == source_transaction_id)
+        else {
+            return;
+        };
+        workspace.request.headers = headers;
+        workspace.request.body = WireBody::new(body);
+    }
+
+    pub(super) fn selected_repeat_request(&self) -> Option<RepeatRequest> {
+        self.repeat_workspaces
+            .get(self.repeat_selected)
+            .filter(|workspace| !workspace.in_flight)
+            .map(|workspace| RepeatRequest {
+                source: workspace.source,
+                request: workspace.request.clone(),
+            })
+    }
+
+    pub(super) fn mark_selected_repeat_in_flight(&mut self) {
+        if let Some(workspace) = self.repeat_workspaces.get_mut(self.repeat_selected) {
+            workspace.in_flight = true;
+            workspace.latest_result = None;
+        }
+    }
+
+    pub(super) fn apply_repeat_result(&mut self, result: RepeatResult) {
+        let Some(workspace) = self
+            .repeat_workspaces
+            .iter_mut()
+            .find(|workspace| workspace.source.transaction_id == result.source_transaction_id)
+        else {
+            return;
+        };
+        workspace.in_flight = false;
+        workspace.latest_result = Some(result);
+    }
+
+    pub(super) fn delete_selected_repeat(&mut self) -> bool {
+        if self
+            .repeat_workspaces
+            .get(self.repeat_selected)
+            .is_none_or(|workspace| workspace.in_flight)
+        {
+            return false;
+        }
+        self.repeat_workspaces.remove(self.repeat_selected);
+        self.repeat_selected = self
+            .repeat_selected
+            .min(self.repeat_workspaces.len().saturating_sub(1));
+        true
+    }
+
+    pub(super) fn selected_repeat_workspace(&self) -> Option<&RepeatWorkspace> {
+        self.repeat_workspaces.get(self.repeat_selected)
+    }
+
+    pub(super) fn repeat_request_side(&self) -> Option<SideSnapshot> {
+        let workspace = self.selected_repeat_workspace()?;
+        Some(SideSnapshot {
+            start_line: Some(format!(
+                "{} {} HTTP/1.1",
+                workspace.request.method, workspace.request.uri
+            )),
+            headers: workspace
+                .request
+                .headers
+                .iter()
+                .map(|(name, value)| (name.as_str().to_owned(), value.as_bytes().to_vec()))
+                .collect(),
+            body: workspace.request.body.bytes().to_vec(),
+            observed_body_bytes: u64::try_from(workspace.request.body.bytes().len())
+                .unwrap_or(u64::MAX),
+            body_truncated: false,
+            body_incomplete: false,
+            wire: WireState::Unavailable(
+                "repeat workspaces contain semantic requests only".to_owned(),
+            ),
+        })
+    }
+
+    pub(super) fn repeat_response_side(&self) -> Option<SideSnapshot> {
+        let workspace = self.selected_repeat_workspace()?;
+        match workspace
+            .latest_result
+            .as_ref()
+            .map(|result| &result.outcome)
+        {
+            Some(RepeatOutcome::Response(response)) => Some(SideSnapshot {
+                start_line: Some(response_start_line(
+                    &format!("{:?}", response.version),
+                    response.status.as_u16(),
+                )),
+                headers: response
+                    .headers
+                    .iter()
+                    .map(|(name, value)| (name.as_str().to_owned(), value.as_bytes().to_vec()))
+                    .collect(),
+                body: response.body.clone(),
+                observed_body_bytes: response.observed_body_bytes,
+                body_truncated: response.body_truncated,
+                body_incomplete: false,
+                wire: WireState::Unavailable(
+                    "repeat results contain semantic responses only".to_owned(),
+                ),
+            }),
+            Some(RepeatOutcome::Failed(category)) => Some(SideSnapshot {
+                start_line: Some(format!("Repeat failed: {category}")),
+                wire: WireState::Unavailable(
+                    "repeat attempt did not produce an HTTP response".to_owned(),
+                ),
+                ..SideSnapshot::default()
+            }),
+            None if workspace.in_flight => Some(SideSnapshot {
+                start_line: Some("Repeat request in flight".to_owned()),
+                wire: WireState::Unavailable("repeat attempt has not completed".to_owned()),
+                ..SideSnapshot::default()
+            }),
+            None => Some(SideSnapshot {
+                start_line: Some("Not sent yet".to_owned()),
+                wire: WireState::Unavailable("repeat attempt has not been sent".to_owned()),
+                ..SideSnapshot::default()
+            }),
+        }
     }
 
     pub(super) fn set_input_notice(&mut self, notice: String) {
@@ -585,7 +850,10 @@ impl TuiModel {
     fn active_scroll_mut(&mut self) -> &mut u16 {
         match self.focus {
             FocusPane::Logs => &mut self.log_scroll,
-            FocusPane::Flows | FocusPane::Detail => &mut self.detail_scroll,
+            FocusPane::Flows
+            | FocusPane::Detail
+            | FocusPane::RepeatWorkspaces
+            | FocusPane::RepeatDetail => &mut self.detail_scroll,
             FocusPane::Evidence => &mut self.diagnostics_scroll,
         }
     }

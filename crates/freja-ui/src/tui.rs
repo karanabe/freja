@@ -29,7 +29,10 @@ mod tests {
     use super::{DisplayMode, TuiModel, escape_terminal_bytes, hex_ascii, render};
     use crate::UiEvent;
     use freja_domain::{Direction, SessionId, TransactionId};
-    use freja_policy::hook::{HttpRequestSnapshot, InterceptContext, InterceptRequest, WireBody};
+    use freja_policy::hook::{
+        HttpRequestSnapshot, InterceptContext, InterceptRequest, RepeatFailureCategory,
+        RepeatOutcome, RepeatResult, WireBody,
+    };
 
     #[test]
     fn immutable_events_reduce_and_render_on_test_backend() {
@@ -147,6 +150,7 @@ mod tests {
             context: InterceptContext {
                 session_id,
                 transaction_id: paused_transaction,
+                source_ip: "127.0.0.1".parse().unwrap(),
             },
             request: HttpRequestSnapshot {
                 method: http::Method::POST,
@@ -166,6 +170,45 @@ mod tests {
         assert_eq!(model.rows()[0].transaction_id, Some(paused_transaction));
         assert_eq!(model.rows()[0].request.body, b"complete");
         assert!(model.selected_is_paused());
+    }
+
+    #[test]
+    fn repeat_page_renders_retained_request_and_latest_result() {
+        let source_session = SessionId::new();
+        let source_transaction = TransactionId::new();
+        let (response, _receiver) = tokio::sync::oneshot::channel();
+        let request = InterceptRequest {
+            context: InterceptContext {
+                session_id: source_session,
+                transaction_id: source_transaction,
+                source_ip: "127.0.0.1".parse().unwrap(),
+            },
+            request: HttpRequestSnapshot {
+                method: http::Method::POST,
+                uri: http::Uri::from_static("http://example.test/repeat"),
+                version: http::Version::HTTP_11,
+                headers: http::HeaderMap::new(),
+                body: WireBody::new("draft"),
+                maximum_head_bytes: 1_024,
+                maximum_body_bytes: 1_024,
+            },
+            response,
+        };
+        let mut model = TuiModel::new(2, 4);
+        assert!(model.create_repeat_workspace(&request));
+        model.apply_repeat_result(RepeatResult {
+            source_transaction_id: source_transaction,
+            session_id: SessionId::new(),
+            transaction_id: TransactionId::new(),
+            outcome: RepeatOutcome::Failed(RepeatFailureCategory::PolicyDenied),
+        });
+
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        terminal.draw(|frame| render(frame, &model)).unwrap();
+        let rendered = rendered_text(&terminal);
+        assert!(rendered.contains("Workspaces [3 Repeat]"));
+        assert!(rendered.contains("POST http://example.test/repeat HTTP/1.1"));
+        assert!(rendered.contains("Repeat failed: policy denied"));
     }
 
     fn rendered_text(terminal: &Terminal<TestBackend>) -> String {

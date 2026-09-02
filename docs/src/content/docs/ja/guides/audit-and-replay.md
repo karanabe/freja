@@ -75,7 +75,7 @@ freja replay \
   --checkpoint-public-key '<16進64文字>'
 ```
 
-replayはsequence continuity、previous-hash link、record hash、checkpoint signature、checkpoint chain位置を先に検証します。audit schema version 1だけを受け付け、非対応versionは明示的に拒否します。keyをpinした場合、そのkeyのcheckpointが最低1件必要です。integrity検証後にだけ、保存されたrequested/resolved/HTTP/finding factを評価し、captured prefix用direction別scannerを再構築します。16 MiBを超えるJSONL行と、candidateの`limits.body_prefix_bytes`を超えるcapture byteはdetector評価前に拒否します。
+replayはsequence continuity、previous-hash link、record hash、checkpoint signature、checkpoint chain位置を先に検証します。audit schema version 1と2を受け付け、非対応versionは明示的に拒否します。新しいsegmentはrepeat provenance eventのためversion 2を使います。keyをpinした場合、そのkeyのcheckpointが最低1件必要です。integrity検証後にだけ、保存されたrequested/resolved/HTTP/finding factを評価し、captured prefix用direction別scannerを再構築します。16 MiBを超えるJSONL行と、candidateの`limits.body_prefix_bytes`を超えるcapture byteはdetector評価前に拒否します。
 
 `--checkpoint-public-key`なしの場合、埋め込みsignatureは内部self-consistencyだけを示します。segment全体を置換できる攻撃者は埋め込み公開keyも置換できます。またhash chainとsegment内checkpointだけでは未知のtail削除を証明できません。truncation耐性が必要ならsegmentまたはcheckpointを別管理storageへexportしてください。
 

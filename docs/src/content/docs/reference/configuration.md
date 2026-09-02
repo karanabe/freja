@@ -100,8 +100,8 @@ All values must be non-zero.
 | `paused_flows` | `16` | Simultaneously paused interactive flows |
 | `interception_timeout_ms` | `30000` | Hook/manual/TLS interception wait budget |
 | `ui_event_capacity` | `1024` | Best-effort UI event queue capacity |
-| `ui_content_bytes` | `65536` | Payload bytes retained for each TUI traffic side |
-| `ui_retained_rows` | `128` | HTTP transaction or TCP session rows retained by the TUI |
+| `ui_content_bytes` | `65536` | Payload bytes retained for each TUI traffic side or latest repeat response |
+| `ui_retained_rows` | `128` | Traffic rows and HTTP/1.1 repeat workspaces retained by the TUI |
 
 ```toml
 [limits]
@@ -123,6 +123,9 @@ be made unreachable by row eviction. In interactive mode, `ui_content_bytes`
 must be at least `body_prefix_bytes`. `header_bytes + ui_content_bytes` must fit
 in `usize`; invalid combinations fail before listener startup. These TUI
 retention limits do not enable payload audit capture.
+`ui_retained_rows` also bounds the independent repeat request/result channels.
+When the workspace limit is reached, the operator must delete a non-running
+workspace; drafts are not silently evicted.
 
 ## Audit
 

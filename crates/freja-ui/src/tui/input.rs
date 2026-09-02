@@ -1,15 +1,19 @@
 use std::collections::VecDeque;
 
 use freja_domain::TransactionId;
-use freja_policy::hook::{InteractiveDecision, InterceptRequest};
+use freja_policy::hook::{InteractiveDecision, InterceptRequest, RepeatRequest, RepeatResult};
 use ratatui::crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use tokio::sync::mpsc;
 
-use super::{EVENT_POLL_INTERVAL, FocusPane, TuiError, TuiModel, editor::EditorMode};
+use super::{
+    EVENT_POLL_INTERVAL, FocusPane, TuiError, TuiModel, TuiPage, editor::EditorMode,
+    model::EditorTarget,
+};
 
 pub(super) fn handle_input(
     model: &mut TuiModel,
     pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
 ) -> Result<bool, TuiError> {
     if !event::poll(EVENT_POLL_INTERVAL).map_err(|source| TuiError::Io {
         operation: "input poll",
@@ -27,13 +31,24 @@ pub(super) fn handle_input(
     if key.kind != KeyEventKind::Press {
         return Ok(false);
     }
-    Ok(handle_key(key, model, pending))
+    Ok(handle_key_with_repeat(key, model, pending, repeat_sender))
 }
 
+#[cfg(test)]
 pub(super) fn handle_key(
     key: KeyEvent,
     model: &mut TuiModel,
     pending: &mut VecDeque<InterceptRequest>,
+) -> bool {
+    handle_key_with_repeat(key, model, pending, None)
+}
+
+#[allow(clippy::too_many_lines)]
+pub(super) fn handle_key_with_repeat(
+    key: KeyEvent,
+    model: &mut TuiModel,
+    pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
 ) -> bool {
     if key.kind != KeyEventKind::Press {
         return false;
@@ -42,7 +57,7 @@ pub(super) fn handle_key(
         return true;
     }
     if model.editor.is_some() {
-        handle_editor_key(key, model, pending);
+        handle_editor_key(key, model, pending, repeat_sender);
         return false;
     }
     model.clear_input_notice();
@@ -50,8 +65,31 @@ pub(super) fn handle_key(
         model.close_expanded_pane();
         return false;
     }
+    if key.code == KeyCode::Char('q') && model.page == TuiPage::Repeat {
+        model.leave_repeat();
+        return false;
+    }
     if model.expanded_pane().is_some() {
         match key.code {
+            KeyCode::Char('R') if model.page == TuiPage::Traffic => {
+                create_repeat_workspace(model, pending, repeat_sender);
+            }
+            KeyCode::Char('e') if model.page == TuiPage::Repeat => {
+                open_repeat_editor(model, false);
+            }
+            KeyCode::Char('i') if model.page == TuiPage::Repeat => {
+                open_repeat_editor(model, true);
+            }
+            KeyCode::Char('s') if model.page == TuiPage::Repeat => {
+                send_repeat(model, repeat_sender);
+            }
+            KeyCode::Char('d') if model.page == TuiPage::Repeat => {
+                if !model.delete_selected_repeat() {
+                    model.set_input_notice(
+                        "an in-flight repeat workspace cannot be deleted".to_owned(),
+                    );
+                }
+            }
             KeyCode::Char('e') if model.selected_is_paused() => {
                 open_request_editor(model, pending, false);
             }
@@ -77,6 +115,12 @@ pub(super) fn handle_key(
         KeyCode::Char('2') => {
             model.show_diagnostics();
         }
+        KeyCode::Char('3') => {
+            model.show_repeat();
+        }
+        KeyCode::Char('R') if model.page == TuiPage::Traffic => {
+            create_repeat_workspace(model, pending, repeat_sender);
+        }
         KeyCode::Char('v') => {
             model.cycle_layout();
         }
@@ -92,10 +136,14 @@ pub(super) fn handle_key(
         KeyCode::Tab => {
             model.cycle_focus();
         }
-        KeyCode::Up | KeyCode::Char('k') if model.focus == FocusPane::Flows => {
+        KeyCode::Up | KeyCode::Char('k')
+            if matches!(model.focus, FocusPane::Flows | FocusPane::RepeatWorkspaces) =>
+        {
             model.select_previous();
         }
-        KeyCode::Down | KeyCode::Char('j') if model.focus == FocusPane::Flows => {
+        KeyCode::Down | KeyCode::Char('j')
+            if matches!(model.focus, FocusPane::Flows | FocusPane::RepeatWorkspaces) =>
+        {
             model.select_next();
         }
         KeyCode::Up | KeyCode::Char('k') => {
@@ -110,14 +158,29 @@ pub(super) fn handle_key(
         KeyCode::PageDown => {
             model.scroll_down(10);
         }
-        KeyCode::Char('c') => {
+        KeyCode::Char('c') if model.page != TuiPage::Repeat => {
             respond_selected(model, pending, InteractiveDecision::Continue);
         }
-        KeyCode::Char('r') => {
+        KeyCode::Char('r') if model.page != TuiPage::Repeat => {
             respond_selected(model, pending, InteractiveDecision::Reject);
         }
-        KeyCode::Char('x') => {
+        KeyCode::Char('x') if model.page != TuiPage::Repeat => {
             respond_selected(model, pending, InteractiveDecision::CancelModification);
+        }
+        KeyCode::Char('s') if model.page == TuiPage::Repeat => {
+            send_repeat(model, repeat_sender);
+        }
+        KeyCode::Char('d') if model.page == TuiPage::Repeat => {
+            if !model.delete_selected_repeat() {
+                model
+                    .set_input_notice("an in-flight repeat workspace cannot be deleted".to_owned());
+            }
+        }
+        KeyCode::Char('e') if model.page == TuiPage::Repeat => {
+            open_repeat_editor(model, false);
+        }
+        KeyCode::Char('i') if model.page == TuiPage::Repeat => {
+            open_repeat_editor(model, true);
         }
         KeyCode::Char('e') if model.selected_is_paused() => {
             open_request_editor(model, pending, false);
@@ -135,10 +198,14 @@ pub(super) fn handle_key(
 
 fn handle_expanded_key(key: KeyCode, model: &mut TuiModel) {
     match key {
-        KeyCode::Up | KeyCode::Char('k') if model.focus == FocusPane::Flows => {
+        KeyCode::Up | KeyCode::Char('k')
+            if matches!(model.focus, FocusPane::Flows | FocusPane::RepeatWorkspaces) =>
+        {
             model.select_previous();
         }
-        KeyCode::Down | KeyCode::Char('j') if model.focus == FocusPane::Flows => {
+        KeyCode::Down | KeyCode::Char('j')
+            if matches!(model.focus, FocusPane::Flows | FocusPane::RepeatWorkspaces) =>
+        {
             model.select_next();
         }
         KeyCode::Up | KeyCode::Char('k') => model.scroll_up(1),
@@ -161,9 +228,10 @@ fn handle_editor_key(
     key: KeyEvent,
     model: &mut TuiModel,
     pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
 ) {
     if key.code == KeyCode::Char('s') && key.modifiers.contains(KeyModifiers::CONTROL) {
-        submit_editor(model, pending);
+        submit_editor(model, pending, repeat_sender);
         return;
     }
     let Some(mode) = model
@@ -174,7 +242,7 @@ fn handle_editor_key(
         return;
     };
     match mode {
-        EditorMode::Normal => handle_editor_normal_key(key, model, pending),
+        EditorMode::Normal => handle_editor_normal_key(key, model, pending, repeat_sender),
         EditorMode::Insert => handle_editor_insert_key(key, model),
     }
 }
@@ -183,10 +251,14 @@ fn handle_editor_normal_key(
     key: KeyEvent,
     model: &mut TuiModel,
     pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
 ) {
     match key.code {
-        KeyCode::Char('q') => model.editor = None,
-        KeyCode::Char('s') => submit_editor(model, pending),
+        KeyCode::Char('q') => {
+            model.editor = None;
+            model.editor_target = None;
+        }
+        KeyCode::Char('s') => submit_editor(model, pending, repeat_sender),
         KeyCode::Char('i') => {
             if let Some(editor) = model.editor.as_mut() {
                 editor.enter_insert_mode();
@@ -272,7 +344,11 @@ fn open_request_editor(
     }
 }
 
-fn submit_editor(model: &mut TuiModel, pending: &mut VecDeque<InterceptRequest>) {
+fn submit_editor(
+    model: &mut TuiModel,
+    pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
+) {
     let submission = match model
         .editor
         .as_ref()
@@ -287,10 +363,92 @@ fn submit_editor(model: &mut TuiModel, pending: &mut VecDeque<InterceptRequest>)
         }
         None => return,
     };
-    if respond_selected(model, pending, submission.decision) {
-        model.apply_edited_request(submission.headers, submission.body);
+    match model.editor_target {
+        Some(EditorTarget::Interactive) => {
+            if respond_selected(model, pending, submission.decision) {
+                model.apply_edited_request(submission.headers, submission.body);
+            }
+        }
+        Some(EditorTarget::Repeat(source_transaction_id)) => {
+            model.apply_repeat_edit(
+                source_transaction_id,
+                submission.header_map,
+                submission.body,
+            );
+            send_repeat(model, repeat_sender);
+        }
+        None => {}
     }
     model.editor = None;
+    model.editor_target = None;
+}
+
+fn create_repeat_workspace(
+    model: &mut TuiModel,
+    pending: &mut VecDeque<InterceptRequest>,
+    repeat_sender: Option<&mpsc::Sender<RepeatRequest>>,
+) {
+    if repeat_sender.is_none() {
+        model.set_input_notice("repeat executor is unavailable".to_owned());
+        return;
+    }
+    let Some(transaction_id) = model.selected_transaction_id() else {
+        return;
+    };
+    let Some(index) = pending
+        .iter()
+        .position(|request| request.context.transaction_id == transaction_id)
+    else {
+        model.set_input_notice("only a currently paused request can enter repeat mode".to_owned());
+        return;
+    };
+    if !model.create_repeat_workspace(&pending[index]) {
+        return;
+    }
+    let Some(request) = pending.remove(index) else {
+        return;
+    };
+    if request
+        .response
+        .send(InteractiveDecision::Continue)
+        .is_err()
+    {
+        model.set_input_notice(
+            "original request expired; repeat workspace remains available".to_owned(),
+        );
+    }
+}
+
+fn open_repeat_editor(model: &mut TuiModel, insert_mode: bool) {
+    match model.open_repeat_editor() {
+        Ok(()) if insert_mode => {
+            if let Some(editor) = model.editor.as_mut() {
+                editor.enter_insert_mode();
+            }
+        }
+        Ok(()) => {}
+        Err(error) => model.set_input_notice(format!("request editor unavailable: {error}")),
+    }
+}
+
+fn send_repeat(model: &mut TuiModel, sender: Option<&mpsc::Sender<RepeatRequest>>) {
+    let Some(sender) = sender else {
+        model.set_input_notice("repeat executor is unavailable".to_owned());
+        return;
+    };
+    let Some(request) = model.selected_repeat_request() else {
+        model.set_input_notice("repeat workspace is already in flight or unavailable".to_owned());
+        return;
+    };
+    match sender.try_send(request) {
+        Ok(()) => model.mark_selected_repeat_in_flight(),
+        Err(mpsc::error::TrySendError::Full(_)) => {
+            model.set_input_notice("repeat request queue is full".to_owned());
+        }
+        Err(mpsc::error::TrySendError::Closed(_)) => {
+            model.set_input_notice("repeat executor is closed".to_owned());
+        }
+    }
 }
 
 fn respond_selected(
@@ -340,6 +498,29 @@ pub(super) fn drain_intercepts(
     }
 }
 
+pub(super) fn drain_repeat_results(
+    receiver: &mut Option<mpsc::Receiver<RepeatResult>>,
+    model: &mut TuiModel,
+) {
+    let Some(active) = receiver.as_mut() else {
+        return;
+    };
+    let mut disconnected = false;
+    loop {
+        match active.try_recv() {
+            Ok(result) => model.apply_repeat_result(result),
+            Err(mpsc::error::TryRecvError::Empty) => break,
+            Err(mpsc::error::TryRecvError::Disconnected) => {
+                disconnected = true;
+                break;
+            }
+        }
+    }
+    if disconnected {
+        *receiver = None;
+    }
+}
+
 pub(super) fn paused_transactions(pending: &VecDeque<InterceptRequest>) -> Vec<TransactionId> {
     pending
         .iter()
@@ -353,6 +534,20 @@ pub(super) fn editor_status(model: &TuiModel, pending: &VecDeque<InterceptReques
     }
     if let Some(notice) = model.input_notice.as_ref() {
         return notice.clone();
+    }
+    if model.page == TuiPage::Repeat {
+        return model.selected_repeat_workspace().map_or_else(
+            || "no repeat workspaces".to_owned(),
+            |workspace| {
+                if workspace.in_flight {
+                    "repeat request in flight".to_owned()
+                } else if workspace.latest_result.is_some() {
+                    "repeat result ready".to_owned()
+                } else {
+                    "repeat draft ready".to_owned()
+                }
+            },
+        );
     }
     model.selected_transaction_id().map_or_else(
         || "idle".to_owned(),
@@ -374,14 +569,15 @@ mod tests {
 
     use freja_domain::{SessionId, TransactionId};
     use freja_policy::hook::{
-        HttpRequestSnapshot, InteractiveDecision, InterceptContext, InterceptRequest, WireBody,
+        HttpRequestSnapshot, InteractiveDecision, InterceptContext, InterceptRequest,
+        RepeatFailureCategory, RepeatOutcome, RepeatResult, WireBody,
     };
     use http::{HeaderMap, Method, Uri, Version};
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     use tokio::sync::oneshot;
 
-    use super::handle_key;
-    use crate::tui::{DetailLayout, FocusPane, TuiModel};
+    use super::{handle_key, handle_key_with_repeat};
+    use crate::tui::{DetailLayout, FocusPane, TuiModel, TuiPage};
 
     #[test]
     fn navigation_expansion_and_exit_keys_do_not_conflict() {
@@ -521,6 +717,64 @@ mod tests {
         assert_eq!(response.try_recv().unwrap(), InteractiveDecision::Continue);
     }
 
+    #[test]
+    fn repeat_mode_resumes_original_and_retains_latest_result() {
+        let (mut model, mut pending, mut original_response) = paused_request();
+        let (repeat_sender, mut repeat_receiver) = tokio::sync::mpsc::channel(2);
+
+        assert!(!handle_key_with_repeat(
+            key(KeyCode::Char('R'), KeyModifiers::SHIFT),
+            &mut model,
+            &mut pending,
+            Some(&repeat_sender),
+        ));
+        assert_eq!(model.page, TuiPage::Repeat);
+        assert_eq!(model.repeat_workspaces.len(), 1);
+        assert!(pending.is_empty());
+        assert_eq!(
+            original_response.try_recv().unwrap(),
+            InteractiveDecision::Continue
+        );
+        assert!(repeat_receiver.try_recv().is_err());
+
+        handle_key_with_repeat(
+            key(KeyCode::Char('s'), KeyModifiers::NONE),
+            &mut model,
+            &mut pending,
+            Some(&repeat_sender),
+        );
+        let command = repeat_receiver.try_recv().unwrap();
+        assert_eq!(
+            command.request.uri,
+            Uri::from_static("http://example.test/submit")
+        );
+        assert!(model.repeat_workspaces[0].in_flight);
+        let latest_transaction = TransactionId::new();
+        model.apply_repeat_result(RepeatResult {
+            source_transaction_id: command.source.transaction_id,
+            session_id: SessionId::new(),
+            transaction_id: latest_transaction,
+            outcome: RepeatOutcome::Failed(RepeatFailureCategory::Connect),
+        });
+        assert!(!model.repeat_workspaces[0].in_flight);
+        assert_eq!(
+            model.repeat_workspaces[0]
+                .latest_result
+                .as_ref()
+                .map(|result| result.transaction_id),
+            Some(latest_transaction)
+        );
+
+        handle_key_with_repeat(
+            key(KeyCode::Char('q'), KeyModifiers::NONE),
+            &mut model,
+            &mut pending,
+            Some(&repeat_sender),
+        );
+        assert_eq!(model.page, TuiPage::Traffic);
+        assert_eq!(model.repeat_workspaces.len(), 1);
+    }
+
     fn paused_request() -> (
         TuiModel,
         VecDeque<InterceptRequest>,
@@ -531,10 +785,11 @@ mod tests {
             context: InterceptContext {
                 session_id: SessionId::new(),
                 transaction_id: TransactionId::new(),
+                source_ip: "127.0.0.1".parse().unwrap(),
             },
             request: HttpRequestSnapshot {
                 method: Method::POST,
-                uri: Uri::from_static("/submit"),
+                uri: Uri::from_static("http://example.test/submit"),
                 version: Version::HTTP_11,
                 headers: HeaderMap::new(),
                 body: WireBody::new("old"),

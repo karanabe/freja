@@ -24,7 +24,10 @@ mod connect;
 mod forward;
 mod hooks;
 mod intercept;
+mod repeat;
 mod response;
+
+pub use repeat::HttpRepeatExecutor;
 
 use response::{authenticate_proxy_request, proxy_authentication_required, response_for_error};
 

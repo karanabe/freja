@@ -30,6 +30,7 @@ pub(super) struct RequestEditor {
 
 pub(super) struct RequestEditSubmission {
     pub(super) decision: InteractiveDecision,
+    pub(super) header_map: HeaderMap,
     pub(super) headers: Vec<(String, Vec<u8>)>,
     pub(super) body: Vec<u8>,
 }
@@ -345,6 +346,7 @@ impl RequestEditor {
             .collect();
         Ok(RequestEditSubmission {
             decision,
+            header_map: display_headers,
             headers,
             body,
         })

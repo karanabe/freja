@@ -92,12 +92,13 @@ freja replay \
 
 Replay first verifies sequence continuity, previous-hash links, record hashes,
 checkpoint signatures, and each checkpoint's chain position. It accepts audit
-schema version 1 and rejects unsupported versions explicitly. A pinned key
+schema versions 1 and 2 and rejects unsupported versions explicitly. A pinned key
 also requires at least one checkpoint from that key. Only after integrity
 succeeds does Freja evaluate persisted requested/resolved/HTTP/finding facts
 and rebuild direction-specific scanners for captured prefixes. Replay rejects
 a JSONL line larger than 16 MiB and captured bytes larger than the candidate
-`limits.body_prefix_bytes` before detector evaluation.
+`limits.body_prefix_bytes` before detector evaluation. New segments use version
+2 for the repeat provenance event.
 
 Without `--checkpoint-public-key`, embedded signatures prove only internal
 self-consistency: an attacker able to replace the whole segment could also

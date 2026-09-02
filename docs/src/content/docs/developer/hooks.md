@@ -90,6 +90,14 @@ it does not emit wire bytes. Manual HTTP edits are bounded and audited by action
 Reject is legal only before protocol commitment; after CONNECT commitment the
 system cannot synthesize another HTTP response.
 
+An HTTP/1.1 snapshot moved to a repeat workspace is no longer tied to the live
+flow. The original receives `Continue`, while each later send uses the typed
+`RepeatRequest`/`RepeatResult` channel contract and fresh correlation IDs.
+Repeat execution calls registered request and response hooks but deliberately
+does not call `InteractiveBroker`, preventing recursive pauses. The proxy
+revalidates the edited typed draft and reconstructs routing and framing before
+every attempt.
+
 ## Extension policy
 
 Do not load Rust dynamic libraries: Rust has no stable plugin ABI, and native

@@ -167,6 +167,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(first.sequence.get(), 1);
+        assert_eq!(first.schema_version, 2);
         assert_eq!(second.sequence.get(), 2);
         assert_eq!(second.previous_hash, Some(first.record_hash));
     }

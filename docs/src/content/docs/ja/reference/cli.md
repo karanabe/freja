@@ -59,7 +59,7 @@ freja replay \
   [--checkpoint-public-key <16進64文字>]
 ```
 
-short optionはauditが`-a`、configが`-c`です。segment全体を検証してからcandidate decisionをJSON lineとして標準出力へ出します。optional keyは16進encoded 32-byte Ed25519 public keyです。指定時にはそのkeyの有効なcheckpointが必須です。非対応audit schema versionは明示的に拒否し、このreleaseはversion 1だけを受け付けます。
+short optionはauditが`-a`、configが`-c`です。segment全体を検証してからcandidate decisionをJSON lineとして標準出力へ出します。optional keyは16進encoded 32-byte Ed25519 public keyです。指定時にはそのkeyの有効なcheckpointが必須です。非対応audit schema versionは明示的に拒否し、このreleaseはversion 1と2を受け付けます。
 
 listenerは開かず、source audit segmentも変更しません。
 

@@ -81,7 +81,7 @@ Short options: `-a` for audit and `-c` for config. Replay validates the complete
 segment before emitting candidate decisions as JSON lines to standard output.
 The optional key is a 32-byte Ed25519 public key encoded as hexadecimal. When
 specified, a matching valid checkpoint is mandatory. Unsupported audit schema
-versions are rejected explicitly; this release accepts version 1.
+versions are rejected explicitly; this release accepts versions 1 and 2.
 
 Replay does not open listeners or modify the source audit segment.
 

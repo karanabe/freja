@@ -124,6 +124,17 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
             direction,
             reason,
         },
+        DataPlaneEvent::WireCaptureUnavailable {
+            session_id,
+            transaction_id,
+            direction,
+            reason,
+        } => UiEvent::WireCaptureUnavailable {
+            session_id,
+            transaction_id,
+            direction,
+            reason,
+        },
         DataPlaneEvent::FlowClosed {
             session_id,
             client_to_upstream_bytes,

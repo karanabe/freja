@@ -179,6 +179,13 @@ pub enum AuditEvent {
         /// Stable action category without raw replacement content.
         action: String,
     },
+    /// An operator started a fresh HTTP/1.1 flow from a retained repeat workspace.
+    HttpRepeatStarted {
+        /// Session that supplied the original bounded request snapshot.
+        source_session_id: SessionId,
+        /// HTTP exchange that supplied the original bounded request snapshot.
+        source_transaction_id: TransactionId,
+    },
     /// A per-host leaf certificate was selected for TLS interception.
     TlsCertificateGenerated {
         /// Intercepted hostname; configuration must explicitly allow it.
@@ -231,10 +238,10 @@ pub struct AuditContext {
     pub policy_generation: PolicyGeneration,
 }
 
-/// Schema version 1 JSONL record with a hash link to its predecessor.
+/// Versioned JSONL record with a hash link to its predecessor.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditRecord {
-    /// Wire schema version; currently `1`.
+    /// Wire schema version; newly written records use `2`.
     pub schema_version: u16,
     /// Monotonic position assigned by one sink, beginning at one.
     pub sequence: AuditSequence,

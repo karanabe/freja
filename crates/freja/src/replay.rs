@@ -42,6 +42,7 @@ pub(super) fn replay_audit(
         let record = serde_json::from_str::<AuditRecord>(&line)
             .with_context(|| format!("invalid audit JSON at line {line_number}"))?;
         validate_replay_schema(record.schema_version, line_number)?;
+        validate_replay_event_schema(record.schema_version, &record.event, line_number)?;
         if record.sequence.get() != expected_sequence
             || record.previous_hash != previous_hash
             || !record.verifies_hash()
@@ -83,9 +84,22 @@ pub(super) fn replay_audit(
 }
 
 pub(super) fn validate_replay_schema(schema_version: u16, line_number: usize) -> AppResult<()> {
-    if schema_version != 1 {
+    if !matches!(schema_version, 1 | 2) {
         return Err(AppError::msg(format!(
             "unsupported audit schema version {schema_version} at line {line_number}"
+        )));
+    }
+    Ok(())
+}
+
+pub(super) fn validate_replay_event_schema(
+    schema_version: u16,
+    event: &AuditEvent,
+    line_number: usize,
+) -> AppResult<()> {
+    if schema_version == 1 && matches!(event, AuditEvent::HttpRepeatStarted { .. }) {
+        return Err(AppError::msg(format!(
+            "audit schema version 1 cannot contain an HTTP repeat event at line {line_number}"
         )));
     }
     Ok(())
@@ -186,6 +200,7 @@ fn replay_record(
         | AuditEvent::InspectionEvaluated { .. }
         | AuditEvent::HookExecuted { .. }
         | AuditEvent::ManualModification { .. }
+        | AuditEvent::HttpRepeatStarted { .. }
         | AuditEvent::TlsCertificateGenerated { .. }
         | AuditEvent::TlsInterceptionEstablished { .. }
         | AuditEvent::ActionExecuted { .. }

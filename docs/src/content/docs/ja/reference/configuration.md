@@ -84,8 +84,8 @@ metadata_destinations = "protect"
 | `paused_flows` | `16` | 同時にpauseできるinteractive flow |
 | `interception_timeout_ms` | `30000` | Hook/manual/TLS interception待機budget |
 | `ui_event_capacity` | `1024` | best-effort UI event queue capacity |
-| `ui_content_bytes` | `65536` | TUI traffic片側ごとに保持するpayload byte |
-| `ui_retained_rows` | `128` | TUIが保持するHTTP transaction/TCP session row |
+| `ui_content_bytes` | `65536` | TUI traffic片側または最新repeat responseに保持するpayload byte |
+| `ui_retained_rows` | `128` | TUIが保持するtraffic rowとHTTP/1.1 repeat workspace |
 
 ```toml
 [limits]
@@ -103,6 +103,8 @@ ui_retained_rows = 128
 ```
 
 pause中requestがrow evictionで操作不能にならないよう、`ui_retained_rows`は`paused_flows`以上でなければなりません。interactive modeでは`ui_content_bytes`を`body_prefix_bytes`以上にします。`header_bytes + ui_content_bytes`は`usize`に収まる必要があり、不正な組み合わせはlistener起動前に失敗します。これらTUI retention limitはpayload audit captureを有効にしません。
+
+`ui_retained_rows`は独立したrepeat request/result channelも制限します。workspace上限に達した場合、operatorが実行中でないworkspaceを削除する必要があり、draftを暗黙にevictしません。
 
 ## Audit
 

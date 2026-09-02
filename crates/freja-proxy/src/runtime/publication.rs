@@ -263,6 +263,23 @@ impl DataPlaneServices {
             });
         }
     }
+
+    pub(crate) fn publish_wire_capture_unavailable(
+        &self,
+        session_id: SessionId,
+        transaction_id: TransactionId,
+        direction: Direction,
+        reason: String,
+    ) {
+        if let Some(events) = &self.events {
+            events.try_publish(DataPlaneEvent::WireCaptureUnavailable {
+                session_id,
+                transaction_id,
+                direction,
+                reason,
+            });
+        }
+    }
 }
 
 impl From<PublishError> for ProxyError {

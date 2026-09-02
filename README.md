@@ -8,8 +8,8 @@ Freja is a local-first, explainable L4/L7 inspection proxy written in Rust. It
 provides HTTP/1.1 explicit forward proxying, CONNECT tunnels, opt-in TLS
 interception, static TCP forwarding, SOCKS5 CONNECT, deterministic ACLs,
 streaming inspection, typed hooks, a bounded ratatui traffic interface with
-interactive HTTP request editing, tamper-evident audit segments, and offline
-policy replay.
+interactive HTTP request editing and bounded repeat workspaces, tamper-evident
+audit segments, and offline policy replay.
 
 The seven-crate workspace keeps domain, configuration, policy, inspection,
 audit, hooks, and UI independent of Pingora. Hyper 1.x owns the plain HTTP/1.1
@@ -47,8 +47,9 @@ curl --proxy http://127.0.0.1:8080 http://example.com/
 
 With no command, Freja uses its built-in defaults and opens one explicit HTTP
 proxy on `127.0.0.1:8080`; `freja run` is the explicit equivalent. HTTP
-requests pause in the TUI before forwarding; press `c` to continue unchanged or
-`e`/`i` to edit.
+requests pause in the TUI before forwarding; press `c` to continue unchanged,
+`e`/`i` to edit, or Shift+`R` to retain an HTTP/1.1 copy on the Repeat page
+while continuing the original request.
 
 Multi-listener TUI, headless, and focused enforcement profiles live under
 [`examples/config/`](examples/config/).
@@ -92,7 +93,7 @@ cargo run -p freja -- replay --audit /path/to/segment.jsonl --config candidate.t
   --checkpoint-public-key '<64 hex characters>'
 ```
 
-Replay accepts schema version 1 and verifies sequence numbers, the SHA-256
+Replay accepts schema versions 1 and 2 and verifies sequence numbers, the SHA-256
 chain, record hashes, and any Ed25519 checkpoints before evaluating recorded
 facts and explicitly captured prefixes. Pinning the expected checkpoint public
 key is optional but required for authenticity rather than self-consistency
@@ -111,7 +112,8 @@ hooks = "interactive"
 
 The TUI correlates HTTP transactions and TCP sessions in a bounded Traffic
 page, with findings, decision traces, operational logs, and counters on a
-Diagnostics page. Pretty, Raw, and Hex views are available; exact Raw/Hex HTTP
+Diagnostics page. A third Repeat page retains bounded HTTP/1.1 request drafts
+and each workspace's latest result. Pretty, Raw, and Hex views are available; exact Raw/Hex HTTP
 bytes currently cover bounded ingress for plain explicit HTTP/1, while
 intercepted HTTP/1.1 and HTTP/2 use semantic Pretty views.
 
@@ -121,6 +123,11 @@ a UTF-8 body, then submits a typed mutation plan for data-plane validation and
 framing reconstruction. Method, target, version, `Host`, hop-by-hop headers,
 and framing fields remain read-only. Responses and TCP traffic are observable
 but never wait for an operator.
+
+Repeat supports plain explicit and intercepted HTTP/1.1 requests, excluding
+CONNECT and HTTP/2. Sending a draft creates a fresh flow, skips a second
+interactive pause, and re-runs current destination checks, ACLs, inspection,
+typed hooks, TLS authentication when applicable, and audit publication.
 
 TUI payloads are intentionally unredacted and may contain secrets or personal
 data. Use the interface only on a trusted local terminal. Audit redaction and

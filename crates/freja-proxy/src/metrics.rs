@@ -104,6 +104,10 @@ impl DataPlaneMetrics {
                 increment(&self.inner.tls_interceptions, 1);
             }
             AuditEvent::ManualModification { .. } => increment(&self.inner.manual_actions, 1),
+            AuditEvent::HttpRepeatStarted { .. } => {
+                increment(&self.inner.accepted_flows, 1);
+                increment(&self.inner.manual_actions, 1);
+            }
             AuditEvent::TargetResolved { .. }
             | AuditEvent::AclEvaluated { .. }
             | AuditEvent::HttpRequestObserved { .. }

@@ -36,7 +36,8 @@ behavior; they must not depend on public network services.
   checkpoint tamper detection.
 - `freja-proxy/tests/http_forward.rs` covers absolute-form, framing limits,
   CONNECT, auth, response policy, inspection, hooks, reload, TLS interception,
-  semantic intercepted HTTP/1.1/HTTP/2 forwarding, pinning failure, and exact
+  semantic intercepted HTTP/1.1/HTTP/2 forwarding, repeat HTTP/1.1 cleartext/TLS
+  execution with fresh correlation IDs and no second pause, pinning failure, and exact
   TUI-only plain HTTP/1 request/response ingress capture.
 - `tcp_static.rs` and `socks_forward.rs` cover relay, DNS reauthorization,
   detours, limits, inspection, and authentication.
@@ -44,7 +45,7 @@ behavior; they must not depend on public network services.
   replay with pinned checkpoints. A Cargo-metadata integration test also locks
   the allowed workspace dependency direction and Pingora isolation boundary.
 - UI tests render split and side-wide traffic plus diagnostics pages to
-  ratatui's test backend, exercise pane/exit/editor key states, validate typed
+  ratatui's test backend, exercise pane/exit/editor/repeat key states, validate typed
   request drafts, and verify non-blocking saturation and terminal-control
   escaping. The HTTP integration suite verifies atomic manual header/body
   mutation and framing reconstruction at the upstream server.

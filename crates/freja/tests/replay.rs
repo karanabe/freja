@@ -113,14 +113,14 @@ fn replay_verifies_and_evaluates_recorded_facts() {
 
     let unsupported_path = directory.join("unsupported-schema.jsonl");
     let audit = fs::read_to_string(&audit_path).unwrap();
-    let unsupported = audit.replacen("\"schema_version\":1", "\"schema_version\":2", 1);
+    let unsupported = audit.replacen("\"schema_version\":2", "\"schema_version\":3", 1);
     assert_ne!(unsupported, audit);
     fs::write(&unsupported_path, unsupported).unwrap();
     let rejected = run_replay(&unsupported_path, &config_path, &public_key);
     assert!(!rejected.status.success());
     assert!(
         String::from_utf8_lossy(&rejected.stderr)
-            .contains("unsupported audit schema version 2 at line 1")
+            .contains("unsupported audit schema version 3 at line 1")
     );
 
     fs::remove_dir_all(directory).unwrap();

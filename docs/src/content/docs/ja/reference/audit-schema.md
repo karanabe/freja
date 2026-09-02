@@ -1,8 +1,8 @@
 ---
 title: 監査schema
-description: version 1 JSONL field、event variant、redaction、hash chain、signed checkpointです。
+description: version 2 JSONL field、compatibility、event variant、redaction、hash chain、signed checkpointです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - 監査
   - schema
@@ -11,11 +11,11 @@ sidebar:
   order: 3
 ---
 
-Frejaは1行に1つのJSON objectを書きます。schema version 1のtop-level fieldは次のとおりです。
+Frejaは1行に1つのJSON objectを書きます。新しく書くschema version 2 recordのtop-level fieldは次のとおりです。
 
 | field | type | 意味 |
 | --- | --- | --- |
-| `schema_version` | integer | 現在は`1` |
+| `schema_version` | integer | 現在は`2`で書き出し、replayは`1`も受け付ける |
 | `sequence` | non-zero integer | 1 segment内でmonotonic |
 | `occurred_at` | integer | Unix時刻millisecond |
 | `session_id` | UUID | connection correlation ID |
@@ -29,7 +29,7 @@ hashはprevious linkを含むdeterministic JSON serializationを対象にしま�
 
 ## Event type
 
-`event` objectはkebab-caseの`event_type`と`event` payloadを持ちます。version 1は次を含みます。
+`event` objectはkebab-caseの`event_type`と`event` payloadを持ちます。version 2は次を含みます。
 
 - `connection-accepted`、`target-resolved`、`tunnel-closed`、`flow-closed`
 - 完全なdecision/trace付き`acl-evaluated`、`inspection-evaluated`、`action-executed`
@@ -37,11 +37,12 @@ hashはprevious linkを含むdeterministic JSON serializationを対象にしま�
 - outcomeだけを持つ`proxy-authentication`
 - hashed evidence付き`finding-detected`
 - edit内容を持たない`hook-executed`、`manual-modification`
+- source session/transaction IDだけを持つ`http-repeat-started`
 - `tls-certificate-generated`、`tls-interception-established`
 - `replay-facts-observed`、明示有効化された`payload-prefix-captured`
 - `signed-checkpoint`
 
-新しいconsumerはfield意味を推測せず、非対応schema versionを拒否してください。Freja replayは現在version 1だけを受け付けます。
+version 2は`http-repeat-started`を追加し、それ以前のevent shapeは変更しません。replayはversion 1と2を受け付け、v1と表示されたrecord内のv2専用repeat event、および未知のversionをfield意味の推測なしで拒否します。
 
 ## Redactionとcapture
 

@@ -70,7 +70,8 @@ automatic and interactive hooks live here without wire access.
 
 ### `freja-audit`
 
-Serializes typed version-1 events after central redaction. Its bounded channel
+Serializes typed version-2 events after central redaction while replay remains
+compatible with version 1. Its bounded channel
 and explicit fail-open/fail-closed behavior are independent from UI delivery.
 Each record links to its predecessor; optional periodic Ed25519 checkpoints
 authenticate retained positions when their public key is pinned externally.
@@ -108,6 +109,14 @@ The TUI presents those intercepted exchanges semantically; exact Raw capture
 for persistent intercepted HTTP/1 and HTTP/2 framing is intentionally
 unavailable until transaction correlation has a dedicated design.
 
+A tracked sequential HTTP repeat executor consumes typed bounded drafts from
+the TUI without depending on UI types. It assigns fresh flow identifiers,
+preserves only the original source IP as policy input, and re-enters the normal
+destination, HTTP policy, inspection, hook, authenticated TLS, audit, and replay
+fact boundaries. Only interactive pausing and listener authentication are
+skipped. Request/result channels and response retention are independently
+bounded.
+
 ### `freja-ui`
 
 Consumes immutable snapshots and owns the terminal on an isolated thread behind
@@ -116,9 +125,10 @@ bounded immutable UI events, so no concurrent writer touches the raw terminal.
 UI saturation drops snapshots or log lines and increments a metric. Interactive
 requests use a separate bounded channel, paused-flow semaphore, timeout, and
 oneshot response.
-Traffic rows are bounded by configuration. Screen 1 correlates HTTP by
+Traffic rows and repeat workspaces are bounded by configuration. Screen 1 correlates HTTP by
 `TransactionId` and TCP by `SessionId`; screen 2 separates evidence, logs, and
-statistics. HTTP interactive mode sends one complete bounded request snapshot
+statistics; screen 3 retains multiple HTTP/1.1 repeat drafts and only each
+draft's latest result. HTTP interactive mode sends one complete bounded request snapshot
 to the operator. The HTTP/1.1 text editor owns only that copied snapshot and
 converts a validated draft to an atomic typed header/body plan; method, target,
 version, routing, and framing remain data-plane responsibilities. Responses and

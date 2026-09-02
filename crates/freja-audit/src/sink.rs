@@ -80,7 +80,7 @@ impl<W: Write> JsonlAuditSink<W> {
         self.redactor.redact_event(&mut event);
         let sequence = AuditSequence::new(self.next_sequence);
         let unsigned = UnsignedAuditRecord {
-            schema_version: 1,
+            schema_version: 2,
             sequence,
             occurred_at: context.occurred_at,
             session_id: context.session_id,
@@ -92,7 +92,7 @@ impl<W: Write> JsonlAuditSink<W> {
         let canonical = serde_json::to_vec(&unsigned).map_err(AuditError::Serialize)?;
         let record_hash = RecordHash(Sha256::digest(canonical).into());
         let record = AuditRecord {
-            schema_version: 1,
+            schema_version: 2,
             sequence,
             occurred_at: context.occurred_at,
             session_id: context.session_id,

@@ -1,8 +1,8 @@
 ---
 title: Audit schema
-description: Version 1 JSONL fields, event variants, redaction, hash chaining, and signed checkpoints.
+description: Version 2 JSONL fields, compatibility, event variants, redaction, hash chaining, and signed checkpoints.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-03
 tags:
   - audit
   - schema
@@ -11,12 +11,12 @@ sidebar:
   order: 3
 ---
 
-Freja writes one JSON object per line. Schema version 1 has these top-level
+Freja writes one JSON object per line. Newly written schema version 2 records have these top-level
 fields:
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `schema_version` | integer | Currently `1` |
+| `schema_version` | integer | Currently written as `2`; replay also accepts `1` |
 | `sequence` | non-zero integer | Monotonic within one segment |
 | `occurred_at` | integer | Unix time in milliseconds |
 | `session_id` | UUID | Connection correlation ID |
@@ -33,7 +33,7 @@ potentially misleading chain.
 ## Event types
 
 The `event` object contains kebab-case `event_type` and an `event` payload.
-Version 1 includes:
+Version 2 includes:
 
 - `connection-accepted`, `target-resolved`, `tunnel-closed`, and `flow-closed`;
 - `acl-evaluated`, `inspection-evaluated`, and `action-executed` with complete
@@ -42,12 +42,14 @@ Version 1 includes:
 - `proxy-authentication` with outcome only;
 - `finding-detected` with hashed evidence;
 - `hook-executed` and `manual-modification` without edit content;
+- `http-repeat-started` with only the source session and transaction IDs;
 - `tls-certificate-generated` and `tls-interception-established`;
 - `replay-facts-observed` and explicitly enabled `payload-prefix-captured`;
 - `signed-checkpoint`.
 
-New consumers should reject unsupported schema versions rather than silently
-guessing field semantics. Freja replay currently accepts only version 1.
+Version 2 adds `http-repeat-started`; all earlier event shapes remain unchanged.
+Replay accepts versions 1 and 2, rejects a v2-only repeat event labeled as v1,
+and rejects unknown versions rather than guessing field semantics.
 
 ## Redaction and capture
 

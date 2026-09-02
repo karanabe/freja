@@ -107,6 +107,17 @@ pub enum DataPlaneEvent {
         /// Stable, secret-free capture diagnostic.
         reason: String,
     },
+    /// Exact wire capture is not applicable to this semantic HTTP exchange.
+    WireCaptureUnavailable {
+        /// Connection correlation identity.
+        session_id: SessionId,
+        /// HTTP exchange correlation identity.
+        transaction_id: TransactionId,
+        /// Request or response direction without an ingress wire snapshot.
+        direction: Direction,
+        /// Stable explanation suitable for local presentation.
+        reason: String,
+    },
     /// A flow reached its terminal state.
     FlowClosed {
         /// Connection correlation identity.

@@ -25,6 +25,7 @@ pub fn render(frame: &mut Frame<'_>, model: &TuiModel) {
     match model.page {
         TuiPage::Traffic => render_traffic(frame, model),
         TuiPage::Diagnostics => render_diagnostics(frame, model),
+        TuiPage::Repeat => render_repeat(frame, model),
     }
     if let Some(pane) = model.expanded_pane {
         render_expanded_pane(frame, model, pane);
@@ -176,7 +177,107 @@ fn render_expanded_pane(frame: &mut Frame<'_>, model: &TuiModel, pane: FocusPane
         FocusPane::Detail => render_side(frame, model, model.selected_side, area),
         FocusPane::Evidence => render_evidence(frame, model, area),
         FocusPane::Logs => render_operational_logs(frame, model, area),
+        FocusPane::RepeatWorkspaces => render_repeat_workspaces(frame, model, area),
+        FocusPane::RepeatDetail => {
+            render_repeat_side(frame, model, model.selected_side, area);
+        }
     }
+}
+
+fn render_repeat(frame: &mut Frame<'_>, model: &TuiModel) {
+    let areas = Layout::default()
+        .direction(LayoutDirection::Vertical)
+        .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+        .split(frame.area());
+    render_repeat_workspaces(frame, model, areas[0]);
+    let details = Layout::default()
+        .direction(LayoutDirection::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(areas[1]);
+    render_repeat_side(frame, model, SelectedSide::Request, details[0]);
+    render_repeat_side(frame, model, SelectedSide::Response, details[1]);
+}
+
+fn render_repeat_workspaces(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
+    let items = model.repeat_workspaces.iter().map(|workspace| {
+        let status = if workspace.in_flight {
+            "sending"
+        } else if workspace.latest_result.is_some() {
+            "complete"
+        } else {
+            "ready"
+        };
+        ListItem::new(format!(
+            "{status:8} {} {} {}",
+            workspace.source.transaction_id, workspace.request.method, workspace.request.uri
+        ))
+    });
+    let border_style = if model.focus == FocusPane::RepeatWorkspaces {
+        Style::default().fg(Color::Cyan)
+    } else {
+        Style::default()
+    };
+    let list = List::new(items)
+        .highlight_symbol("> ")
+        .highlight_style(Style::default().add_modifier(Modifier::BOLD))
+        .block(
+            Block::default()
+                .title(format!(
+                    "Workspaces [3 Repeat]  s send | e/i edit+send | d delete | q back — {}",
+                    escape_terminal_bytes(model.interactive_status.as_bytes())
+                ))
+                .title_style(Style::default().fg(Color::Yellow))
+                .border_style(border_style)
+                .borders(Borders::ALL),
+        );
+    let mut state = ListState::default().with_selected(
+        model
+            .selected_repeat_workspace()
+            .map(|_| model.repeat_selected),
+    );
+    frame.render_stateful_widget(list, area, &mut state);
+}
+
+fn render_repeat_side(frame: &mut Frame<'_>, model: &TuiModel, selected: SelectedSide, area: Rect) {
+    let side = match selected {
+        SelectedSide::Request => model.repeat_request_side(),
+        SelectedSide::Response => model.repeat_response_side(),
+    };
+    let Some(side) = side else {
+        frame.render_widget(
+            Paragraph::new("No repeat workspaces")
+                .block(Block::default().title("Repeat").borders(Borders::ALL)),
+            area,
+        );
+        return;
+    };
+    let name = match selected {
+        SelectedSide::Request => "Editable request",
+        SelectedSide::Response => "Latest result",
+    };
+    let border_style = if model.focus == FocusPane::RepeatDetail && model.selected_side == selected
+    {
+        Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+    };
+    frame.render_widget(
+        Paragraph::new(side_lines(&side, TrafficKind::Http, model.display_mode))
+            .block(
+                Block::default()
+                    .title(format!(
+                        "{name} [{:?}]  semantic snapshot; Raw/Hex unavailable",
+                        model.display_mode
+                    ))
+                    .borders(Borders::ALL)
+                    .border_style(border_style),
+            )
+            .wrap(Wrap { trim: false })
+            .scroll((model.detail_scroll, 0)),
+        area,
+    );
 }
 
 fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {

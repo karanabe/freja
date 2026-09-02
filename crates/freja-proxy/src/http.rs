@@ -6,6 +6,7 @@ mod target;
 mod wire;
 
 pub use server::HttpForwardServer;
+pub use service::HttpRepeatExecutor;
 
 /// Exercises the production absolute-form target parser without exposing its
 /// internal routing representation.

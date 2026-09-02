@@ -53,6 +53,8 @@ queue capacityとpaused-flow semaphoreは独立です。saturation、closed chan
 
 HTTP responseはTUIへ表示しますがpauseしません。TCP trafficもinteractive broker境界ではobserve-onlyで、paused-flow permitを取得せずoperatorを待ちません。registered typed response/TCP Hookはin-process embedding mechanismとして残し、manual TCP drop/mutationはdeferredです。TUIはHTTP/1.1 text draftを型付きheader/body変更へparseし、wire byteを直接出力しません。manual HTTP editはboundedで、contentではなくactionをauditします。Rejectはprotocol commit前だけ有効で、CONNECT commit後に別HTTP responseは生成できません。
 
+repeat workspaceへ移したHTTP/1.1 snapshotはlive flowから切り離されます。元flowには`Continue`を返し、その後の送信は型付き`RepeatRequest`/`RepeatResult` channel contractとfresh correlation IDを使います。repeat executionは登録済みrequest/response Hookを呼びますが、recursive pauseを防ぐため`InteractiveBroker`は意図的に呼びません。proxyはattemptごとに編集済みtyped draftを再検証し、routingとframingを再構築します。
+
 ## 拡張policy
 
 Rust dynamic libraryをloadしません。Rustにはstable plugin ABIがなく、native codeはFrejaのmemory/capability境界を迂回します。external pluginを導入する場合は、明示capability、time、memory、execution budgetを持つWASM境界を別途reviewします。in-process contractが安定するまでhook SDKを公開しません。

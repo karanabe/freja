@@ -37,7 +37,7 @@ Run Freja in a real terminal. Traffic content in this view is intentionally
 unredacted and may contain credentials, cookies, query secrets, or personal
 data. Use it only on a trusted local terminal; audit redaction is unchanged.
 
-The TUI has two pages:
+The TUI has three pages:
 
 - **1 Traffic** uses the top 25% for a full-width Flows list. The remaining
   area defaults to 50% Request/Client-to-Upstream and 50%
@@ -46,6 +46,8 @@ The TUI has two pages:
 - **2 Diagnostics** uses its upper 45% for Findings and DecisionTrace, the
   flexible middle area for Operational logs, and the final eight rows for
   Statistics.
+- **3 Repeat** uses the top 25% for retained HTTP/1.1 workspaces and splits the
+  remaining area between the editable request and latest response or failure.
 
 HTTP Pretty mode renders the parsed request/status line, headers, and bounded
 body with terminal wrapping. JSON bodies are indented when valid. Raw displays
@@ -105,7 +107,7 @@ in-process hooks; configuration alone does not load hook code.
 
 | Key | Action |
 | --- | --- |
-| `1` / `2` | Select Traffic / Diagnostics |
+| `1` / `2` / `3` | Select Traffic / Diagnostics / Repeat |
 | `v` | Cycle split / request-wide / response-wide detail |
 | `m` | Cycle Pretty / Raw / Hex |
 | `h` / `l` | Select request/client or response/upstream side |
@@ -125,6 +127,7 @@ When a request is paused, the TUI supports:
 | `e` | Open the HTTP/1.1 request editor in Normal mode |
 | `i` | Open the HTTP/1.1 request editor in Insert mode |
 | `x` | Cancel the pending modification |
+| Shift+`R` | Continue the original unchanged and retain a copy on Repeat |
 
 From Normal mode, use `i` to enter Insert mode, arrows or
 `h`/`j`/`k`/`l` in Normal mode to move, and `s` or Ctrl+S to validate and
@@ -143,6 +146,32 @@ remain observable but cannot be opened in the text editor.
 The bounded queue, `limits.paused_flows`, and
 `limits.interception_timeout_ms` prevent indefinite accumulation. The CLI uses
 fail-closed behavior on timeout.
+
+## Repeat workspaces
+
+Shift+`R` is available only for a currently paused, textual HTTP/1.1 request
+with an absolute `http` or `https` target. It creates a bounded independent
+draft and immediately continues the original request unchanged. CONNECT and
+HTTP/2 cannot enter repeat mode. HTTPS drafts are limited to hostnames already
+enabled by the TLS interception allowlist; IP literals remain excluded.
+
+Repeat workspaces remain available when `q`, `1`, or `2` returns to another
+page. `ui_retained_rows` caps their count; Freja does not silently evict a
+draft. Each workspace allows one in-flight attempt and retains only its latest
+result. Use `j`/`k` or arrows to select a workspace, `e`/`i` to edit and send,
+`s` to resend the saved draft, and `d` to delete a workspace that is not in
+flight. `q` returns to the page that opened Repeat without deleting drafts.
+
+Every send creates fresh `SessionId` and `TransactionId` values. It preserves
+the original client IP for policy facts, strips proxy credentials, regenerates
+`Host` and framing, and re-runs current requested/resolved destination checks,
+HTTP request and response ACLs, inspection, typed hooks, authenticated upstream
+TLS, audit, and replay-fact publication. It deliberately bypasses only the
+interactive broker, so a repeat never pauses itself. Proxy-listener
+authentication is not repeated because the attempt originates inside the
+local TUI. Response bodies are fully drained but only `ui_content_bytes` are
+retained, and Raw/Hex report unavailable because repeat results are semantic
+snapshots rather than ingress wire captures.
 
 After a successful CONNECT response the connection is a tunnel, so an HTTP
 reject or redirect cannot be injected. Manual actions are audited without

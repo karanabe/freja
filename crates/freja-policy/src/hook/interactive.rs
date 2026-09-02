@@ -1,4 +1,4 @@
-use std::{error::Error, fmt, sync::Arc, time::Duration};
+use std::{error::Error, fmt, net::IpAddr, sync::Arc, time::Duration};
 
 use freja_domain::{SessionId, TransactionId};
 use tokio::sync::{Semaphore, mpsc, oneshot};
@@ -10,7 +10,8 @@ use super::{DecodedBody, HeadMutationPlan, HttpRequestMutationPlan, WireBody};
 pub struct HttpRequestSnapshot {
     /// Parsed request method.
     pub method: http::Method,
-    /// Parsed request URI at the interception boundary.
+    /// Canonical absolute request URI for an HTTP/1.1 request, or the parsed
+    /// boundary URI for request forms that cannot be repeated.
     pub uri: http::Uri,
     /// Parsed HTTP version at the interception boundary.
     pub version: http::Version,
@@ -31,6 +32,8 @@ pub struct InterceptContext {
     pub session_id: SessionId,
     /// Paused HTTP exchange.
     pub transaction_id: TransactionId,
+    /// Original client address used when a local repeat attempt re-evaluates policy.
+    pub source_ip: IpAddr,
 }
 
 /// TUI/manual action returned through a oneshot response.
