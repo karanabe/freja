@@ -489,26 +489,54 @@ impl TuiModel {
         self.focus_next();
     }
 
-    /// Moves focus to the next vertically adjacent pane.
+    /// Moves focus to the next pane in the active page's navigation order.
     pub fn focus_next(&mut self) {
+        if self.page == TuiPage::Repeat {
+            match (self.focus, self.selected_side) {
+                (FocusPane::RepeatWorkspaces, _) => {
+                    self.focus = FocusPane::RepeatDetail;
+                    self.select_request_side();
+                }
+                (FocusPane::RepeatDetail, SelectedSide::Request) => {
+                    self.select_response_side();
+                }
+                _ => {
+                    self.focus = FocusPane::RepeatWorkspaces;
+                }
+            }
+            return;
+        }
         self.focus = match (self.page, self.focus) {
             (TuiPage::Traffic, FocusPane::Flows) => FocusPane::Detail,
             (TuiPage::Traffic, _) => FocusPane::Flows,
             (TuiPage::Diagnostics, FocusPane::Evidence) => FocusPane::Logs,
             (TuiPage::Diagnostics, _) => FocusPane::Evidence,
-            (TuiPage::Repeat, FocusPane::RepeatWorkspaces) => FocusPane::RepeatDetail,
             (TuiPage::Repeat, _) => FocusPane::RepeatWorkspaces,
         };
     }
 
-    /// Moves focus to the previous vertically adjacent pane.
+    /// Moves focus to the previous pane in the active page's navigation order.
     pub fn focus_previous(&mut self) {
+        if self.page == TuiPage::Repeat {
+            match (self.focus, self.selected_side) {
+                (FocusPane::RepeatWorkspaces, _) => {
+                    self.focus = FocusPane::RepeatDetail;
+                    self.select_response_side();
+                }
+                (FocusPane::RepeatDetail, SelectedSide::Response) => {
+                    self.select_request_side();
+                }
+                _ => {
+                    self.focus = FocusPane::RepeatWorkspaces;
+                }
+            }
+            return;
+        }
         self.focus = match (self.page, self.focus) {
             (TuiPage::Traffic, FocusPane::Detail) => FocusPane::Flows,
             (TuiPage::Traffic, _) => FocusPane::Detail,
             (TuiPage::Diagnostics, FocusPane::Logs) => FocusPane::Evidence,
             (TuiPage::Diagnostics, _) => FocusPane::Logs,
-            (TuiPage::Repeat, FocusPane::RepeatDetail) => FocusPane::RepeatWorkspaces,
             (TuiPage::Repeat, _) => FocusPane::RepeatDetail,
         };
     }

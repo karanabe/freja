@@ -30,8 +30,8 @@ mod tests {
     use crate::UiEvent;
     use freja_domain::{Direction, SessionId, TransactionId};
     use freja_policy::hook::{
-        HttpRequestSnapshot, InterceptContext, InterceptRequest, RepeatFailureCategory,
-        RepeatOutcome, RepeatResult, WireBody,
+        HttpRequestSnapshot, HttpResponseSnapshot, InterceptContext, InterceptRequest,
+        RepeatFailureCategory, RepeatOutcome, RepeatResult, WireBody,
     };
 
     #[test]
@@ -174,12 +174,61 @@ mod tests {
 
     #[test]
     fn repeat_page_renders_retained_request_and_latest_result() {
-        let source_session = SessionId::new();
+        let (mut model, source_transaction) = repeat_model();
+        model.apply_repeat_result(RepeatResult {
+            source_transaction_id: source_transaction,
+            session_id: SessionId::new(),
+            transaction_id: TransactionId::new(),
+            outcome: RepeatOutcome::Failed(RepeatFailureCategory::PolicyDenied),
+        });
+
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        terminal.draw(|frame| render(frame, &model)).unwrap();
+        let rendered = rendered_text(&terminal);
+        assert!(rendered.contains("Workspaces [3 Repeat]"));
+        assert!(rendered.contains("POST http://example.test/repeat HTTP/1.1"));
+        assert!(rendered.contains("Repeat failed: policy denied"));
+    }
+
+    #[test]
+    fn repeat_latest_result_scrolls_a_large_response() {
+        let (mut model, source_transaction) = repeat_model();
+        let body = (0..40)
+            .map(|line| format!("response-line-{line:02}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            .into_bytes();
+        let observed_body_bytes = u64::try_from(body.len()).unwrap();
+        model.apply_repeat_result(RepeatResult {
+            source_transaction_id: source_transaction,
+            session_id: SessionId::new(),
+            transaction_id: TransactionId::new(),
+            outcome: RepeatOutcome::Response(HttpResponseSnapshot {
+                status: http::StatusCode::OK,
+                version: http::Version::HTTP_11,
+                headers: http::HeaderMap::new(),
+                body,
+                observed_body_bytes,
+                body_truncated: false,
+            }),
+        });
+        model.focus_next();
+        model.focus_next();
+        model.scroll_down(10);
+
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        terminal.draw(|frame| render(frame, &model)).unwrap();
+        let rendered = rendered_text(&terminal);
+        assert!(!rendered.contains("response-line-00"));
+        assert!(rendered.contains("response-line-10"));
+    }
+
+    fn repeat_model() -> (TuiModel, TransactionId) {
         let source_transaction = TransactionId::new();
         let (response, _receiver) = tokio::sync::oneshot::channel();
         let request = InterceptRequest {
             context: InterceptContext {
-                session_id: source_session,
+                session_id: SessionId::new(),
                 transaction_id: source_transaction,
                 source_ip: "127.0.0.1".parse().unwrap(),
             },
@@ -196,19 +245,7 @@ mod tests {
         };
         let mut model = TuiModel::new(2, 4);
         assert!(model.create_repeat_workspace(&request));
-        model.apply_repeat_result(RepeatResult {
-            source_transaction_id: source_transaction,
-            session_id: SessionId::new(),
-            transaction_id: TransactionId::new(),
-            outcome: RepeatOutcome::Failed(RepeatFailureCategory::PolicyDenied),
-        });
-
-        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
-        terminal.draw(|frame| render(frame, &model)).unwrap();
-        let rendered = rendered_text(&terminal);
-        assert!(rendered.contains("Workspaces [3 Repeat]"));
-        assert!(rendered.contains("POST http://example.test/repeat HTTP/1.1"));
-        assert!(rendered.contains("Repeat failed: policy denied"));
+        (model, source_transaction)
     }
 
     fn rendered_text(terminal: &Terminal<TestBackend>) -> String {

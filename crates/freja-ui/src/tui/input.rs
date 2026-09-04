@@ -577,7 +577,7 @@ mod tests {
     use tokio::sync::oneshot;
 
     use super::{handle_key, handle_key_with_repeat};
-    use crate::tui::{DetailLayout, FocusPane, TuiModel, TuiPage};
+    use crate::tui::{DetailLayout, FocusPane, SelectedSide, TuiModel, TuiPage};
 
     #[test]
     fn navigation_expansion_and_exit_keys_do_not_conflict() {
@@ -626,6 +626,52 @@ mod tests {
             &mut model,
             &mut pending,
         ));
+    }
+
+    #[test]
+    fn repeat_navigation_focuses_and_scrolls_latest_result() {
+        let mut model = TuiModel::default();
+        let mut pending = VecDeque::new();
+        model.show_repeat();
+
+        assert!(!handle_key(
+            key(KeyCode::Char('j'), KeyModifiers::CONTROL),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.focus, FocusPane::RepeatDetail);
+        assert_eq!(model.selected_side, SelectedSide::Request);
+
+        assert!(!handle_key(
+            key(KeyCode::Char('j'), KeyModifiers::CONTROL),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.focus, FocusPane::RepeatDetail);
+        assert_eq!(model.selected_side, SelectedSide::Response);
+
+        assert!(!handle_key(
+            key(KeyCode::Char('j'), KeyModifiers::NONE),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.detail_scroll, 1);
+
+        assert!(!handle_key(
+            key(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.focus, FocusPane::RepeatDetail);
+        assert_eq!(model.selected_side, SelectedSide::Request);
+        assert_eq!(model.detail_scroll, 0);
+
+        assert!(!handle_key(
+            key(KeyCode::Char('k'), KeyModifiers::CONTROL),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.focus, FocusPane::RepeatWorkspaces);
     }
 
     #[test]

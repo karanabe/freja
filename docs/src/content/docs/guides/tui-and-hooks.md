@@ -115,8 +115,8 @@ in-process hooks; configuration alone does not load hook code.
 | `v` | Cycle split / request-wide / response-wide detail |
 | `m` | Cycle Pretty / Raw / Hex |
 | `h` / `l` | Select request/client or response/upstream side |
-| Ctrl+`j` / Ctrl+`k`, Tab | Move focus between vertical panes |
-| `j` / `k`, arrows | Select a flow or scroll the focused pane |
+| Ctrl+`j` / Ctrl+`k`, Tab | Move focus between panes; Repeat cycles workspace, request, and latest result |
+| `j` / `k`, arrows | Select a flow/workspace or scroll the focused detail pane |
 | PageDown / PageUp | Scroll by ten rows |
 | Enter | Expand the focused pane into a floating view |
 | `q` | Close the floating view and return |
@@ -162,9 +162,12 @@ enabled by the TLS interception allowlist; IP literals remain excluded.
 Repeat workspaces remain available when `q`, `1`, or `2` returns to another
 page. `ui_retained_rows` caps their count; Freja does not silently evict a
 draft. Each workspace allows one in-flight attempt and retains only its latest
-result. Use `j`/`k` or arrows to select a workspace, `e`/`i` to edit and send,
-`s` to resend the saved draft, and `d` to delete a workspace that is not in
-flight. `q` returns to the page that opened Repeat without deleting drafts.
+result. Use `j`/`k` or arrows to select a workspace. Ctrl+`j` / Ctrl+`k` or Tab
+moves focus through the workspace list, editable request, and latest result;
+after focusing either detail pane, `j`/`k`, arrows, and PageDown/PageUp scroll
+it. Use `e`/`i` to edit and send, `s` to resend the saved draft, and `d` to
+delete a workspace that is not in flight. `q` returns to the page that opened
+Repeat without deleting drafts.
 
 Every send creates fresh `SessionId` and `TransactionId` values. It preserves
 the original client IP for policy facts, strips proxy credentials, regenerates

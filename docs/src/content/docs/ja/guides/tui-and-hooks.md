@@ -72,8 +72,8 @@ interactive controlは意図的に狭くしています。Frejaは`limits.body_p
 | `v` | split / request全幅 / response全幅をcycle |
 | `m` | Pretty / Raw / Hexをcycle |
 | `h` / `l` | request/client側またはresponse/upstream側を選択 |
-| Ctrl+`j` / Ctrl+`k`、Tab | 上下のpane間でfocusを移動 |
-| `j` / `k`、arrow | flow選択またはfocused paneをscroll |
+| Ctrl+`j` / Ctrl+`k`、Tab | pane間でfocusを移動。Repeatではworkspace、request、latest resultの順にcycle |
+| `j` / `k`、arrow | flow/workspace選択またはfocused detail paneをscroll |
 | PageDown / PageUp | 10 row scroll |
 | Enter | focused paneをfloating表示へ拡大 |
 | `q` | floating表示を閉じて戻る |
@@ -100,7 +100,7 @@ bounded queue、`limits.paused_flows`、`limits.interception_timeout_ms`によ�
 
 Shift+`R`は、absolute `http`または`https` targetを持つ、現在pause中のtextual HTTP/1.1 requestだけで利用できます。独立した上限付きdraftを作成し、元requestは変更せず即座にcontinueします。CONNECTとHTTP/2はrepeat modeへ移せません。HTTPS draftはTLS interception allowlistで既に許可されたhostnameだけを対象とし、IP literalは引き続き除外します。
 
-`q`、`1`、`2`で別pageへ戻ってもRepeat workspaceは残ります。個数は`ui_retained_rows`で制限し、draftを暗黙にevictしません。各workspaceのin-flight attemptは1件だけで、最新resultだけを保持します。`j`/`k`またはarrowでworkspaceを選び、`e`/`i`で編集して送信、`s`で保存済みdraftを再送、`d`でin-flightでないworkspaceを削除します。`q`はdraftを削除せずRepeatを開いたpageへ戻ります。
+`q`、`1`、`2`で別pageへ戻ってもRepeat workspaceは残ります。個数は`ui_retained_rows`で制限し、draftを暗黙にevictしません。各workspaceのin-flight attemptは1件だけで、最新resultだけを保持します。`j`/`k`またはarrowでworkspaceを選びます。Ctrl+`j` / Ctrl+`k`またはTabでworkspace一覧、編集可能request、latest resultの順にfocusを移動でき、detail paneをfocusした後は`j`/`k`、arrow、PageDown/PageUpでscrollできます。`e`/`i`で編集して送信、`s`で保存済みdraftを再送、`d`でin-flightでないworkspaceを削除します。`q`はdraftを削除せずRepeatを開いたpageへ戻ります。
 
 送信ごとに新しい`SessionId`と`TransactionId`を作ります。policy factでは元client IPを維持し、proxy credentialを除去して`Host`とframingを再生成します。そのうえで現在のrequested/resolved destination check、HTTP request/response ACL、inspection、typed Hook、必要なauthenticated upstream TLS、audit、replay-fact publicationを再実行します。interactive brokerだけを意図的に迂回するため、repeat自身は再pauseしません。attemptはlocal TUI内部から生成されるためproxy listener authenticationは再実行しません。response bodyは最後までdrainしますが`ui_content_bytes`までしか保持せず、repeat resultはingress wire captureではないsemantic snapshotなのでRaw/Hexはunavailableを表示します。
 

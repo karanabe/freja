@@ -268,7 +268,7 @@ fn render_repeat_side(frame: &mut Frame<'_>, model: &TuiModel, selected: Selecte
             .block(
                 Block::default()
                     .title(format!(
-                        "{name} [{:?}]  semantic snapshot; Raw/Hex unavailable",
+                        "{name} [{:?}]  Ctrl+j/k pane | j/k scroll",
                         model.display_mode
                     ))
                     .borders(Borders::ALL)
