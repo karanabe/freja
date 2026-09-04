@@ -37,6 +37,14 @@ cargo install --path crates/freja --locked
 
 All seven Freja crates share one version and are released together.
 
+Version 0.2.0 raises the MSRV to Rust 1.98, makes the built-in local runtime
+TUI + Observe + Interactive, writes audit schema version 2, and adds bounded
+traffic views, request editing, and HTTP/1.1 Repeat workspaces. Existing
+unattended configurations that omit `[runtime]` should explicitly select
+Headless + Enforce + Disabled. See the
+[changelog](https://github.com/karanabe/freja/blob/master/CHANGELOG.md) for the
+complete release changes and upgrade notes.
+
 ## Quick start
 
 ```console

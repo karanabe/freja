@@ -1,7 +1,7 @@
 # freja-policy
 
-Explainable ACL evaluation, destination guards, bounded inspection, and typed
-hook mutation plans for Freja.
+Explainable ACL evaluation, destination guards, bounded inspection, typed hook
+mutation plans, interactive decisions, and HTTP repeat contracts for Freja.
 
 See the [API documentation](https://docs.rs/freja-policy) and the
 [Freja repository](https://github.com/karanabe/freja).

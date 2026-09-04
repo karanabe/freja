@@ -1,7 +1,8 @@
 # freja-ui
 
 Immutable UI events, bounded non-blocking publication, and an optional ratatui
-interface for Freja. Enable the `tui` feature for the terminal implementation.
+traffic interface with typed HTTP/1.1 editing and Repeat workspaces. Enable the
+`tui` feature for the terminal implementation.
 
 See the [API documentation](https://docs.rs/freja-ui) and the
 [Freja repository](https://github.com/karanabe/freja).

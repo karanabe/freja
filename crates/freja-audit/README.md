@@ -4,7 +4,7 @@ Typed, redacted, hash-chained JSONL security audit records and signed
 checkpoints for Freja.
 
 See the [API documentation](https://docs.rs/freja-audit) and the
-[audit schema](https://github.com/karanabe/freja/blob/master/docs/audit-schema.md).
+[audit schema](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/reference/audit-schema.md).
 
 ### License
 

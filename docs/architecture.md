@@ -35,5 +35,11 @@ snapshot into a typed, atomic header/body mutation without taking ownership of
 the live flow or routing decisions. Exact Raw for intercepted HTTP and HTTP/2
 remains explicitly unavailable.
 
+The bounded Repeat page retains typed HTTP/1.1 drafts, not live sessions. Each
+send creates fresh flow identifiers and re-enters destination checks, policy,
+inspection, hooks, authenticated TLS when applicable, audit, and replay-fact
+publication. Listener authentication and a second interactive pause are the
+only intentionally skipped boundaries for these local TUI-originated attempts.
+
 The maintained, rendered architecture reference is
 [`src/content/docs/developer/architecture.md`](src/content/docs/developer/architecture.md).

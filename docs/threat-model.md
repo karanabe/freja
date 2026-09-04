@@ -24,5 +24,11 @@ protect terminal access and screen recordings. The HTTP/1.1 editor converts a
 local text draft to bounded typed header/body changes while keeping routing and
 framing validation in the data plane.
 
+TUI Repeat workspaces retain bounded drafts and re-run destination, policy,
+inspection, hook, TLS, audit, and replay-fact boundaries with fresh identifiers.
+They intentionally skip listener authentication and another interactive pause.
+Terminal access therefore grants authority to edit and originate these audited
+attempts while preserving the original source IP as policy input.
+
 The maintained threat analysis is
 [`src/content/docs/developer/threat-model.md`](src/content/docs/developer/threat-model.md).

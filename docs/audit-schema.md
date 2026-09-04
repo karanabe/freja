@@ -1,9 +1,11 @@
 # Audit Schema
 
-Freja writes one versioned JSON object per line. Every record includes schema
-version, sequence, timestamp, session ID, optional transaction ID, policy
-generation, typed event, optional previous hash, and record hash. Redaction is
-applied before canonical hashing and persistence.
+Freja writes one versioned JSON object per line. New segments use schema
+version 2, which adds `http-repeat-started` provenance without storing edited
+content. Replay accepts versions 1 and 2 and rejects version/event mismatches.
+Every record includes schema version, sequence, timestamp, session ID, optional
+transaction ID, policy generation, typed event, optional previous hash, and
+record hash. Redaction is applied before canonical hashing and persistence.
 
 Authorization, Proxy-Authorization, Cookie, Set-Cookie, configured secret
 query parameters, URL userinfo, and secret-bearing replay headers are redacted.

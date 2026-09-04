@@ -2,7 +2,7 @@
 title: はじめに
 description: Frejaをbuildし、安全なローカル設定を検証して、最初のリクエストをproxyします。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-05
 tags:
   - インストール
   - クイックスタート
@@ -26,8 +26,11 @@ repositoryのrootで実行します。
 
 ```sh title="ターミナル"
 cargo build --release -p freja
+./target/release/freja --version
 ./target/release/freja --help
 ```
+
+0.2.0のsource treeでは`freja 0.2.0`と表示します。workspace内7 crateはこのversionで同期します。
 
 binaryと設定ファイルは、通常のsoftware supply chain管理下に置いてください。
 
@@ -72,7 +75,7 @@ curl --proxy http://127.0.0.1:8080 http://example.com/
 curl --proxy http://127.0.0.1:8080 https://example.com/
 ```
 
-1件目はHTTP absolute-form forwardingを使います。2件目はCONNECT tunnelを確立します。tunnel modeがdefaultなので、TLSはcurlと接続先の間でend-to-endのままです。各requestはTUI decisionを待ちます。変更せず続行する場合は`c`、拒否する場合は`r`、対応するHTTP/1.1 requestを編集する場合は`e`/`i`を押します。
+1件目はHTTP absolute-form forwardingを使います。2件目はCONNECT tunnelを確立します。tunnel modeがdefaultなので、TLSはcurlと接続先の間でend-to-endのままです。各requestはTUI decisionを待ちます。変更せず続行する場合は`c`、拒否する場合は`r`、対応するHTTP/1.1 requestを編集する場合は`e`/`i`を押します。Shift+`R`は元requestを変更せずcontinueし、編集可能なcopyを上限付きRepeat pageへ保持します。
 
 Ctrl+Cで停止します。SIGINTとSIGTERMは新規acceptを止め、active relayへ通知し、監査writerをflushし、有効ならTUIを復元します。
 

@@ -2,7 +2,7 @@
 title: Threat model
 description: Trusted inputs, attack surfaces, implemented controls, and residual operator risks.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-05
 tags:
   - security
   - threat-model
@@ -61,6 +61,11 @@ serialization, and replay parsing.
   HTTP/1.1 editor uses `httparse` only to translate a local draft into typed
   changes; it locks routing/start-line fields, rejects protected-header edits,
   and relies on the data plane to revalidate limits and rebuild framing.
+- Repeat workspaces retain bounded typed drafts rather than live connections.
+  Every send receives fresh identifiers and re-enters destination checks,
+  policy, inspection, hooks, authenticated TLS, audit, and replay-fact
+  publication. Only listener authentication and recursive interactive pausing
+  are skipped for requests originating from the local TUI.
 
 ### Audit and sensitive data
 
@@ -106,6 +111,10 @@ serialization, and replay parsing.
   access, retention, and deletion policy.
 - TUI `ui_content_bytes` similarly increases live-memory and shoulder-surfing
   exposure even when audit capture remains metadata-only.
+- Anyone who can operate the TUI can edit and repeat a retained request while
+  preserving its original source IP as policy input. Treat terminal access as
+  authority to originate those audited attempts, and delete workspaces that no
+  longer need to be retained.
 - Content-encoded representations are not decompressed automatically. Streaming
   body replacement rejects encoded messages; preflight replacement explicitly
   removes stale representation metadata.

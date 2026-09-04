@@ -1,11 +1,12 @@
 # Hooks
 
-Hooks live under `freja-policy::hook` and are disabled by default. Separate
-interfaces cover HTTP request/response heads and bodies plus both TCP chunk
-directions. Hooks return typed mutation plans; they cannot emit wire bytes,
-mutate hop-by-hop or proxy-controlled framing headers, or exceed the configured
-HTTP/TCP replacement budget. Freja reconstructs HTTP framing after accepted
-body mutation.
+Hooks live under `freja-policy::hook`. The application default uses the bounded
+interactive broker, while the standard headless profile disables hooks.
+Separate interfaces cover HTTP request/response heads and bodies plus both TCP
+chunk directions. Hooks return typed mutation plans; they cannot emit wire
+bytes, mutate hop-by-hop or proxy-controlled framing headers, or exceed the
+configured HTTP/TCP replacement budget. Freja reconstructs HTTP framing after
+accepted body mutation.
 Decoded replacement of content-encoded messages requires preflight mode so
 representation metadata can be corrected before the head is committed.
 
@@ -17,6 +18,10 @@ are continue, reject, edit headers, replace a bounded body, atomically modify
 request headers and body, and cancel modification. The TUI's HTTP/1.1 text
 editor parses a draft into that typed combined plan; it never emits arbitrary
 wire bytes. Native dynamic libraries are not loaded as plugins.
+
+The Repeat page keeps bounded typed HTTP/1.1 drafts after the original request
+continues. Each attempt uses fresh identifiers, re-runs the normal policy and
+hook pipeline, and deliberately avoids a second interactive pause.
 
 The maintained hook design is
 [`src/content/docs/developer/hooks.md`](src/content/docs/developer/hooks.md).

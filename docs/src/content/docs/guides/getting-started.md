@@ -2,7 +2,7 @@
 title: Getting started
 description: Build Freja, validate a safe local configuration, and proxy your first request.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-05
 tags:
   - installation
   - quick-start
@@ -29,8 +29,12 @@ From the repository root:
 
 ```sh title="Terminal"
 cargo build --release -p freja
+./target/release/freja --version
 ./target/release/freja --help
 ```
+
+The 0.2.0 source tree reports `freja 0.2.0`. All seven workspace crates use
+that coordinated version.
 
 Keep the binary and configuration under your normal software supply-chain
 controls.
@@ -88,7 +92,8 @@ The first request uses HTTP absolute-form forwarding. The second establishes a
 CONNECT tunnel and leaves TLS end-to-end between curl and the destination
 because tunnel mode is the default. Each request waits for a TUI decision;
 press `c` to continue unchanged, `r` to reject, or `e`/`i` to edit a supported
-HTTP/1.1 request.
+HTTP/1.1 request. Shift+`R` continues the original unchanged and retains an
+editable copy on the bounded Repeat page.
 
 Stop Freja with Ctrl+C. SIGINT and SIGTERM stop new accepts, signal active
 relays, flush the audit writer, and restore the TUI when enabled.

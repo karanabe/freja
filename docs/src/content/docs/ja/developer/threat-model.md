@@ -2,7 +2,7 @@
 title: Threat model
 description: trusted input、attack surface、実装済みcontrol、operatorに残るriskです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-02
+updatedAt: 2026-09-05
 tags:
   - セキュリティ
   - threat-model
@@ -41,6 +41,7 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - connection、header/body/TUI content、retained TUI row、DNS/connect/idle/interception timeout、leaf cache、audit/UI queue、paused flow、manual editをbounded化
 - streaming signatureはbounded overlapを保持し、preflightはprefix budgetだけ保持
 - Hookはwire byteを出力できずhop-by-hop framingを変更不可。interactive requestはboundedでCLI timeoutはfail-closed。HTTP/1.1 editorはlocal draftを型付き変更へ変換するためだけに`httparse`を使い、routing/start-line fieldを固定し、protected header編集を拒否して、data plane側でlimit再検証とframing再構築を行う
+- Repeat workspaceはlive connectionではなく上限付きtyped draftを保持。各sendはfresh IDを受け取り、destination check、policy、inspection、Hook、authenticated TLS、audit、replay-fact publicationを再実行する。local TUIから生成するrequestではlistener authenticationとrecursive interactive pauseだけをskip
 
 ### Auditとsensitive data
 
@@ -65,6 +66,7 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - hash chainとsegment内checkpointは未知tail/segment全体の削除を証明できない。key pinと別管理storageへのexportが必要
 - prefix captureはbreach impactを増やす。最小bound、access、retention、deletion policyが必要
 - TUIの`ui_content_bytes`もaudit captureがmetadata-onlyの場合でもlive-memory/shoulder-surfing exposureを増やす
+- TUIを操作できる人は、保持したrequestを編集・repeatし、元source IPをpolicy inputとして維持できる。terminal accessはこれらのaudit対象attemptを生成する権限として扱い、不要なworkspaceは削除する
 - content-encoded representationは自動展開しない。streaming body replacementはencoded messageを拒否し、preflight replacementは古いrepresentation metadataを明示的に除去する
 - built-in admin HTTP metrics endpointはなく、embedderがprocess-local APIをsampleする
 

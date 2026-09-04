@@ -2,7 +2,7 @@
 title: CLI reference
 description: Freja commands, options, exit behavior, logs, and Unix signals.
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-05
 tags:
   - cli
   - reference
@@ -19,12 +19,23 @@ freja [COMMAND]
 Commands:
   check-config  Parse, validate, and compile a configuration without opening listeners
   run           Run proxy listeners from a file or the built-in defaults
-  replay        Verify and evaluate stored facts with a candidate configuration
-  help          Print help
+  replay        Verify and evaluate recorded facts/captured prefixes with a candidate configuration
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 Running `freja` without a command is equivalent to `freja run` without
 `--config`: it starts the built-in local interactive proxy.
+
+The coordinated release reports its workspace version directly:
+
+```text
+$ freja --version
+freja 0.2.0
+```
 
 ## `check-config`
 

@@ -2,7 +2,7 @@
 title: CLIリファレンス
 description: Frejaのcommand、option、終了動作、log、Unix signalです。
 publishedAt: 2026-08-31
-updatedAt: 2026-08-31
+updatedAt: 2026-09-05
 tags:
   - CLI
   - リファレンス
@@ -16,13 +16,24 @@ binary名は`freja`です。成功時はzero、失敗時はcontext付きerror ch
 freja [COMMAND]
 
 Commands:
-  check-config  socketを開かず設定をparse、validate、compileする
-  run           fileまたは組み込みdefaultのproxy listenerを実行する
-  replay        保存済みfactを検証しcandidate設定で評価する
-  help          helpを表示する
+  check-config  Parse, validate, and compile a configuration without opening listeners
+  run           Run proxy listeners from a file or the built-in defaults
+  replay        Verify and evaluate recorded facts/captured prefixes with a candidate configuration
+  help          Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 commandなしの`freja`は、`--config`なしの`freja run`と同じで、組み込みlocal interactive proxyを起動します。
+
+同期リリースのworkspace versionは次のように確認できます。
+
+```text
+$ freja --version
+freja 0.2.0
+```
 
 ## `check-config`
 

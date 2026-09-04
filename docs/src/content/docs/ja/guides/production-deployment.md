@@ -2,7 +2,7 @@
 title: production配置
 description: systemdでFrejaをinstallし、安全にpolicyをreloadして、bounded shutdownとmetricsを運用します。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-05
 tags:
   - 運用
   - systemd
@@ -58,6 +58,8 @@ sudo /usr/bin/freja check-config --config /etc/freja/freja.toml.new
 sudo mv /etc/freja/freja.toml.new /etc/freja/freja.toml
 sudo systemctl kill --signal=HUP freja.service
 ```
+
+同梱unitは`ExecReload`を定義しないため、`systemctl reload`は利用できません。compatible hot reloadには上の明示的なsignal commandを使い、restart-only設定を変更した場合はserviceをrestartしてください。
 
 1回の`ArcSwap`でACL、destination guard、enforcement mode、inspection program/mode、policy generationを置換します。listener、authentication、limit、TLS、UI/Hook、capture、audit変更はrestartが必要で、hot reloadとしては拒否します。
 

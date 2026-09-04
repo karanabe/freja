@@ -2,7 +2,7 @@
 title: 開発とテスト
 description: workspace構造、validation gate、integration test、fuzz target、documentation workflowです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-05
 tags:
   - テスト
   - contribution
@@ -21,6 +21,8 @@ milestone完了前にすべて実行します。
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
+cargo check --manifest-path fuzz/Cargo.toml --bins
+(cd docs && pnpm check)
 ```
 
 multi-listener CLIがTokioを選択していてもall-feature buildはPingora adapterをcompileします。integration testはlocal serverと外部観測可能なprotocol behaviorを使い、public network serviceへ依存しません。
@@ -81,7 +83,7 @@ Astro siteは`docs/`にあり、英語/日本語でmatching contentを持ちま�
 ```sh
 cd docs
 pnpm install --frozen-lockfile
-pnpm build
+pnpm check
 ```
 
 1 changeで両locale pathを更新します。pageとcodeが不一致なら、code、sample configuration、packaging、integration testを正とします。

@@ -2,7 +2,7 @@
 title: Development and testing
 description: Workspace layout, validation gates, integration tests, fuzz targets, and documentation workflow.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-05
 tags:
   - testing
   - contributing
@@ -22,6 +22,8 @@ Run all gates before declaring a milestone complete:
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-features
+cargo check --manifest-path fuzz/Cargo.toml --bins
+(cd docs && pnpm check)
 ```
 
 All-feature builds compile the Pingora adapter even though the multi-listener
@@ -121,7 +123,7 @@ The Astro site lives in `docs/` and has matching English/Japanese content.
 ```sh
 cd docs
 pnpm install --frozen-lockfile
-pnpm build
+pnpm check
 ```
 
 Update both locale paths in one change. Treat code, sample configuration,
