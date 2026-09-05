@@ -134,6 +134,13 @@ converts a validated draft to an atomic typed header/body plan; method, target,
 version, routing, and framing remain data-plane responsibilities. Responses and
 TCP data never wait for a TUI decision.
 
+Domain-owned `EvaluationTarget` snapshots describe requested or resolved
+connection facts without runtime types. The proxy attaches them to best-effort
+`DecisionMade` events, and the composition-root adapter preserves the pair in
+the UI's bounded `TraceSnapshot` entries. The renderer never joins an evaluation
+to the latest resolved address. These observer fields do not change the audit
+schema, replay facts, or policy evaluation.
+
 ### `freja`
 
 Is the bootstrap and error-erasure boundary. It starts multiple listener kinds,

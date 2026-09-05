@@ -1,5 +1,8 @@
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, PublishError};
-use freja_domain::{Decision, Direction, Finding, Protocol, ReplayFacts, SessionId, TransactionId};
+use freja_domain::{
+    Decision, Direction, EvaluationTarget, Finding, Protocol, ReplayFacts, ResolvedTargetFacts,
+    SessionId, TransactionId,
+};
 use tracing::warn;
 
 use crate::{DataPlaneEvent, MetricsSnapshot, ProxyError};
@@ -31,6 +34,7 @@ impl DataPlaneServices {
         &self,
         mut context: freja_audit::AuditContext,
         decision: Decision,
+        target: EvaluationTarget,
     ) -> Result<(), ProxyError> {
         context.policy_generation = decision.trace.policy_generation;
         self.publish(AuditEnvelope {
@@ -45,6 +49,7 @@ impl DataPlaneServices {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
+                target: Some(target),
             });
         }
         Ok(())
@@ -106,6 +111,7 @@ impl DataPlaneServices {
         &self,
         mut context: freja_audit::AuditContext,
         decision: Decision,
+        target: Option<&ResolvedTargetFacts>,
     ) -> Result<(), ProxyError> {
         context.policy_generation = decision.trace.policy_generation;
         self.publish(AuditEnvelope {
@@ -120,6 +126,7 @@ impl DataPlaneServices {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
+                target: target.cloned().map(EvaluationTarget::Resolved),
             });
         }
         Ok(())

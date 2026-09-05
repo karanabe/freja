@@ -11,9 +11,12 @@ mod render;
 mod runtime;
 mod terminal;
 
+#[cfg(test)]
+mod diagnostics_tests;
+
 pub use model::{
-    DetailLayout, DisplayMode, FocusPane, SelectedSide, SideSnapshot, TrafficKind, TrafficRow,
-    TuiModel, TuiPage, WireState,
+    DetailLayout, DisplayMode, FocusPane, SelectedSide, SideSnapshot, TraceSnapshot, TrafficKind,
+    TrafficRow, TuiModel, TuiPage, WireState,
 };
 pub use render::render;
 pub use runtime::{TuiTask, run_tui, spawn_tui};

@@ -1,4 +1,6 @@
-use freja_domain::{Direction, InspectionMode, Protocol, ReplayFacts, SessionId, TransactionId};
+use freja_domain::{
+    Direction, InspectionMode, Protocol, ReplayFacts, ResolvedTargetFacts, SessionId, TransactionId,
+};
 use freja_policy::StreamScanner;
 use freja_policy::hook::{
     BodyMutationPlan, ChunkMutationPlan, MutationError, WireBody, apply_body_mutation,
@@ -17,6 +19,7 @@ pub(crate) struct FlowInspector {
     session_id: SessionId,
     transaction_id: Option<TransactionId>,
     protocol: Protocol,
+    target: Option<ResolvedTargetFacts>,
     mode: InspectionMode,
     client_to_upstream: StreamScanner,
     upstream_to_client: StreamScanner,
@@ -55,6 +58,7 @@ impl FlowInspector {
             session_id,
             transaction_id,
             protocol,
+            target: None,
             mode,
             client_to_upstream,
             upstream_to_client,
@@ -71,6 +75,12 @@ impl FlowInspector {
 
     pub(crate) const fn uses_preflight(&self) -> bool {
         matches!(self.mode, InspectionMode::Preflight)
+    }
+
+    /// Retains the selected connection only for immutable observer events.
+    pub(crate) fn with_target(mut self, target: ResolvedTargetFacts) -> Self {
+        self.target = Some(target);
+        self
     }
 
     /// Inspects a chunk and reports whether policy permits forwarding it.
@@ -128,7 +138,7 @@ impl FlowInspector {
                 .await?;
             let decision = self.decision.inspection().evaluate(&finding, self.protocol);
             self.services
-                .publish_inspection_decision(context, decision.clone())
+                .publish_inspection_decision(context, decision.clone(), self.target.as_ref())
                 .await?;
             if !self.decision.permits(&decision) {
                 record_action(

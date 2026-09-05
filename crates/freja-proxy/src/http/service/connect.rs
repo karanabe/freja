@@ -2,8 +2,8 @@ use std::net::SocketAddr;
 
 use freja_audit::{AuditEnvelope, AuditEvent};
 use freja_domain::{
-    Decision, DecisionTrace, EnforcementAction, HttpReject, MatchReason, PolicyStage, Protocol,
-    RequestedTargetFacts, SessionId, TransactionId,
+    Decision, DecisionTrace, EnforcementAction, EvaluationTarget, HttpReject, MatchReason,
+    PolicyStage, Protocol, RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
 };
 use http::{Method, Request, Response, StatusCode};
 use hyper::{body::Incoming, upgrade::OnUpgrade};
@@ -43,6 +43,12 @@ impl HttpService {
                 .publish_decision(
                     audit_context(self.session_id, Some(transaction_id), &self.services),
                     decision.clone(),
+                    EvaluationTarget::Requested(RequestedTargetFacts::new(
+                        self.peer.ip(),
+                        target.host().clone(),
+                        target.port(),
+                        Protocol::Http,
+                    )),
                 )
                 .await?;
             if !snapshot.permits(&decision) {
@@ -167,6 +173,15 @@ impl HttpService {
                 services,
                 session_id,
                 transaction_id,
+                ResolvedTargetFacts::new(
+                    RequestedTargetFacts::new(
+                        self.peer.ip(),
+                        target.host().clone(),
+                        target.port(),
+                        Protocol::Http,
+                    ),
+                    selected_address.ip(),
+                ),
                 relay_limits,
                 tunnel_shutdown,
             ))
@@ -196,12 +211,14 @@ impl HttpService {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn run_tunnel(
     on_upgrade: OnUpgrade,
     upstream: tokio::net::TcpStream,
     services: DataPlaneServices,
     session_id: SessionId,
     transaction_id: TransactionId,
+    target: ResolvedTargetFacts,
     relay_limits: RelayLimits,
     mut shutdown: ShutdownSignal,
 ) -> Result<(), ProxyError> {
@@ -215,7 +232,8 @@ async fn run_tunnel(
         Some(transaction_id),
         Protocol::Tcp,
         relay_limits.inspection_bytes(),
-    );
+    )
+    .with_target(target);
     let result = relay(
         TokioIo::new(upgraded),
         upstream,

@@ -51,6 +51,31 @@ The TUI has three pages:
 - **3 Repeat** uses the top 25% for retained HTTP/1.1 workspaces and splits the
   remaining area between the editable request and latest response or failure.
 
+In Diagnostics, the Findings / DecisionTrace pane keeps the selected HTTP
+transaction ID and observed request line above its scrolling evaluation rows.
+Use the full transaction ID to distinguish repeated requests to the same URL.
+The request summary uses at most two rows, or six when the pane is expanded
+with Enter; `... [shortened]` marks omitted display text. Expansion can reveal
+more of a long target while leaving the evaluation rows scrollable.
+
+Each decision row also shows the connection facts for that evaluation:
+`source IP -> requested host:port / evaluated=IP:port`. Before DNS,
+`evaluated=unresolved` identifies a requested-destination check. DNS candidate
+checks retain their individual IPs; HTTP body and CONNECT tunnel inspection
+retain the selected connection's IP. These facts travel with the evaluation
+result, so a later address or request cannot replace an earlier row's target.
+An evaluated address is not proof of an established connection. Missing
+evaluation facts are marked `connection: unavailable`.
+
+CONNECT shows its observed method and authority, without an inferred URL inside
+the tunnel. For origin-form or `*` targets, the summary labels the same
+transaction's observed Host header separately. Missing request metadata or Host
+headers are marked unavailable; session targets and other requests never fill
+those gaps. Context uses bounded snapshots with terminal controls escaped and
+adds no payload capture or persistence. Each Finding and DecisionTrace remains
+a separate evaluation row; an Allow decision does not establish communication
+success or safety.
+
 HTTP Pretty mode renders the parsed request/status line, headers, and bounded
 body with terminal wrapping. JSON bodies are indented when valid. Raw displays
 the exact retained ingress HTTP/1 bytes with terminal control bytes escaped;

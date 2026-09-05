@@ -43,6 +43,14 @@ pub(super) fn inspected_services(
     direction: Direction,
     enforcement: EnforcementMode,
 ) -> (DataPlaneServices, mpsc::Receiver<AuditEnvelope>) {
+    inspected_services_in_mode(direction, enforcement, InspectionMode::Preflight)
+}
+
+pub(super) fn inspected_services_in_mode(
+    direction: Direction,
+    enforcement: EnforcementMode,
+    mode: InspectionMode,
+) -> (DataPlaneServices, mpsc::Receiver<AuditEnvelope>) {
     let generation = PolicyGeneration::new(31).unwrap();
     let pattern = InspectionPattern::new(
         DetectorId::new("http-body-signature").unwrap(),
@@ -60,8 +68,7 @@ pub(super) fn inspected_services(
     let guard = DestinationGuard::new(local_access()).unwrap();
     let (audit, receiver) = AuditPublisher::channel(256, AuditFailurePolicy::FailClosed).unwrap();
     (
-        DataPlaneServices::new(policy, guard, enforcement, audit)
-            .with_inspection(program, InspectionMode::Preflight),
+        DataPlaneServices::new(policy, guard, enforcement, audit).with_inspection(program, mode),
         receiver,
     )
 }

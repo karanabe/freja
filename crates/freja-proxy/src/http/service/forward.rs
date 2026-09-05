@@ -1,8 +1,8 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use freja_domain::{
-    Direction, HttpRequestFacts, HttpResponseFacts, InspectionMode, Protocol, ReplayFacts,
-    RequestedTargetFacts, ResolvedTargetFacts, TransactionId,
+    Direction, EvaluationTarget, HttpRequestFacts, HttpResponseFacts, InspectionMode, Protocol,
+    ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, TransactionId,
 };
 use freja_policy::{PolicyFacts, hook::normalize_replaced_body_headers};
 use http::{HeaderValue, Method, Request, Response, StatusCode, Version, header};
@@ -140,8 +140,9 @@ impl HttpService {
             ));
         }
         let request_method = request.method().clone();
+        let resolved = ResolvedTargetFacts::new(requested.clone(), selected_address.ip());
         let request = match self
-            .prepare_request_body(request, transaction_id, repeat_uri)
+            .prepare_request_body(request, transaction_id, repeat_uri, &resolved)
             .await?
         {
             Ok(request) => request,
@@ -165,6 +166,7 @@ impl HttpService {
         .await
     }
 
+    #[allow(clippy::too_many_lines)]
     pub(super) async fn forward(
         &self,
         mut request: Request<Incoming>,
@@ -248,8 +250,9 @@ impl HttpService {
         }
 
         let request_method = request.method().clone();
+        let resolved = ResolvedTargetFacts::new(requested.clone(), selected_address.ip());
         let request = match self
-            .prepare_request_body(request, transaction_id, repeat_uri)
+            .prepare_request_body(request, transaction_id, repeat_uri, &resolved)
             .await?
         {
             Ok(request) => request,
@@ -301,6 +304,7 @@ impl HttpService {
                 .publish_decision(
                     audit_context(self.session_id, Some(transaction_id), &self.services),
                     decision.clone(),
+                    EvaluationTarget::Resolved(facts.target().clone()),
                 )
                 .await?;
             if !snapshot.permits(&decision) && first_denial.is_none() {
@@ -347,6 +351,7 @@ impl HttpService {
             normalize_no_content_headers(request_method, parts.status, &mut parts.headers);
             return Ok(Response::from_parts(parts, full(bytes::Bytes::new())));
         }
+        let inspection_target = ResolvedTargetFacts::new(requested.clone(), selected_address.ip());
         match self.services.inspection_mode() {
             InspectionMode::Preflight => {
                 let bytes = match collect_bounded(
@@ -368,7 +373,12 @@ impl HttpService {
                     }
                 };
                 if !self
-                    .inspect_preflight(transaction_id, Direction::HttpResponseBody, &bytes)
+                    .inspect_preflight(
+                        transaction_id,
+                        Direction::HttpResponseBody,
+                        &bytes,
+                        &inspection_target,
+                    )
                     .await?
                 {
                     return Ok(block_page());
@@ -403,6 +413,7 @@ impl HttpService {
                         Direction::HttpResponseBody,
                         decoded_replacement_allowed,
                         body_may_change,
+                        &inspection_target,
                     )
                     .await?;
                 Ok(Response::from_parts(parts, body))
@@ -436,6 +447,7 @@ impl HttpService {
             .publish_decision(
                 audit_context(self.session_id, Some(transaction_id), &self.services),
                 decision.clone(),
+                EvaluationTarget::Resolved(facts.target().clone()),
             )
             .await?;
         if snapshot.permits(&decision) {

@@ -27,8 +27,8 @@ pub use decision::{
 pub use endpoint::{EndpointError, HostName, ListenEndpoint, Port, TargetHost, UpstreamEndpoint};
 pub use finding::{Confidence, Direction, EvidenceHash, Finding, InspectionMode, Severity};
 pub use flow::{
-    HttpRequestFacts, HttpResponseFacts, Protocol, ReplayFacts, RequestedTargetFacts,
-    ResolvedTargetFacts, SanitizedHeaders,
+    EvaluationTarget, HttpRequestFacts, HttpResponseFacts, Protocol, ReplayFacts,
+    RequestedTargetFacts, ResolvedTargetFacts, SanitizedHeaders,
 };
 pub use ids::{
     AuditSequence, DetectorId, IdError, PolicyGeneration, RuleId, SessionId, TransactionId,

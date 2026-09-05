@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use bytes::{Bytes, BytesMut};
 use freja_audit::{AuditEnvelope, AuditEvent};
 use freja_domain::{
-    Direction, HookMode, HttpRequestFacts, HttpResponseFacts, InspectionMode, Protocol,
-    ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
+    Direction, EvaluationTarget, HookMode, HttpRequestFacts, HttpResponseFacts, InspectionMode,
+    Protocol, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
 };
 use freja_policy::{
     PolicyFacts,
@@ -312,6 +312,7 @@ impl HttpRepeatExecutor {
                 transaction_id,
                 command.request.body.bytes().clone(),
                 &mut headers,
+                &ResolvedTargetFacts::new(requested.clone(), selected_address.ip()),
             )
             .await?;
         let mut request = Request::builder()
@@ -390,7 +391,11 @@ impl HttpRepeatExecutor {
                 .map_err(AttemptError::Proxy)?;
             let decision = snapshot.policy().evaluate(PolicyFacts::HttpRequest(&facts));
             self.services
-                .publish_decision(context, decision.clone())
+                .publish_decision(
+                    context,
+                    decision.clone(),
+                    EvaluationTarget::Resolved(facts.target().clone()),
+                )
                 .await
                 .map_err(AttemptError::Proxy)?;
             if !snapshot.permits(&decision) && first_denial.is_none() {
@@ -445,6 +450,7 @@ impl HttpRepeatExecutor {
         transaction_id: TransactionId,
         bytes: Bytes,
         request_headers: &mut http::HeaderMap,
+        target: &ResolvedTargetFacts,
     ) -> Result<Bytes, AttemptError> {
         let mut inspection = FlowInspector::new(
             self.services.clone(),
@@ -452,7 +458,8 @@ impl HttpRepeatExecutor {
             Some(transaction_id),
             Protocol::Http,
             self.limits.body_prefix_bytes,
-        );
+        )
+        .with_target(target.clone());
         if !inspection
             .permits(Direction::HttpRequestBody, &bytes)
             .await
@@ -575,17 +582,26 @@ impl HttpRepeatExecutor {
                 body_truncated: false,
             });
         }
-        let (body, observed_body_bytes, body_truncated, replaced) =
-            match self.services.inspection_mode() {
-                InspectionMode::Preflight => {
-                    self.preflight_response_body(body, session_id, transaction_id)
-                        .await?
-                }
-                InspectionMode::Streaming => {
-                    self.streaming_response_body(body, session_id, transaction_id, &parts.headers)
-                        .await?
-                }
-            };
+        let inspection_target = ResolvedTargetFacts::new(requested.clone(), selected_address.ip());
+        let (body, observed_body_bytes, body_truncated, replaced) = match self
+            .services
+            .inspection_mode()
+        {
+            InspectionMode::Preflight => {
+                self.preflight_response_body(body, session_id, transaction_id, &inspection_target)
+                    .await?
+            }
+            InspectionMode::Streaming => {
+                self.streaming_response_body(
+                    body,
+                    session_id,
+                    transaction_id,
+                    &parts.headers,
+                    &inspection_target,
+                )
+                .await?
+            }
+        };
         if replaced {
             normalize_replaced_body_headers(&mut parts.headers);
             set_content_length(
@@ -626,7 +642,11 @@ impl HttpRepeatExecutor {
             .policy()
             .evaluate(PolicyFacts::HttpResponse(&facts));
         self.services
-            .publish_decision(context, decision.clone())
+            .publish_decision(
+                context,
+                decision.clone(),
+                EvaluationTarget::Resolved(facts.target().clone()),
+            )
             .await
             .map_err(AttemptError::Proxy)?;
         if snapshot.permits(&decision) {
@@ -673,6 +693,7 @@ impl HttpRepeatExecutor {
         body: Incoming,
         session_id: SessionId,
         transaction_id: TransactionId,
+        target: &ResolvedTargetFacts,
     ) -> Result<(Vec<u8>, u64, bool, bool), AttemptError> {
         let bytes = collect_bounded(
             body,
@@ -696,7 +717,8 @@ impl HttpRepeatExecutor {
             Some(transaction_id),
             Protocol::Http,
             self.limits.body_prefix_bytes,
-        );
+        )
+        .with_target(target.clone());
         if !inspection
             .permits(Direction::HttpResponseBody, &bytes)
             .await
@@ -725,6 +747,7 @@ impl HttpRepeatExecutor {
         session_id: SessionId,
         transaction_id: TransactionId,
         response_headers: &http::HeaderMap,
+        target: &ResolvedTargetFacts,
     ) -> Result<(Vec<u8>, u64, bool, bool), AttemptError> {
         let mut inspection = FlowInspector::new(
             self.services.clone(),
@@ -732,7 +755,8 @@ impl HttpRepeatExecutor {
             Some(transaction_id),
             Protocol::Http,
             self.limits.body_prefix_bytes,
-        );
+        )
+        .with_target(target.clone());
         let body_may_change = self.services.hooks().may_mutate_response_body();
         let decoded_replacement_allowed = !response_headers.contains_key(header::CONTENT_ENCODING);
         if body_may_change && !decoded_replacement_allowed {

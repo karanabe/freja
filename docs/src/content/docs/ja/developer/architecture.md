@@ -71,6 +71,8 @@ trackedなsequential HTTP repeat executorはUI型へ依存せず、TUIから型�
 immutable snapshotを受け、isolated threadでRAII restoration guardのもとterminalを所有します。TUI modeではCLIがoperational tracingをbounded immutable UI eventへformatするため、raw terminalへ同時に書くproducerはありません。UI saturationはsnapshotまたはlog lineをdropしてmetricを増やします。interactive requestは別のbounded channel、paused-flow semaphore、timeout、oneshot responseを使います。
 traffic rowとrepeat workspaceは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離し、screen 3は複数のHTTP/1.1 repeat draftと各draftの最新resultだけを保持します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。HTTP/1.1 text editorはそのcopy済みsnapshotだけを所有し、validate済みdraftを原子的な型付きheader/body planへ変換します。method、target、version、routing、framingはdata planeの責務のままです。responseとTCP dataはTUI decisionを待ちません。
 
+domain所有の`EvaluationTarget` snapshotはruntime型を含まず、要求先または解決先の接続情報を表します。proxyがbest-effortな`DecisionMade` eventへ付帯し、composition rootのadapterがUIのboundedな`TraceSnapshot`へ評価結果と一緒に渡します。rendererは評価行に最新の解決先IPを後付けしません。このobserver情報はaudit schema、replay fact、policy評価を変更しません。
+
 ### `freja`
 
 bootstrap/error-erasure境界です。複数listener、signal、audit writer、compatible SIGHUP reload、stored inputのverify/replayを所有します。compiled configurationをsubsystem所有runtime inputへ変換し、UI非依存data-plane eventを現在のpresentationへadaptします。listener起動前に通常terminal tracing writerまたはbounded TUI routerを選び、terminal threadをjoinする前にrouterを切断します。production multi-listener runtimeはTokioを使い、generic Pingora 0.8.1 `ServerApp` adapterもcompile-testします。

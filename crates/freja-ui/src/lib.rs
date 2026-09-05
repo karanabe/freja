@@ -32,7 +32,7 @@ use std::{
     },
 };
 
-use freja_domain::{DecisionTrace, Direction, Finding, SessionId, TransactionId};
+use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -93,6 +93,9 @@ pub enum UiEvent {
         transaction_id: Option<TransactionId>,
         /// Immutable policy explanation.
         trace: DecisionTrace,
+        /// Connection facts attached atomically to this evaluation result.
+        #[serde(default)]
+        target: Option<EvaluationTarget>,
     },
     /// Inspection produced a finding without directly enforcing it.
     FindingDetected {

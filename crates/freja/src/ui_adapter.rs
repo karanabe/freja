@@ -67,10 +67,12 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
             session_id,
             transaction_id,
             trace,
+            target,
         } => UiEvent::DecisionMade {
             session_id,
             transaction_id,
             trace,
+            target,
         },
         DataPlaneEvent::FindingDetected {
             session_id,
@@ -149,11 +151,50 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
 
 #[cfg(test)]
 mod tests {
-    use freja_domain::SessionId;
+    use freja_domain::{
+        DecisionTrace, EnforcementActionKind, EvaluationTarget, PolicyGeneration, PolicyStage,
+        Port, Protocol, RequestedTargetFacts, SessionId, TargetHost, TransactionId,
+    };
     use freja_proxy::{DataPlaneEvent, DataPlaneEventSink as _};
     use freja_ui::{UiEvent, UiPublisher};
 
     use super::UiDataPlaneEventSink;
+
+    #[test]
+    fn evaluation_and_connection_facts_cross_the_adapter_together() {
+        let (publisher, mut receiver) = UiPublisher::channel(1).unwrap();
+        let sink = UiDataPlaneEventSink::new(publisher);
+        let session_id = SessionId::new();
+        let transaction_id = Some(TransactionId::new());
+        let trace = DecisionTrace {
+            policy_generation: PolicyGeneration::default(),
+            evaluated_stage: PolicyStage::RequestedDestination,
+            matched_rule: None,
+            match_reasons: Vec::new(),
+            final_action: EnforcementActionKind::Allow,
+        };
+        let target = Some(EvaluationTarget::Requested(RequestedTargetFacts::new(
+            "127.0.0.1".parse().unwrap(),
+            TargetHost::Ip("192.0.2.1".parse().unwrap()),
+            Port::HTTPS,
+            Protocol::Http,
+        )));
+        sink.try_publish(DataPlaneEvent::DecisionMade {
+            session_id,
+            transaction_id,
+            trace: trace.clone(),
+            target: target.clone(),
+        });
+        assert_eq!(
+            receiver.try_recv().unwrap(),
+            UiEvent::DecisionMade {
+                session_id,
+                transaction_id,
+                trace,
+                target
+            }
+        );
+    }
 
     #[test]
     fn runtime_events_are_adapted_and_saturation_is_reported() {

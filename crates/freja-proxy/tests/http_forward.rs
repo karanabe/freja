@@ -51,6 +51,8 @@ use tokio_rustls::{TlsAcceptor, TlsConnector};
 
 #[path = "http_forward/connect.rs"]
 mod connect;
+#[path = "http_forward/diagnostics.rs"]
+mod diagnostics;
 #[path = "http_forward/forwarding.rs"]
 mod forwarding;
 #[path = "http_forward/hooks.rs"]

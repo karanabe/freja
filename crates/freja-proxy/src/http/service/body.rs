@@ -1,4 +1,6 @@
-use freja_domain::{Direction, HookMode, InspectionMode, Protocol, TransactionId};
+use freja_domain::{
+    Direction, HookMode, InspectionMode, Protocol, ResolvedTargetFacts, TransactionId,
+};
 use http::{HeaderValue, Method, Request, Response, StatusCode, header};
 use http_body_util::BodyExt as _;
 use hyper::body::Incoming;
@@ -19,10 +21,11 @@ impl HttpService {
         request: Request<Incoming>,
         transaction_id: TransactionId,
         interactive_uri: Option<http::Uri>,
+        target: &ResolvedTargetFacts,
     ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
         if self.services.hooks().mode() == HookMode::Interactive {
             return self
-                .prepare_interactive_request(request, transaction_id, interactive_uri)
+                .prepare_interactive_request(request, transaction_id, interactive_uri, target)
                 .await;
         }
         let (mut parts, body) = request.into_parts();
@@ -56,7 +59,7 @@ impl HttpService {
                     }
                 };
                 if !self
-                    .inspect_preflight(transaction_id, Direction::HttpRequestBody, &bytes)
+                    .inspect_preflight(transaction_id, Direction::HttpRequestBody, &bytes, target)
                     .await?
                 {
                     return Ok(Err(block_page()));
@@ -91,6 +94,7 @@ impl HttpService {
                         Direction::HttpRequestBody,
                         decoded_replacement_allowed,
                         body_may_change,
+                        target,
                     )
                     .await?;
                 Ok(Ok(Request::from_parts(parts, body)))
@@ -103,6 +107,7 @@ impl HttpService {
         request: Request<Incoming>,
         transaction_id: TransactionId,
         interactive_uri: Option<http::Uri>,
+        target: &ResolvedTargetFacts,
     ) -> Result<Result<Request<ProxyBody>, Response<ProxyBody>>, ProxyError> {
         let (mut parts, body) = request.into_parts();
         let original = match collect_bounded(
@@ -133,7 +138,12 @@ impl HttpService {
             }
         };
         if !self
-            .inspect_preflight(transaction_id, Direction::HttpRequestBody, &original)
+            .inspect_preflight(
+                transaction_id,
+                Direction::HttpRequestBody,
+                &original,
+                target,
+            )
             .await?
         {
             return Ok(Err(block_page()));
@@ -197,6 +207,7 @@ impl HttpService {
         transaction_id: TransactionId,
         direction: Direction,
         bytes: &[u8],
+        target: &ResolvedTargetFacts,
     ) -> Result<bool, ProxyError> {
         let mut inspection = FlowInspector::new(
             self.services.clone(),
@@ -204,7 +215,8 @@ impl HttpService {
             Some(transaction_id),
             Protocol::Http,
             self.limits.body_prefix_bytes,
-        );
+        )
+        .with_target(target.clone());
         inspection.permits(direction, bytes).await
     }
 
@@ -233,6 +245,7 @@ impl HttpService {
         direction: Direction,
         decoded_replacement_allowed: bool,
         body_may_change: bool,
+        target: &ResolvedTargetFacts,
     ) -> Result<ProxyBody, ProxyError> {
         let (sender, inspected) = channel(8);
         let inspection = FlowInspector::new(
@@ -241,7 +254,8 @@ impl HttpService {
             Some(transaction_id),
             Protocol::Http,
             self.limits.body_prefix_bytes,
-        );
+        )
+        .with_target(target.clone());
         let handle = tokio::spawn(pump_inspected_body(
             body,
             sender,

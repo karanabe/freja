@@ -1,6 +1,6 @@
 use std::fmt;
 
-use freja_domain::{DecisionTrace, Direction, Finding, SessionId, TransactionId};
+use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
 
 /// Immutable data-plane fact offered to best-effort observers.
 ///
@@ -54,6 +54,8 @@ pub enum DataPlaneEvent {
         transaction_id: Option<TransactionId>,
         /// Immutable explanation safe for presentation.
         trace: DecisionTrace,
+        /// Connection facts used by this evaluation, when available.
+        target: Option<EvaluationTarget>,
     },
     /// A detector produced a finding without directly enforcing it.
     FindingDetected {

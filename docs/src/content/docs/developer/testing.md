@@ -49,7 +49,17 @@ behavior; they must not depend on public network services.
 - UI tests render split and side-wide traffic plus diagnostics pages to
   ratatui's test backend, exercise pane/exit/editor/repeat key states, validate typed
   request drafts, and verify non-blocking saturation and terminal-control
-  escaping. The HTTP integration suite verifies atomic manual header/body
+  escaping. Diagnostics tests cover request/evidence correlation for repeated
+  URLs, multiple evaluations, missing/late/evicted metadata, CONNECT, partial
+  targets, and long Unicode targets at minimum size and in expanded views.
+  They also verify that request context remains visible while evidence scrolls
+  and that TCP session correlation is preserved. Per-evaluation IPv4/IPv6 targets
+  remain paired with their results through bounded retention; older UI events
+  without target facts display an explicit unavailable state.
+  Local CONNECT integration tests compare observer targets with the recorded
+  facts actually evaluated by policy. HTTP body inspection tests verify that
+  the selected connection accompanies its decision without enabling capture.
+  The HTTP integration suite verifies atomic manual header/body
   mutation and framing reconstruction at the upstream server.
 
 Add a focused unit test for local logic and an integration test when externally

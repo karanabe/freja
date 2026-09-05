@@ -489,7 +489,8 @@ fn render_diagnostics(frame: &mut Frame<'_>, model: &TuiModel) {
 }
 
 fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
-    let lines = model.selected_row().map_or_else(Vec::new, |row| {
+    let row = model.selected_row();
+    let lines = row.map_or_else(Vec::new, |row| {
         let findings = row.findings.iter().map(|finding| {
             Line::styled(
                 format!(
@@ -499,15 +500,17 @@ fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
                 Style::default().fg(Color::Yellow),
             )
         });
-        let traces = row.traces.iter().map(|trace| {
+        let traces = row.traces.iter().map(|snapshot| {
+            let trace = &snapshot.trace;
             Line::from(format!(
-                "decision {:?} rule={} generation={}",
+                "decision {:?} rule={} generation={} | {}",
                 trace.final_action,
                 trace
                     .matched_rule
                     .as_ref()
                     .map_or("<default>", |id| id.as_str()),
-                trace.policy_generation
+                trace.policy_generation,
+                evaluation_target(snapshot.target.as_ref()),
             ))
         });
         findings.chain(traces).collect()
@@ -517,18 +520,131 @@ fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
     } else {
         Style::default()
     };
+    let block = Block::default()
+        .title("Findings / DecisionTrace [2 Diagnostics]")
+        .border_style(border_style)
+        .borders(Borders::ALL);
+    let mut evidence_area = block.inner(area);
+    frame.render_widget(block, area);
+    if let Some(row) = row.filter(|row| row.kind == TrafficKind::Http) {
+        let maximum_lines = if model.expanded_pane == Some(FocusPane::Evidence) {
+            6
+        } else {
+            2
+        };
+        let context = request_context(row, evidence_area.width, maximum_lines);
+        let height = u16::try_from(context.len())
+            .unwrap_or(u16::MAX)
+            .min(evidence_area.height.saturating_sub(1));
+        let context_area = Rect {
+            height,
+            ..evidence_area
+        };
+        frame.render_widget(
+            Paragraph::new(context).style(Style::default().fg(Color::Cyan)),
+            context_area,
+        );
+        evidence_area.y = evidence_area.y.saturating_add(height);
+        evidence_area.height = evidence_area.height.saturating_sub(height);
+    }
     frame.render_widget(
         Paragraph::new(lines)
-            .block(
-                Block::default()
-                    .title("Findings / DecisionTrace [2 Diagnostics]")
-                    .border_style(border_style)
-                    .borders(Borders::ALL),
-            )
             .wrap(Wrap { trim: false })
             .scroll((model.diagnostics_scroll, 0)),
-        area,
+        evidence_area,
     );
+}
+
+fn evaluation_target(target: Option<&freja_domain::EvaluationTarget>) -> String {
+    use freja_domain::EvaluationTarget;
+
+    let (requested, resolved) = match target {
+        Some(EvaluationTarget::Requested(requested)) => (requested, None),
+        Some(EvaluationTarget::Resolved(resolved)) => {
+            (resolved.requested(), Some(resolved.resolved_ip()))
+        }
+        None => return "connection: unavailable".to_owned(),
+    };
+    let destination = freja_domain::UpstreamEndpoint::new(
+        requested.requested_host().clone(),
+        requested.destination_port(),
+    );
+    let resolved = resolved.map_or_else(
+        || "unresolved".to_owned(),
+        |ip| std::net::SocketAddr::new(ip, requested.destination_port().get()).to_string(),
+    );
+    format!(
+        "{} -> {destination} / evaluated={resolved}",
+        requested.source_ip()
+    )
+}
+
+/// Uses only the selected transaction's retained snapshot, never session targets
+/// or another row. Context stays visible while the existing evidence scrolls.
+fn request_context(row: &TrafficRow, width: u16, maximum_lines: usize) -> Vec<Line<'static>> {
+    let identity = row.transaction_id.map_or_else(
+        || "Transaction: unavailable".to_owned(),
+        |id| format!("Transaction: {id}"),
+    );
+    let mut lines = vec![Line::from(identity)];
+    let Some(start_line) = row.request.start_line.as_deref() else {
+        lines.push(Line::from("Request: unavailable (not retained)"));
+        return lines;
+    };
+    // Origin-form and asterisk-form do not contain an authority. Label the
+    // observed Host header explicitly rather than inventing an absolute URL.
+    let host = if row.target.starts_with('/') || row.target == "*" {
+        let value = row
+            .request
+            .headers
+            .iter()
+            .find(|(name, _)| name.eq_ignore_ascii_case("host"));
+        value.map_or_else(
+            || "Host header: unavailable | ".to_owned(),
+            |(_, value)| format!("Host header: {} | ", escape_terminal_bytes(value)),
+        )
+    } else {
+        String::new()
+    };
+    let summary = escape_terminal_bytes(format!("{host}Request: {start_line}").as_bytes())
+        .replace('\n', "\\n");
+    lines.extend(bounded_context_lines(&summary, width, maximum_lines));
+    lines
+}
+
+/// Wraps display text at grapheme boundaries with an explicit omission marker.
+/// The row owns the bounded source; these temporary lines add no retained state.
+fn bounded_context_lines(text: &str, width: u16, maximum_lines: usize) -> Vec<Line<'static>> {
+    const OMITTED: &str = "... [shortened]";
+    let source = Line::from(text);
+    let mut graphemes = source.styled_graphemes(Style::default()).peekable();
+    let mut lines = Vec::new();
+    let mut remaining_width = source.width();
+    for index in 0..maximum_lines {
+        let shortened = index + 1 == maximum_lines && remaining_width > usize::from(width);
+        let available =
+            usize::from(width).saturating_sub(if shortened { OMITTED.len() } else { 0 });
+        let mut line = String::new();
+        let mut used = 0;
+        while let Some(grapheme) = graphemes.peek() {
+            let length = Line::from(grapheme.symbol).width();
+            if used + length > available {
+                break;
+            }
+            used += length;
+            line.push_str(grapheme.symbol);
+            graphemes.next();
+        }
+        remaining_width = remaining_width.saturating_sub(used);
+        if shortened {
+            line.push_str(OMITTED);
+        }
+        lines.push(Line::from(line));
+        if graphemes.peek().is_none() {
+            break;
+        }
+    }
+    lines
 }
 
 fn render_operational_logs(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {

@@ -91,6 +91,19 @@ impl ResolvedTargetFacts {
     }
 }
 
+/// Bounded connection facts associated with one policy evaluation.
+///
+/// A resolved address is an evaluation target, not proof that a connection was
+/// established. Each DNS candidate keeps its own snapshot alongside its result.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", content = "facts", rename_all = "kebab-case")]
+pub enum EvaluationTarget {
+    /// The requested destination before address resolution.
+    Requested(RequestedTargetFacts),
+    /// Exactly one address evaluated after resolution.
+    Resolved(ResolvedTargetFacts),
+}
+
 /// Lower-case HTTP header names and bounded wire values after framing validation.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize)]
 #[serde(transparent)]

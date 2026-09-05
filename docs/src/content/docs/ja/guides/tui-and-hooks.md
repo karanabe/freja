@@ -38,6 +38,12 @@ TUIには3 pageあります。
 - **2 Diagnostics**: 上45%をFindings / DecisionTrace、可変の中央領域をOperational logs、末尾8 rowをStatisticsに使います。
 - **3 Repeat**: 上25%に保持したHTTP/1.1 workspaceを表示し、残りを編集可能requestと最新response/failureに分割します。
 
+DiagnosticsのFindings / DecisionTrace欄では、選択中のHTTP取引IDと観測済みrequest行を、scrollする評価行の上に固定表示します。同じURLへの繰り返しrequestは、省略しない取引IDで区別できます。request概要は通常最大2行、Enterで欄を拡大すると最大6行を使い、表示しきれない末尾には`... [shortened]`を付けます。拡大すると長いtargetをより多く確認でき、評価行は引き続きscrollできます。
+
+各decision行には、その評価の接続情報を`接続元IP -> 要求先host:port / evaluated=IP:port`として付けます。DNS前は`evaluated=unresolved`、DNS候補の評価は各候補IP、HTTP bodyとCONNECT tunnelの検査は選択された接続先IPを表示します。評価結果と接続情報を一緒に保持するため、後から別のIPやrequestが届いても過去行の対象は変わりません。評価対象IPは接続成立の証明ではありません。評価時の接続情報がない行は`connection: unavailable`と表示します。
+
+CONNECTは観測済みmethodとauthorityを表示し、tunnel内のURLは推定しません。origin-formや`*`のtargetには、同じ取引で観測したHost headerを明示します。request情報やHost headerがなければunavailableと表示し、sessionのtargetや別requestから補完しません。bounded snapshotを使い、terminal control文字をescapeし、payload captureや永続保存は追加しません。各Finding / DecisionTraceの評価行を維持し、Allowを通信成功や安全性の保証として扱いません。
+
 HTTP Prettyはparsed request/status line、header、上限付きbodyをterminal幅で折り返します。有効なJSON bodyはindentします。Rawは保持した正確なHTTP/1 ingress byteを表示し、terminal control byteをescapeします。Hexは同じbyteをoffset/ASCII付きで表示します。正確なHTTP Rawは現在plain explicit HTTP/1 forwardingで利用できます。local synthetic response、intercepted HTTP/1、HTTP/2はsemantic Prettyを表示し、Raw unavailableを明示します。TCPのRaw/HexはHTTP message captureではなく、上限付きobserved stream snapshotを使います。
 
 Raw captureはTUI専用のbest-effort observerです。headless modeには設置せず、forwardingを遅延できません。protocol結果はHyperがacceptedしたrequestを正とします。capture failure/truncationはnetwork結果を変えずStatisticsに表示します。

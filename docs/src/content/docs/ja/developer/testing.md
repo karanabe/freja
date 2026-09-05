@@ -36,6 +36,8 @@ multi-listener CLIがTokioを選択していてもall-feature buildはPingora ad
 - CLI test: configuration、no-overwrite segment、pinned checkpoint replay、Cargo metadataによるworkspace dependency direction/Pingora isolation境界
 - UI test: ratatui test backendによるsplit/片側全幅traffic、diagnostics、repeat render、pane/終了/editor/repeat key state、型付きrequest draft、non-blocking saturation、terminal-control escape。HTTP integration suiteはmanual header/bodyの原子的mutationとframing再構築をupstream serverで検証
 
+Diagnostics testは、同じURLへの別request、複数評価、未取得・遅延・eviction後のmetadata、CONNECT、部分的targetについてrequestと評価の所属を検証します。長いUnicode targetの最小terminalサイズ・拡大表示、評価行scroll中のrequest情報の固定表示、既存TCPのsession相関も確認します。評価ごとのIPv4/IPv6 targetと結果が保持上限下でも対応し、target情報のない旧UI eventがunavailable表示になることも検証します。local CONNECT integration testはobserverのtargetとpolicyが実際に評価した記録済みfactを照合し、HTTP body inspection testはcaptureを有効にせず選択接続先がdecisionへ付帯することを確認します。
+
 local logicにはfocused unit test、externally observable network/CLI変更にはintegration testを追加します。
 
 ## ローカルHTTPテストorigin

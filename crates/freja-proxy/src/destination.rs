@@ -2,8 +2,8 @@ use std::{collections::BTreeSet, net::SocketAddr};
 
 use freja_audit::{AuditContext, AuditEnvelope, AuditEvent, UnixMillis};
 use freja_domain::{
-    Decision, EnforcementAction, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SessionId,
-    TargetHost, TransactionId,
+    Decision, EnforcementAction, EvaluationTarget, ReplayFacts, RequestedTargetFacts,
+    ResolvedTargetFacts, SessionId, TargetHost, TransactionId,
 };
 use freja_policy::PolicyFacts;
 use tokio::{net::TcpStream, time::timeout};
@@ -68,6 +68,7 @@ async fn authorize_requested_target(
             .publish_decision(
                 audit_context(session_id, transaction_id, services),
                 requested_decision.clone(),
+                EvaluationTarget::Requested(selected.clone()),
             )
             .await?;
         let EnforcementAction::TcpDetour(detour) = &requested_decision.action else {
@@ -136,6 +137,7 @@ async fn authorize_resolved_targets(
                 .publish_decision(
                     audit_context(session_id, transaction_id, services),
                     decision.clone(),
+                    EvaluationTarget::Resolved(resolved.clone()),
                 )
                 .await?;
             remember_denial(snapshot, &decision, &mut first_denial);
@@ -145,6 +147,7 @@ async fn authorize_resolved_targets(
             .publish_decision(
                 audit_context(session_id, transaction_id, services),
                 decision.clone(),
+                EvaluationTarget::Resolved(resolved),
             )
             .await?;
         if matches!(decision.action, EnforcementAction::TcpDetour(_))

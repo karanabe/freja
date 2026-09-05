@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use freja_domain::{DecisionTrace, Direction, Finding, SessionId, TransactionId};
+use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
 use freja_policy::hook::{
     HttpRequestSnapshot, InterceptContext, InterceptRequest, RepeatOutcome, RepeatRequest,
     RepeatResult, WireBody,
@@ -150,6 +150,18 @@ impl SideSnapshot {
     }
 }
 
+/// One retained evaluation with the connection facts published alongside it.
+///
+/// Keeping both in one bounded entry prevents later DNS answers or requests
+/// from changing the target of an earlier evaluation.
+#[derive(Debug, Clone)]
+pub struct TraceSnapshot {
+    /// Policy evaluation result.
+    pub trace: DecisionTrace,
+    /// Facts used by this evaluation; missing facts must not be inferred.
+    pub target: Option<EvaluationTarget>,
+}
+
 /// One HTTP transaction or TCP session shown in the Flows pane.
 #[derive(Debug, Clone)]
 pub struct TrafficRow {
@@ -170,7 +182,7 @@ pub struct TrafficRow {
     /// Bounded findings correlated to this row.
     pub findings: VecDeque<Finding>,
     /// Bounded policy traces correlated to this row.
-    pub traces: VecDeque<DecisionTrace>,
+    pub traces: VecDeque<TraceSnapshot>,
     /// Final client-to-upstream byte count, or zero while unknown.
     pub client_to_upstream_bytes: u64,
     /// Final upstream-to-client byte count, or zero while unknown.
@@ -312,11 +324,12 @@ impl TuiModel {
                 session_id,
                 transaction_id,
                 trace,
+                target,
             } => {
                 if let Some(index) = self.ensure_correlated_row(session_id, transaction_id) {
                     push_bounded(
                         &mut self.rows[index].traces,
-                        trace,
+                        TraceSnapshot { trace, target },
                         self.maximum_items_per_row,
                     );
                 }
