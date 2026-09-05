@@ -14,7 +14,6 @@ publish.workspace = true
 [features]
 default = []
 tui = [
-    "dep:freja-policy",
     "dep:http",
     "dep:httparse",
     "dep:ratatui",
@@ -23,7 +22,7 @@ tui = [
 
 [dependencies]
 freja-domain.workspace = true
-freja-policy = { workspace = true, optional = true }
+freja-policy.workspace = true
 http = { workspace = true, optional = true }
 httparse = { workspace = true, optional = true }
 ratatui = { workspace = true, optional = true }

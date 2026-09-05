@@ -299,11 +299,14 @@ impl HttpService {
                     ReplayFacts::HttpRequest(facts.clone()),
                 )
                 .await?;
-            let decision = snapshot.policy().evaluate(PolicyFacts::HttpRequest(&facts));
+            let (decision, definition) = snapshot
+                .policy()
+                .evaluate_with_definition(PolicyFacts::HttpRequest(&facts));
             self.services
                 .publish_decision(
                     audit_context(self.session_id, Some(transaction_id), &self.services),
                     decision.clone(),
+                    (definition, snapshot.enforcement()),
                     EvaluationTarget::Resolved(facts.target().clone()),
                 )
                 .await?;
@@ -440,13 +443,14 @@ impl HttpService {
                 ReplayFacts::HttpResponse(facts.clone()),
             )
             .await?;
-        let decision = snapshot
+        let (decision, definition) = snapshot
             .policy()
-            .evaluate(PolicyFacts::HttpResponse(&facts));
+            .evaluate_with_definition(PolicyFacts::HttpResponse(&facts));
         self.services
             .publish_decision(
                 audit_context(self.session_id, Some(transaction_id), &self.services),
                 decision.clone(),
+                (definition, snapshot.enforcement()),
                 EvaluationTarget::Resolved(facts.target().clone()),
             )
             .await?;

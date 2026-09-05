@@ -117,3 +117,26 @@ HTTP request/response factとinspection findingは追加policy stageになりま
 - payload capture、TLS interception、remote exposureはopt-in
 - connection、header、body prefix、cache、header/body read、upstream connect、relay無通信、paused flow、channelはbounded
 - library crateはunsafeを禁止し、concrete error enumを公開する
+
+## ルール確認の根拠
+
+policy evaluatorは既存の`Decision`とともに、実際に選んだ借用`RuleDefinition`を返します。
+ACL evaluatorは宣言順の設定への借用、正確な評価件数、先頭64件の結果を格納した固定長
+配列も返します。結果は実際の評価中に記録し、UI描画による再評価やrequest factの
+借用保持は行いません。proxyはobserverがある場合だけ、同じ`DecisionSnapshot`のenforcementとともにsnapshot化
+します。rule IDによる結合やreload後のpolicy参照は行いません。継続中のscannerは元の
+inspection programとenforcementを保持し、UI用にpolicy履歴を保存しません。
+
+`freja-policy::evidence`がboundedなlocal定義表現を所有します。条件とアクションは
+serialize時に各16 KiBで制限し、不完全なら明示します。ACLでは既定動作と先頭64件までの
+宣言を追加保持し、宣言一覧全体を16 KiBに制限します。宣言には実際の不一致・情報未取得・
+一致・first-matchによる未評価を付けます。空のACLを明示し、一覧を省略しても件数は
+全宣言について保持します。採用ruleの定義は別途上限内で保持します。composition rootのbest-effort
+adapterが`RuleEvidence`を渡し、`freja-ui`がtraceとともに保持します。このためUIの
+`tui` featureを無効にしてもpolicy依存は存在し、ratatuiのみoptionalのままです。
+`UiEvent`のserializeでは機密の定義fieldを除外し、audit eventとreplayにも追加しません。
+
+TUIは保持する評価にprocess内で再利用しないIDを付け、Diagnosticsのアクセスを
+TransactionId/SessionIdで固定します。追加保持は開いている詳細一件だけです。
+到着・reloadで対象を置き換えず、削除された選択は明示的なnavigationまで欠落として
+扱います。描画・入力はpolicyや通信を変更しません。

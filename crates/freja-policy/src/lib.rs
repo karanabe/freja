@@ -8,6 +8,7 @@
 pub mod acl;
 /// Post-resolution protection for sensitive destination address classes.
 pub mod destination;
+pub mod evidence;
 pub mod hook;
 /// Bounded fixed-pattern streaming inspection.
 pub mod inspection;

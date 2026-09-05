@@ -104,6 +104,7 @@ fn example_config_templates_pass_check_config() {
         "examples/config/headless/freja.enforce.toml",
         "examples/config/tui/freja.toml",
         "examples/config/tui/freja.interactive.toml",
+        "examples/config/tui/freja.rules.toml",
     ];
 
     for template in templates {

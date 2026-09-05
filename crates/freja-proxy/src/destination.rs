@@ -61,13 +61,14 @@ async fn authorize_requested_target(
                 ReplayFacts::Requested(selected.clone()),
             )
             .await?;
-        let requested_decision = snapshot
+        let (requested_decision, definition) = snapshot
             .policy()
-            .evaluate(PolicyFacts::Requested(&selected));
+            .evaluate_with_definition(PolicyFacts::Requested(&selected));
         services
             .publish_decision(
                 audit_context(session_id, transaction_id, services),
                 requested_decision.clone(),
+                (definition, snapshot.enforcement()),
                 EvaluationTarget::Requested(selected.clone()),
             )
             .await?;
@@ -129,24 +130,28 @@ async fn authorize_resolved_targets(
                 ReplayFacts::Resolved(resolved.clone()),
             )
             .await?;
-        if let Some(decision) = snapshot
+        if let Some((decision, definition)) = snapshot
             .destination_guard()
-            .evaluate(snapshot.policy().generation(), &resolved)
+            .evaluate_with_definition(snapshot.policy().generation(), &resolved)
         {
             services
                 .publish_decision(
                     audit_context(session_id, transaction_id, services),
                     decision.clone(),
+                    (definition, snapshot.enforcement()),
                     EvaluationTarget::Resolved(resolved.clone()),
                 )
                 .await?;
             remember_denial(snapshot, &decision, &mut first_denial);
         }
-        let decision = snapshot.policy().evaluate(PolicyFacts::Resolved(&resolved));
+        let (decision, definition) = snapshot
+            .policy()
+            .evaluate_with_definition(PolicyFacts::Resolved(&resolved));
         services
             .publish_decision(
                 audit_context(session_id, transaction_id, services),
                 decision.clone(),
+                (definition, snapshot.enforcement()),
                 EvaluationTarget::Resolved(resolved),
             )
             .await?;

@@ -5,6 +5,8 @@ use freja_domain::{
     Protocol, RuleId, TcpClose, TcpCloseMode, TcpDetour,
 };
 
+use crate::evidence::{AclEvaluation, AclRuleResult, RuleDefinition};
+
 use super::{AclRule, HttpHeaderMatcher, MatchExpression, PolicyError, PolicyFacts, RuleAction};
 
 /// Immutable ordered first-match ACL and its policy generation.
@@ -61,26 +63,49 @@ impl AclPolicy {
 
     /// Evaluates rules in declaration order and stops at the first match.
     pub fn evaluate(&self, facts: PolicyFacts<'_>) -> Decision {
+        self.evaluate_with_definition(facts).0
+    }
+
+    /// Evaluates once and returns configured declarations with bounded actual outcomes.
+    /// The borrowed definition is ephemeral UI evidence, not an audit record.
+    pub fn evaluate_with_definition(
+        &self,
+        facts: PolicyFacts<'_>,
+    ) -> (Decision, RuleDefinition<'_>) {
+        let mut evaluation = AclEvaluation::new(&self.rules, &self.default_action);
         for rule in &self.rules {
-            if let ExpressionResult::Matched(reasons) = evaluate_expression(&rule.matcher, facts) {
-                return decision(
-                    self.generation,
-                    facts,
-                    &rule.action,
-                    Some(rule.id.clone()),
-                    reasons,
-                );
+            match evaluate_expression(&rule.matcher, facts) {
+                ExpressionResult::Matched(reasons) => {
+                    evaluation.record(AclRuleResult::Matched);
+                    return (
+                        decision(
+                            self.generation,
+                            facts,
+                            &rule.action,
+                            Some(rule.id.clone()),
+                            reasons,
+                        ),
+                        RuleDefinition::Acl(evaluation),
+                    );
+                }
+                ExpressionResult::DidNotMatch => evaluation.record(AclRuleResult::DidNotMatch),
+                ExpressionResult::Unavailable => {
+                    evaluation.record(AclRuleResult::UnavailableAtThisStage);
+                }
             }
         }
-        decision(
-            self.generation,
-            facts,
-            &self.default_action,
-            None,
-            vec![MatchReason {
-                criterion: "default-action".to_owned(),
-                observed: format!("{:?}", self.default_action).to_ascii_lowercase(),
-            }],
+        (
+            decision(
+                self.generation,
+                facts,
+                &self.default_action,
+                None,
+                vec![MatchReason {
+                    criterion: "default-action".to_owned(),
+                    observed: format!("{:?}", self.default_action).to_ascii_lowercase(),
+                }],
+            ),
+            RuleDefinition::Acl(evaluation),
         )
     }
 }

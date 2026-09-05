@@ -93,6 +93,9 @@ pub enum UiEvent {
         transaction_id: Option<TransactionId>,
         /// Immutable policy explanation.
         trace: DecisionTrace,
+        /// Bounded definition from the evaluator; absent when not retained.
+        #[serde(skip)]
+        evidence: Option<std::sync::Arc<freja_policy::evidence::RuleEvidence>>,
         /// Connection facts attached atomically to this evaluation result.
         #[serde(default)]
         target: Option<EvaluationTarget>,

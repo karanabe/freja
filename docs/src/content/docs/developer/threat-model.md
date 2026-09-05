@@ -123,3 +123,14 @@ serialization, and replay parsing.
 
 Security-sensitive changes must update this page and add tests at the boundary
 they alter.
+
+## Live rule definitions
+
+Rule inspection can expose internal hostnames and header matching values,
+including configured ACL rules that did not match the selected evaluation, in the
+local terminal. Definition snapshots have per-field limits and escaped terminal
+controls. They are excluded from audit and serialized UI events, are not sent to
+ordinary logs or external services, and are retained only within bounded UI
+history and one open detail. Treat terminal access as access to these sensitive
+policy values. Unavailable or truncated definitions are explicit; a current
+same-ID rule cannot stand in for missing historical evidence.

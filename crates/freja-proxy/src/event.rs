@@ -54,6 +54,8 @@ pub enum DataPlaneEvent {
         transaction_id: Option<TransactionId>,
         /// Immutable explanation safe for presentation.
         trace: DecisionTrace,
+        /// Bounded definition from the evaluator; absent when not retained.
+        evidence: Option<std::sync::Arc<freja_policy::evidence::RuleEvidence>>,
         /// Connection facts used by this evaluation, when available.
         target: Option<EvaluationTarget>,
     },

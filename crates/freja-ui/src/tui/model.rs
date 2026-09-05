@@ -156,6 +156,12 @@ impl SideSnapshot {
 /// from changing the target of an earlier evaluation.
 #[derive(Debug, Clone)]
 pub struct TraceSnapshot {
+    /// Process-local identity; never reused for a later evaluation.
+    pub id: u64,
+    /// Ephemeral definition supplied alongside this evaluation.
+    pub evidence: Option<std::sync::Arc<freja_policy::evidence::RuleEvidence>>,
+    /// Whether the UI retention limit shortened recorded reasons.
+    pub reasons_incomplete: bool,
     /// Policy evaluation result.
     pub trace: DecisionTrace,
     /// Facts used by this evaluation; missing facts must not be inferred.
@@ -201,6 +207,8 @@ struct SessionMetadata {
 /// Reducer state used by both the live terminal and deterministic UI tests.
 #[derive(Debug)]
 pub struct TuiModel {
+    pub(super) evidence_view: super::evidence::EvidenceView,
+    next_evaluation_id: u64,
     pub(super) rows: VecDeque<TrafficRow>,
     sessions: Vec<SessionMetadata>,
     pub(super) operational_logs: VecDeque<String>,
@@ -240,6 +248,8 @@ impl TuiModel {
     /// Creates a reducer with explicit retained-row and per-row evidence limits.
     pub fn new(maximum_rows: usize, maximum_items_per_row: usize) -> Self {
         Self {
+            evidence_view: super::evidence::EvidenceView::default(),
+            next_evaluation_id: 1,
             rows: VecDeque::new(),
             sessions: Vec::new(),
             operational_logs: VecDeque::new(),
@@ -324,12 +334,22 @@ impl TuiModel {
                 session_id,
                 transaction_id,
                 trace,
+                evidence,
                 target,
             } => {
                 if let Some(index) = self.ensure_correlated_row(session_id, transaction_id) {
+                    let id = self.next_evaluation_id;
+                    let Some(next) = id.checked_add(1) else {
+                        self.set_input_notice(
+                            "evaluation identity limit reached; UI evaluation omitted".to_owned(),
+                        );
+                        return;
+                    };
+                    self.next_evaluation_id = next;
+                    self.select_first_arriving_evaluation(session_id, transaction_id, id);
                     push_bounded(
                         &mut self.rows[index].traces,
-                        TraceSnapshot { trace, target },
+                        TraceSnapshot::bounded(id, trace, target, evidence),
                         self.maximum_items_per_row,
                     );
                 }
@@ -433,6 +453,7 @@ impl TuiModel {
 
     /// Selects the Diagnostics page.
     pub fn show_diagnostics(&mut self) {
+        self.reset_evidence_view();
         self.page = TuiPage::Diagnostics;
         self.focus = FocusPane::Evidence;
         self.expanded_pane = None;
@@ -578,6 +599,9 @@ impl TuiModel {
         }
         self.selected = self.selected.saturating_sub(1);
         self.detail_scroll = 0;
+        if self.page == TuiPage::Diagnostics {
+            self.reset_evidence_view();
+        }
     }
 
     /// Moves selection toward the newest retained row.
@@ -592,17 +616,26 @@ impl TuiModel {
         if self.selected.saturating_add(1) < self.rows.len() {
             self.selected += 1;
             self.detail_scroll = 0;
+            if self.page == TuiPage::Diagnostics {
+                self.reset_evidence_view();
+            }
         }
     }
 
     /// Scrolls the active page upward.
     pub fn scroll_up(&mut self, amount: u16) {
+        if self.scroll_evidence(-i32::from(amount)) {
+            return;
+        }
         let value = self.active_scroll_mut();
         *value = value.saturating_sub(amount);
     }
 
     /// Scrolls the active page downward.
     pub fn scroll_down(&mut self, amount: u16) {
+        if self.scroll_evidence(i32::from(amount)) {
+            return;
+        }
         let value = self.active_scroll_mut();
         *value = value.saturating_add(amount);
     }

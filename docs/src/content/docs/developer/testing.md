@@ -138,3 +138,83 @@ pnpm check
 
 Update both locale paths in one change. Treat code, sample configuration,
 packaging, and integration tests as authoritative when a page disagrees.
+
+## Rule inspection lab
+
+Use synthetic traffic with `examples/config/tui/freja.rules.toml`. It selects
+Observe, disables interactive hooks, and retains eight rows. Start the bundled
+origin in one terminal, then build Freja and run a disposable copy of the
+configuration in another:
+
+```sh
+cargo run --manifest-path examples/http-test-server/Cargo.toml
+```
+
+```sh
+cargo build -p freja
+cp examples/config/tui/freja.rules.toml /tmp/freja-rules.toml
+./target/debug/freja run --config /tmp/freja-rules.toml
+```
+
+From a third terminal, send these harmless requests through the proxy:
+
+```sh
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/get
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/get
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/healthz
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/post --data freja-deny
+curl --noproxy "" -x http://127.0.0.1:8080 --proxytunnel http://127.0.0.1:3001/healthz
+```
+
+Expected evidence: the two GET requests have different TransactionIds and a
+`lab-compound` ACL denial, although Observe permits the origin's 200 response.
+Its definition includes GET, ports 3000–3010 inclusive, both `/get` and
+`/anything/private`, and NOT an `x-lab-bypass` header containing `yes`.
+`/healthz` shows the two configured ACL rules and default allow, with no match
+at the HTTP request stage; its earlier destination evaluations mark HTTP
+conditions unavailable. Compare with a disposable configuration that removes both `[[policy.rules]]`
+blocks and sets `rules = []` under `[policy]`: the detail explicitly reports
+zero configured rules. POST has `lab-post` and
+`lab-body-deny` inspection evaluations. The proxytunnel request shows the
+built-in CONNECT restriction (allowed ports: 443); in Observe its denial is not
+a block. For a destination guard example, start a fresh copy with
+`loopback_destinations = "protect"` and `enforcement = "enforce"`; a loopback
+request is rejected without contacting another host. Restore the lab settings
+for the remaining checks.
+
+Ask the operator to select an access on Traffic, enter Diagnostics with `2`,
+select evaluations with `j/k`, and explain the conditions, action, recorded
+reason, and generation from Enter's rule detail. Repeat with `z` expansion and
+both Enter and `q` for closing. Record whether returning preserves the selected
+evaluation and reading position. Keep another request arriving while the detail
+is open and confirm its identity stays fixed.
+
+For a Unix reload, keep generation 101's detail open. In the disposable config,
+change generation to 102, change only `lab-compound`'s action to `allow`, and
+replace its second path branch with `/anything/reloaded`. Send SIGHUP to the PID
+of this lab's Freja process, then send the same `/get` request. Verify the old
+detail still shows generation 101, deny, and `/anything/private`, while the new
+transaction shows generation 102, allow, and `/anything/reloaded`. Do not infer a
+scanner's generation from the latest global policy.
+
+To exercise row eviction, keep a detail open and send ten additional sequential
+requests (each curl process closes its connection). The lab's eight-row limit
+can remove the original access. The frozen detail explains eviction; closing
+must not silently select another evaluation. Return through Traffic to select a
+retained access. Long definitions, per-row eviction, missing serialized
+definitions, and continuous scanner reload are covered by deterministic fixtures
+where a manual reproduction is impractical; record them as fixture evidence,
+not observed usability.
+
+Automated evidence is in `freja-policy/src/evidence/tests.rs`,
+`freja-ui/src/tui/evidence_tests.rs`, and the proxy's HTTP Diagnostics integration
+suite. These check empty versus configured ACL defaults, actual unavailable and
+false expression results, first-match skips, configuration retained across
+reload, complete compound definitions, source collisions, bounds and
+escaping, modal navigation, same-URL correlation, old scanners across reload,
+and continued forwarding with an unread bounded UI queue. Passing tests does
+not establish the operator outcome. For each observed case, record the rule and
+generation, external-config screen round trips, wrong selections, confusing
+open/close operations, missing information, and whether the operator completed
+the explanation. Mark unperformed cases **not observed**. Use no real
+credentials or payloads and do not save additional traffic content.

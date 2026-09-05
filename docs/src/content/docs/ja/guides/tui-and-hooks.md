@@ -38,7 +38,7 @@ TUIには3 pageあります。
 - **2 Diagnostics**: 上45%をFindings / DecisionTrace、可変の中央領域をOperational logs、末尾8 rowをStatisticsに使います。
 - **3 Repeat**: 上25%に保持したHTTP/1.1 workspaceを表示し、残りを編集可能requestと最新response/failureに分割します。
 
-DiagnosticsのFindings / DecisionTrace欄では、選択中のHTTP取引IDと観測済みrequest行を、scrollする評価行の上に固定表示します。同じURLへの繰り返しrequestは、省略しない取引IDで区別できます。request概要は通常最大2行、Enterで欄を拡大すると最大6行を使い、表示しきれない末尾には`... [shortened]`を付けます。拡大すると長いtargetをより多く確認でき、評価行は引き続きscrollできます。
+DiagnosticsのFindings / DecisionTrace欄では、選択中のHTTP取引IDと観測済みrequest行を、scrollする評価行の上に固定表示します。同じURLへの繰り返しrequestは、省略しない取引IDで区別できます。request概要は通常最大2行、`z`で欄を拡大すると最大6行を使い、表示しきれない末尾には`... [shortened]`を付けます。拡大すると長いtargetをより多く確認でき、評価行は引き続きscrollできます。
 
 各decision行には、その評価の接続情報を`接続元IP -> 要求先host:port / evaluated=IP:port`として付けます。DNS前は`evaluated=unresolved`、DNS候補の評価は各候補IP、HTTP bodyとCONNECT tunnelの検査は選択された接続先IPを表示します。評価結果と接続情報を一緒に保持するため、後から別のIPやrequestが届いても過去行の対象は変わりません。評価対象IPは接続成立の証明ではありません。評価時の接続情報がない行は`connection: unavailable`と表示します。
 
@@ -70,6 +70,59 @@ interactive controlは意図的に狭くしています。Frejaは`limits.body_p
 同梱CLIのautomatic hook registryは現在空です。automatic modeはFreja crateをembedし、in-process Hookを登録するapplication向けです。設定だけでHook codeをloadすることはありません。
 :::
 
+
+## 評価で使ったルールを確認する
+
+TrafficでHTTP取引またはTCP sessionを選び、`2`でDiagnosticsへ移ります。
+Findings / DecisionTraceでは`j`/`k`で次／前の**Decision**を選択し、`>`で明示します。
+`Enter`で読み取り専用の詳細を開きます。Findingは観測結果であり、detector IDが
+rule IDと同じでもDecisionとして選択しません。`z`でペインを拡大し、arrowと
+PageUp/PageDownで評価本文をscrollできます。詳細内では`j`/`k`、arrow、
+PageUp/PageDownでscrollし、Homeで先頭へ戻ります。`Enter`または`q`は詳細だけを
+閉じ、元の選択・閲覧位置・ペイン拡大を維持します。
+
+詳細は取引／session、評価、判断時の世代とstageを示します。ACLでは先に、当時の
+設定件数・宣言順・既定アクション・そのstageで利用できる入力を表示します。
+空のACLなら「ルールが設定されていなかった」と明示します。ルールがあれば、実際の
+条件不一致、必要な情報がそのstageでは未取得、先行ruleの一致による未評価を件数で
+区別し、宣言順にID・条件・アクション・評価結果を表示します。例えばCONNECTの
+`ResolvedDestination`評価では解決済みIPはありますが、HTTP method・path・headerは
+入力に含まれません。path条件の未評価を、安全なpathだったという意味には扱いません。
+接続先保護やpayload inspectionは別のcheckなので、ACLが空でも全保護が無効とは限りません。
+
+定義の条件と設定アクション、記録された一致理由、policyのアクション種別を分けます。
+ACL条件はJSON表現で、
+`all`/`any`の全枝、`not`、両端を含むport範囲、hostnameの照合種別、header substringを
+保持します。detourには接続先も含みます。評価結果は実際に評価した式全体についての
+もので、不一致の各leafの特定や、first-matchで省略したruleの追加評価は行いません。
+検出ルールには実際に選ばれたpattern policy、
+十進数のbyte列、directionを示します。組み込み接続先保護、CONNECT port制限、
+個別ruleのない既定方針は出所を区別し、原文TOMLや設定行番号を作りません。
+
+Observeではpolicy上のdenyが遮断を意味しません。判断時snapshotのenforcementを
+表示しますが、その評価だけから実際の通信結果は確定できず、Streamingで送信済みの
+byteを取り戻すこともできません。
+
+新しい通信が到着してもDiagnosticsの対象アクセスを保ちます。対象を変えるには
+Trafficで別の行を選びます。開いた詳細を固定しても通信は継続します。同じIDのruleを
+reloadしても旧定義を維持し、reload前から継続するscannerも判断時の世代を使います。
+元の評価が保持上限で削除された場合は欠落を表示し、閉じても別の評価へ置き換えません。
+`j`/`k`で保持中の評価を明示的に選ぶか、TrafficからDiagnosticsへ入り直して対象を
+選びます。未保持の定義はunavailableとし、現在の同名ruleで補完しません。
+
+定義は機密を含むlocalな一時情報です。条件・アクションは各16 KiBまで保持し、
+不完全な場合は保持したprefixの前に警告を表示します。ACLの設定情報には既定動作と
+先頭64件までのrule定義を追加保持し、定義一覧全体にも16 KiBの上限を設けます。
+件数はpolicy全体について正確に保持し、採用ruleの定義は一覧の範囲外でも別途保持します。
+件数上限・byte上限の両方による省略を明示します。一致理由は最大64件、
+criterionとvalueは各1 KiB、詳細のrequest概要は16 KiBまでで、省略を明示します。
+既存の行数・行内件数上限と、追加で開く詳細一件に保持量を制限します。terminal control
+文字をescapeし、serializeするUIイベントやauditには定義を入れません。
+audit/replay schema、capture、hook、forwardingの意味は変えません。
+
+無害なfixtureと利用観察の手順は[ルール確認lab](../../developer/testing/#rule-inspection-lab)を参照してください。
+
+
 ## navigationとinteractive操作
 
 | key | action |
@@ -81,7 +134,9 @@ interactive controlは意図的に狭くしています。Frejaは`limits.body_p
 | Ctrl+`j` / Ctrl+`k`、Tab | pane間でfocusを移動。Repeatではworkspace、request、latest resultの順にcycle |
 | `j` / `k`、arrow | flow/workspace選択またはfocused detail paneをscroll |
 | PageDown / PageUp | 10 row scroll |
-| Enter | focused paneをfloating表示へ拡大 |
+| Enter | Diagnosticsでは選択したDecisionのルールを開く。それ以外はfocused paneを拡大 |
+| Findings / DecisionTraceの`z` | 評価ペインを拡大 |
+| ルール詳細のEnter / `q` | 詳細だけを閉じ、選択・scroll・ペイン拡大を維持 |
 | `q` | floating表示を閉じて戻る |
 | Ctrl+C / `Q` | 終了してterminalを復元 |
 

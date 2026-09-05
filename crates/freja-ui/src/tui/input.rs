@@ -60,6 +60,39 @@ pub(super) fn handle_key_with_repeat(
         handle_editor_key(key, model, pending, repeat_sender);
         return false;
     }
+    if let Some(detail) = model.evidence_view.detail.as_mut() {
+        match key.code {
+            KeyCode::Enter | KeyCode::Char('q') => model.close_rule_detail(),
+            KeyCode::Up | KeyCode::Char('k') => detail.scroll = detail.scroll.saturating_sub(1),
+            KeyCode::Down | KeyCode::Char('j') => detail.scroll = detail.scroll.saturating_add(1),
+            KeyCode::PageUp => detail.scroll = detail.scroll.saturating_sub(10),
+            KeyCode::PageDown => detail.scroll = detail.scroll.saturating_add(10),
+            KeyCode::Home => detail.scroll = 0,
+            _ => {}
+        }
+        return false;
+    }
+    if model.focus == FocusPane::Evidence && !key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Char('j') => {
+                model.select_evaluation(true);
+                return false;
+            }
+            KeyCode::Char('k') => {
+                model.select_evaluation(false);
+                return false;
+            }
+            KeyCode::Enter => {
+                model.open_rule_detail();
+                return false;
+            }
+            KeyCode::Char('z') => {
+                model.expand_focused_pane();
+                return false;
+            }
+            _ => {}
+        }
+    }
     model.clear_input_notice();
     if key.code == KeyCode::Char('q') && model.expanded_pane().is_some() {
         model.close_expanded_pane();

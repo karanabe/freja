@@ -55,7 +55,7 @@ In Diagnostics, the Findings / DecisionTrace pane keeps the selected HTTP
 transaction ID and observed request line above its scrolling evaluation rows.
 Use the full transaction ID to distinguish repeated requests to the same URL.
 The request summary uses at most two rows, or six when the pane is expanded
-with Enter; `... [shortened]` marks omitted display text. Expansion can reveal
+with `z`; `... [shortened]` marks omitted display text. Expansion can reveal
 more of a long target while leaving the evaluation rows scrollable.
 
 Each decision row also shows the connection facts for that evaluation:
@@ -132,6 +132,71 @@ mode is useful to applications embedding the Freja crates and supplying
 in-process hooks; configuration alone does not load hook code.
 :::
 
+
+## Inspect the rule used by an evaluation
+
+Select a transaction or TCP session in Traffic, then press `2`. In Findings /
+DecisionTrace, `j`/`k` selects the next/previous **Decision**, highlighted with
+`>`. `Enter` opens its read-only rule detail. Findings are observations, not
+selectable decisions, even when a detector ID looks like a rule ID. Use `z` to
+expand this pane; arrows and PageUp/PageDown keep evidence scrollable. Inside
+rule detail, `j`/`k`, arrows, and PageUp/PageDown scroll; Home returns to the top.
+`Enter` or `q` closes only the detail and returns to the previous selection and
+scroll position, including when the evidence pane was expanded.
+
+The detail identifies the transaction/session, evaluation, decision generation,
+and stage. ACL details begin with the configuration used by that evaluation:
+rule count, declaration order, default action, and the inputs available at that
+stage. An empty ACL explicitly says that no rules were configured. Otherwise,
+the view counts actual nonmatches, expressions unavailable at this stage, and
+rules skipped after the first match. The ordered definitions pair each rule's
+ID, conditions and action with that result. For example, a CONNECT
+`ResolvedDestination` evaluation has the resolved IP but no HTTP method, path
+or header inputs; a path rule is unavailable there, not evidence of a safe path.
+Destination guards and payload inspection are separate checks, so an empty ACL
+does not mean all protections are disabled.
+
+The detail separates configured conditions and actions from recorded match
+reasons and the policy's action category. An ACL condition is
+shown as its JSON expression, including every `all`/`any` branch, `not`, inclusive
+port range, hostname match kind, and header substring. A detour action includes
+its destination. Results describe the whole expression as actually evaluated;
+they do not identify every failed leaf or evaluate rules skipped by first-match.
+Inspection definitions include the selected
+pattern policy, decimal byte signature, and directions. Built-in destination
+protection and CONNECT port restrictions have their own provenance; defaults
+explicitly have no individual rule. No source file line or original TOML is
+invented.
+
+Enforcement mode is retained from the decision snapshot. In Observe, a policy
+deny does not mean traffic was blocked. The evaluation alone does not prove the
+communication outcome, and streaming cannot retract bytes already forwarded.
+
+Diagnostics keeps its chosen access while new traffic arrives; choose another
+row on Traffic to change it. Opening a detail freezes one evaluation, not the
+network. Its original definition survives a same-ID reload, including a scanner
+that began before reload. If the evaluation is evicted, the detail says so and
+closing leaves the selection missing; `j`/`k` explicitly chooses a retained
+entry. Re-enter Diagnostics from Traffic to choose another access. Missing
+historical definitions stay unavailable and are never filled with a current
+same-ID rule.
+
+Definitions are sensitive, local, ephemeral data. Each conditions/action field
+retains at most 16 KiB; incomplete fields display a warning before their retained
+prefix. ACL context additionally retains its default action and up to the first
+64 rule declarations, with the entire declaration list capped at 16 KiB. Counts
+still cover the whole policy, and the selected rule's definition is retained
+separately even when it lies outside that prefix. Both rule and byte omissions
+are explicit. Recorded reasons retain at most 64 entries and 1 KiB per criterion/value;
+the detail marks omissions. Its copied request context retains 16 KiB and marks
+shortening. Existing per-row and row-count limits bound history, with only one
+additional open detail. Terminal controls are escaped. Definitions are excluded
+from serialized UI events and audit records; audit/replay schemas, capture,
+hooks, and forwarding behavior are unchanged.
+
+Use the [local rule inspection lab](../../developer/testing/#rule-inspection-lab)
+for synthetic examples and operator observation.
+
 ## Navigation and interactive controls
 
 | Key | Action |
@@ -141,10 +206,13 @@ in-process hooks; configuration alone does not load hook code.
 | `m` | Cycle Pretty / Raw / Hex |
 | `h` / `l` | Select request/client or response/upstream side |
 | Ctrl+`j` / Ctrl+`k`, Tab | Move focus between panes; Repeat cycles workspace, request, and latest result |
-| `j` / `k`, arrows | Select a flow/workspace or scroll the focused detail pane |
+| `j` / `k` | Select a flow/workspace, select a Diagnostics decision, or scroll a detail |
+| arrows | Scroll Diagnostics evidence or a detail; select a flow/workspace |
 | PageDown / PageUp | Scroll by ten rows |
-| Enter | Expand the focused pane into a floating view |
-| `q` | Close the floating view and return |
+| Enter | Open the selected Diagnostics decision's rule; otherwise expand the focused pane |
+| `z` in Findings / DecisionTrace | Expand the evidence pane |
+| Enter / `q` in rule detail | Close only the rule detail, preserving selection, scroll, and pane expansion |
+| `q` | Close the floating pane view and return |
 | Ctrl+C / `Q` | Quit and restore the terminal |
 
 When a request is paused, the TUI supports:

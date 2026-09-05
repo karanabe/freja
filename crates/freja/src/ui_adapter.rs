@@ -67,11 +67,13 @@ fn to_ui_event(event: DataPlaneEvent) -> UiEvent {
             session_id,
             transaction_id,
             trace,
+            evidence,
             target,
         } => UiEvent::DecisionMade {
             session_id,
             transaction_id,
             trace,
+            evidence,
             target,
         },
         DataPlaneEvent::FindingDetected {
@@ -179,10 +181,26 @@ mod tests {
             Port::HTTPS,
             Protocol::Http,
         )));
+        let policy = freja_policy::AclPolicy::new(
+            PolicyGeneration::default(),
+            Vec::new(),
+            freja_policy::RuleAction::Allow,
+        )
+        .unwrap();
+        let Some(EvaluationTarget::Requested(requested)) = &target else {
+            unreachable!()
+        };
+        let evidence = Some(
+            policy
+                .evaluate_with_definition(freja_policy::PolicyFacts::Requested(requested))
+                .1
+                .snapshot(freja_domain::EnforcementMode::Observe),
+        );
         sink.try_publish(DataPlaneEvent::DecisionMade {
             session_id,
             transaction_id,
             trace: trace.clone(),
+            evidence: evidence.clone(),
             target: target.clone(),
         });
         assert_eq!(
@@ -191,6 +209,7 @@ mod tests {
                 session_id,
                 transaction_id,
                 trace,
+                evidence,
                 target
             }
         );

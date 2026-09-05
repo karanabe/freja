@@ -6,7 +6,7 @@ use freja_domain::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::PolicyError;
+use crate::{PolicyError, evidence::RuleDefinition};
 
 /// Whether one sensitive address class is denied or explicitly permitted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -68,22 +68,55 @@ impl DestinationGuard {
         generation: PolicyGeneration,
         facts: &ResolvedTargetFacts,
     ) -> Option<Decision> {
+        self.evaluate_with_definition(generation, facts)
+            .map(|(decision, _)| decision)
+    }
+
+    /// Returns the actual built-in condition alongside its denial, without ACL lookup.
+    pub fn evaluate_with_definition(
+        &self,
+        generation: PolicyGeneration,
+        facts: &ResolvedTargetFacts,
+    ) -> Option<(Decision, RuleDefinition<'_>)> {
         let address = facts.resolved_ip();
         let matched = if is_unroutable(address) {
-            Some((&self.unroutable_rule, "unroutable"))
+            Some((
+                &self.unroutable_rule,
+                "unroutable",
+                "resolved IPv4/IPv6 address is unspecified OR multicast; always protected",
+            ))
         } else if is_metadata(address) && self.settings.metadata == DestinationAccess::Protect {
-            Some((&self.metadata_rule, "metadata-service"))
+            Some((
+                &self.metadata_rule,
+                "metadata-service",
+                "metadata = protect AND resolved address IN [169.254.169.254, 100.100.100.200, fd00:ec2::254]",
+            ))
         } else if address.is_loopback() && self.settings.loopback == DestinationAccess::Protect {
-            Some((&self.loopback_rule, "loopback"))
+            Some((
+                &self.loopback_rule,
+                "loopback",
+                "loopback = protect AND resolved address IN [127.0.0.0/8, ::1/128]",
+            ))
         } else if is_link_local(address) && self.settings.link_local == DestinationAccess::Protect {
-            Some((&self.link_local_rule, "link-local"))
+            Some((
+                &self.link_local_rule,
+                "link-local",
+                "link_local = protect AND resolved address IN [169.254.0.0/16, fe80::/10]",
+            ))
         } else if is_private(address) && self.settings.private == DestinationAccess::Protect {
-            Some((&self.private_rule, "private"))
+            Some((
+                &self.private_rule,
+                "private",
+                "private = protect AND resolved address IN [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, fc00::/7]",
+            ))
         } else {
             None
         };
-        matched.map(|(rule, address_class)| {
-            deny_decision(generation, facts, rule.clone(), address_class)
+        matched.map(|(rule, address_class, condition)| {
+            (
+                deny_decision(generation, facts, rule.clone(), address_class),
+                RuleDefinition::DestinationGuard(condition),
+            )
         })
     }
 }

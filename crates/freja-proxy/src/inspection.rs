@@ -136,9 +136,17 @@ impl FlowInspector {
                     },
                 )
                 .await?;
-            let decision = self.decision.inspection().evaluate(&finding, self.protocol);
+            let (decision, definition) = self
+                .decision
+                .inspection()
+                .evaluate_with_definition(&finding, self.protocol);
             self.services
-                .publish_inspection_decision(context, decision.clone(), self.target.as_ref())
+                .publish_inspection_decision(
+                    context,
+                    decision.clone(),
+                    (definition, self.decision.enforcement()),
+                    self.target.as_ref(),
+                )
                 .await?;
             if !self.decision.permits(&decision) {
                 record_action(

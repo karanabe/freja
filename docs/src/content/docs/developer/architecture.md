@@ -203,3 +203,32 @@ fields. Resource-owning configuration remains restart-only.
 - Connections, headers, body prefixes, caches, header/body reads, upstream
   connects, relay inactivity, paused flows, and channels are bounded.
 - Library crates forbid unsafe code and expose concrete error enums.
+
+## Rule inspection evidence
+
+Policy evaluators return the selected borrowed `RuleDefinition` together with
+their existing `Decision`. The ACL evaluator also returns borrowed ordered
+configuration, exact outcome counts and a fixed array of the first 64 rule
+outcomes. These are recorded during evaluation; UI rendering never re-runs
+policy or retains borrowed request facts. The proxy snapshots it only for an attached observer,
+with the enforcement mode from the same `DecisionSnapshot`. This avoids joining
+by rule ID or consulting a newer policy after reload; an active scanner keeps
+its original inspection program and enforcement mode. No policy archive is held.
+
+`freja-policy::evidence` owns the bounded local definition view. Conditions and
+actions are independently capped at 16 KiB during serialization, with explicit
+incomplete flags. ACL context adds its default action and up to 64 declarations,
+serialized under one shared 16 KiB limit, paired with actual nonmatch,
+unavailable, matched or first-match-skipped results. Empty ACLs are explicit;
+summary counts cover every declaration even when the list is truncated. The
+selected declaration retains its own bounded definition. The composition root passes `RuleEvidence` through the
+best-effort event adapter, and `freja-ui` retains it with the trace. The policy
+dependency is consequently present even without the UI's `tui` feature;
+ratatui remains optional. `UiEvent` serialization skips this sensitive field.
+Audit events and replay never acquire a definition field.
+
+The TUI assigns each retained evaluation a process-local identity, pins the
+Diagnostics access by TransactionId/SessionId, and owns at most one additional
+frozen detail. Arrival and reload cannot retarget it. Eviction leaves a missing
+selection until explicit navigation. Rendering/input has no policy or network
+side effects.

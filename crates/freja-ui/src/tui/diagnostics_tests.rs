@@ -305,6 +305,9 @@ fn evicted_request_metadata_is_not_reused_for_late_evidence() {
         upstream_to_client_bytes: 0,
     });
     decision(&mut model, session, Some(first), 3);
+    assert!(screen(&model, 120, 30).contains("Original evaluation no longer retained"));
+    model.show_traffic();
+    model.show_diagnostics();
     let recreated = screen(&model, 120, 30);
     assert!(recreated.contains(&first.to_string()));
     assert!(recreated.contains("Request: unavailable (not retained)"));
@@ -394,6 +397,7 @@ fn decision_event(
     generation: u64,
 ) -> UiEvent {
     UiEvent::DecisionMade {
+        evidence: None,
         session_id: session,
         transaction_id: transaction,
         trace: DecisionTrace {

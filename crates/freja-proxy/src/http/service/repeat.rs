@@ -389,11 +389,14 @@ impl HttpRepeatExecutor {
                 .publish_replay_facts(context, ReplayFacts::HttpRequest(facts.clone()))
                 .await
                 .map_err(AttemptError::Proxy)?;
-            let decision = snapshot.policy().evaluate(PolicyFacts::HttpRequest(&facts));
+            let (decision, definition) = snapshot
+                .policy()
+                .evaluate_with_definition(PolicyFacts::HttpRequest(&facts));
             self.services
                 .publish_decision(
                     context,
                     decision.clone(),
+                    (definition, snapshot.enforcement()),
                     EvaluationTarget::Resolved(facts.target().clone()),
                 )
                 .await
@@ -638,13 +641,14 @@ impl HttpRepeatExecutor {
             .publish_replay_facts(context, ReplayFacts::HttpResponse(facts.clone()))
             .await
             .map_err(AttemptError::Proxy)?;
-        let decision = snapshot
+        let (decision, definition) = snapshot
             .policy()
-            .evaluate(PolicyFacts::HttpResponse(&facts));
+            .evaluate_with_definition(PolicyFacts::HttpResponse(&facts));
         self.services
             .publish_decision(
                 context,
                 decision.clone(),
+                (definition, snapshot.enforcement()),
                 EvaluationTarget::Resolved(facts.target().clone()),
             )
             .await

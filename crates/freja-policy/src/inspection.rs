@@ -7,7 +7,8 @@ use freja_domain::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::RuleAction;
+use crate::{RuleAction, evidence::RuleDefinition};
+use serde::Serialize;
 
 /// Invalid fixed-pattern inspection configuration.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,6 +124,36 @@ impl InspectionPattern {
         self.bytes.len()
     }
 
+    pub(crate) fn definition_conditions(&self) -> impl Serialize + '_ {
+        #[derive(Serialize)]
+        struct DetectorDefinition<'a> {
+            pattern_bytes_decimal: &'a [u8],
+            directions: &'a [Direction],
+            emitted_severity: Severity,
+            emitted_confidence: Confidence,
+            emitted_tags: &'a [String],
+        }
+        #[derive(Serialize)]
+        struct Conditions<'a> {
+            finding_detector_id_equals: &'a DetectorId,
+            detector_definition: DetectorDefinition<'a>,
+        }
+        Conditions {
+            finding_detector_id_equals: &self.detector_id,
+            detector_definition: DetectorDefinition {
+                pattern_bytes_decimal: &self.bytes,
+                directions: &self.directions,
+                emitted_severity: self.severity,
+                emitted_confidence: self.confidence,
+                emitted_tags: &self.tags,
+            },
+        }
+    }
+
+    pub(crate) const fn action(&self) -> &RuleAction {
+        &self.action
+    }
+
     fn applies_to(&self, direction: Direction) -> bool {
         self.directions.contains(&direction)
     }
@@ -184,6 +215,16 @@ impl InspectionProgram {
 
     /// Turns a detector finding into a protocol-aware policy decision.
     pub fn evaluate(&self, finding: &Finding, protocol: Protocol) -> Decision {
+        self.evaluate_with_definition(finding, protocol).0
+    }
+
+    /// Evaluates the finding and returns the definition selected by this program.
+    /// This preserves the scanner's original generation across policy reloads.
+    pub fn evaluate_with_definition(
+        &self,
+        finding: &Finding,
+        protocol: Protocol,
+    ) -> (Decision, RuleDefinition<'_>) {
         let matched = self
             .patterns
             .iter()
@@ -200,19 +241,25 @@ impl InspectionProgram {
                 mode: TcpCloseMode::Graceful,
             }),
         };
-        Decision {
-            trace: DecisionTrace {
-                policy_generation: self.generation,
-                evaluated_stage: PolicyStage::Streaming,
-                matched_rule: rule_id,
-                match_reasons: vec![MatchReason {
-                    criterion: "detector-finding".to_owned(),
-                    observed: finding.detector_id.to_string(),
-                }],
-                final_action: action.kind(),
+        (
+            Decision {
+                trace: DecisionTrace {
+                    policy_generation: self.generation,
+                    evaluated_stage: PolicyStage::Streaming,
+                    matched_rule: rule_id,
+                    match_reasons: vec![MatchReason {
+                        criterion: "detector-finding".to_owned(),
+                        observed: finding.detector_id.to_string(),
+                    }],
+                    final_action: action.kind(),
+                },
+                action,
             },
-            action,
-        }
+            matched.map_or(
+                RuleDefinition::InspectionDefault,
+                RuleDefinition::Inspection,
+            ),
+        )
     }
 }
 

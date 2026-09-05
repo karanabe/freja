@@ -911,6 +911,7 @@ dependencies = [
  "http",
  "ipnet",
  "serde",
+ "serde_json",
  "sha2",
  "tokio",
 ]
@@ -934,6 +935,7 @@ dependencies = [
  "pingora-core",
  "rcgen",
  "rustls",
+ "serde_json",
  "sha2",
  "tokio",
  "tokio-rustls",

@@ -7,6 +7,13 @@ share one version and are released together.
 
 ### Added
 
+- Added read-only rule inspection from Diagnostics decisions: `j/k` selects,
+  Enter opens, and Enter/q returns; `z` expands the evidence pane. Bounded
+  definitions retain evaluator provenance and the decision's generation across
+  reloads without changing audit serialization. ACL details include the
+  configured rules, default action and actual evaluation outcomes, distinguishing
+  empty policies from nonmatches and unavailable stage inputs.
+
 - Added bounded TUI traffic and diagnostics views with correlated HTTP and TCP
   flows, Pretty/Raw/Hex presentation, and non-blocking event-loss counters.
 - Added bounded interactive HTTP/1.1 request editing. Freja accepts typed

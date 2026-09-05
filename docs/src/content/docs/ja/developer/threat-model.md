@@ -71,3 +71,13 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - built-in admin HTTP metrics endpointはなく、embedderがprocess-local APIをsampleする
 
 security-sensitive変更ではこのpageと該当境界のtestを更新してください。
+
+## Liveルール定義
+
+ルール確認では内部hostnameやheader照合値がlocal terminalに表示され得ます。
+選択した評価に一致しなかった設定済みACL ruleも含みます。
+定義snapshotはfieldごとの上限とterminal escapingを持ち、audit、serializeした
+UIイベント、通常ログ、外部サービスへ自動送信しません。保持はboundedなUI履歴と
+開いている詳細一件のprocessメモリ内だけです。terminalへのアクセスは機密のpolicy値
+へのアクセスでもあります。未保持・切詰めを明示し、現在の同名ruleで過去の根拠を
+補完しません。

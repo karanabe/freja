@@ -47,6 +47,10 @@ impl DecisionSnapshot {
         self.inner.inspection_mode
     }
 
+    pub(crate) fn enforcement(&self) -> EnforcementMode {
+        self.inner.enforcement
+    }
+
     pub(crate) fn permits(&self, decision: &Decision) -> bool {
         self.inner.enforcement == EnforcementMode::Observe
             || matches!(decision.action, EnforcementAction::Allow)

@@ -89,3 +89,69 @@ pnpm check
 ```
 
 1 changeで両locale pathを更新します。pageとcodeが不一致なら、code、sample configuration、packaging、integration testを正とします。
+
+## Rule inspection lab
+
+`examples/config/tui/freja.rules.toml`は無害なfixture用で、Observe、hook無効、
+保持8行です。一つのterminalで同梱originを起動し、別terminalでFrejaをbuildして
+使い捨ての設定コピーを起動します。
+
+```sh
+cargo run --manifest-path examples/http-test-server/Cargo.toml
+```
+
+```sh
+cargo build -p freja
+cp examples/config/tui/freja.rules.toml /tmp/freja-rules.toml
+./target/debug/freja run --config /tmp/freja-rules.toml
+```
+
+三つ目のterminalから、無害なrequestをproxy経由で送ります。
+
+```sh
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/get
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/get
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/healthz
+curl --noproxy "" -x http://127.0.0.1:8080 http://127.0.0.1:3001/post --data freja-deny
+curl --noproxy "" -x http://127.0.0.1:8080 --proxytunnel http://127.0.0.1:3001/healthz
+```
+
+最初のGET二件は異なるTransactionIdを持ち、`lab-compound`のdenyがあっても
+Observeのためoriginの200を受け取ります。定義はGET、3000–3010の両端を含むport範囲、
+`/get`または`/anything/private`、そして`yes`を含む`x-lab-bypass` headerではないことの
+組合せです。`/healthz`のHTTP request評価は、設定済みACL 2件と既定allowを示し、
+条件不一致を確認できます。それ以前の宛先評価はHTTP条件の情報未取得を示します。
+使い捨て設定から両方の`[[policy.rules]]`ブロックを削除して`[policy]`に`rules = []`を
+設定した場合とも比較します。ACL未設定の場合は0件と明示します。
+POSTは`lab-post`と検出判断の
+`lab-body-deny`を持ちます。proxytunnelは組み込みCONNECT制限（許可port 443）を
+示しますが、Observeなのでdenyが遮断を意味しません。接続先保護を確認する場合は、
+設定コピーの`loopback_destinations = "protect"`と`enforcement = "enforce"`で別起動し、
+loopback requestが他hostに接続せず拒否されることを確認します。その後はlab設定へ戻します。
+
+operatorにTrafficでアクセスを選び、`2`、`j/k`、Enterで使用ルールを開き、条件・
+アクション・記録された理由・世代を説明してもらいます。`z`での拡大も試し、Enterと
+`q`の両方で閉じて、選択と閲覧位置を維持できるか観察します。詳細を開いたまま
+別requestを到着させ、対象が入れ替わらないことも確認します。
+
+Unixのreloadでは世代101の詳細を開いたまま、使い捨て設定のgenerationを102にし、
+`lab-compound`のactionだけを`allow`へ、第二path枝を`/anything/reloaded`へ変更します。
+このlabのFreja processのPIDにSIGHUPを送り、同じ`/get`を再送します。旧詳細は
+世代101・deny・`/anything/private`、新取引は世代102・allow・`/anything/reloaded`を
+示すことを確認します。継続scannerの世代を現在のglobal policyから推定しません。
+
+行の削除は詳細を開いたままさらに10件のrequestを順次送って確認します。
+各curl processが接続を閉じるため、8行の上限により元アクセスが消え得ます。
+詳細には削除を表示し、閉じても別評価を暗黙に選びません。Trafficへ戻って保持中の
+アクセスを選びます。長い定義、行内上限による削除、serialize後の定義未保持、
+継続scannerのreloadなど手動再現が難しい項目は、決定的なfixture検証と利用観察を区別します。
+
+自動検証は`freja-policy/src/evidence/tests.rs`、`freja-ui/src/tui/evidence_tests.rs`、
+proxyのHTTP Diagnostics integration suiteにあります。ACL未設定と設定済みの既定動作、
+実際の条件不一致と情報未取得、first-matchによる未評価、reload前の設定保持、
+複合定義全体、出所のID衝突、
+上限・escaping、modal操作、同URLの対応、reload前からのscanner、未読のboundedな
+UI queueがあっても転送が進むことを確認します。test成功だけではoperatorのOutcomeを
+証明しません。各ケースについてrule・世代、外部設定画面への往復回数、誤選択、
+開閉で迷った操作、不足情報、説明を完了できたかを記録し、未実施は**未観察**とします。
+実credentialや実payloadは使わず、追加の通信内容を保存しません。

@@ -43,6 +43,12 @@ impl HttpService {
                 .publish_decision(
                     audit_context(self.session_id, Some(transaction_id), &self.services),
                     decision.clone(),
+                    (
+                        freja_policy::evidence::RuleDefinition::ConnectPorts(
+                            self.connect_ports.connect_ports(),
+                        ),
+                        snapshot.enforcement(),
+                    ),
                     EvaluationTarget::Requested(RequestedTargetFacts::new(
                         self.peer.ip(),
                         target.host().clone(),

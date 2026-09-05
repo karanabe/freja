@@ -1,8 +1,9 @@
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, PublishError};
 use freja_domain::{
-    Decision, Direction, EvaluationTarget, Finding, Protocol, ReplayFacts, ResolvedTargetFacts,
-    SessionId, TransactionId,
+    Decision, Direction, EnforcementMode, EvaluationTarget, Finding, Protocol, ReplayFacts,
+    ResolvedTargetFacts, SessionId, TransactionId,
 };
+use freja_policy::evidence::RuleDefinition;
 use tracing::warn;
 
 use crate::{DataPlaneEvent, MetricsSnapshot, ProxyError};
@@ -34,6 +35,7 @@ impl DataPlaneServices {
         &self,
         mut context: freja_audit::AuditContext,
         decision: Decision,
+        definition: (RuleDefinition<'_>, EnforcementMode),
         target: EvaluationTarget,
     ) -> Result<(), ProxyError> {
         context.policy_generation = decision.trace.policy_generation;
@@ -49,6 +51,7 @@ impl DataPlaneServices {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
+                evidence: Some(definition.0.snapshot(definition.1)),
                 target: Some(target),
             });
         }
@@ -111,6 +114,7 @@ impl DataPlaneServices {
         &self,
         mut context: freja_audit::AuditContext,
         decision: Decision,
+        definition: (RuleDefinition<'_>, EnforcementMode),
         target: Option<&ResolvedTargetFacts>,
     ) -> Result<(), ProxyError> {
         context.policy_generation = decision.trace.policy_generation;
@@ -126,6 +130,7 @@ impl DataPlaneServices {
                 session_id: context.session_id,
                 transaction_id: context.transaction_id,
                 trace: decision.trace,
+                evidence: Some(definition.0.snapshot(definition.1)),
                 target: target.cloned().map(EvaluationTarget::Resolved),
             });
         }

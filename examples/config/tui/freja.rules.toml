@@ -1,0 +1,68 @@
+# Synthetic, loopback-only rule inspection lab. Run the bundled HTTP origin on 3001.
+[runtime]
+ui = "tui"
+enforcement = "observe"
+hooks = "disabled"
+
+[safety]
+loopback_destinations = "allow"
+
+[limits]
+connections = 16
+paused_flows = 4
+header_bytes = 16384
+body_prefix_bytes = 16384
+connect_timeout_ms = 2000
+read_timeout_ms = 10000
+idle_timeout_ms = 30000
+ui_event_capacity = 256
+ui_content_bytes = 16384
+ui_retained_rows = 8
+
+[audit]
+path = "."
+channel_capacity = 256
+failure_policy = "fail-closed"
+
+[capture]
+mode = "metadata-only"
+
+[inspection]
+mode = "preflight"
+
+[[inspection.patterns]]
+detector_id = "lab-marker"
+rule_id = "lab-body-deny"
+pattern_hex = "6672656a612d64656e79" # freja-deny
+severity = "high"
+confidence = "confirmed"
+directions = ["http-request-body"]
+action = "deny"
+tags = ["synthetic-lab"]
+
+[policy]
+generation = 101
+default_action = "allow"
+
+[[policy.rules]]
+id = "lab-compound"
+action = "deny"
+matcher = { kind = "all", value = [
+  { kind = "http-method", value = ["GET"] },
+  { kind = "destination-port", value = { start = 3000, end = 3010 } },
+  { kind = "any", value = [
+    { kind = "http-path-prefix", value = "/get" },
+    { kind = "http-path-prefix", value = "/anything/private" },
+  ] },
+  { kind = "not", value = { kind = "http-header", value = { name = "x-lab-bypass", value_contains = "yes" } } },
+] }
+
+[[policy.rules]]
+id = "lab-post"
+action = "allow"
+matcher = { kind = "http-method", value = ["POST"] }
+
+[[listeners]]
+kind = "http-forward"
+bind = "127.0.0.1:8080"
+connect_ports = [443]

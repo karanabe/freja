@@ -5,6 +5,7 @@ use std::time::Duration;
 const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 mod editor;
+mod evidence;
 mod input;
 mod model;
 mod render;
@@ -13,6 +14,8 @@ mod terminal;
 
 #[cfg(test)]
 mod diagnostics_tests;
+#[cfg(test)]
+mod evidence_tests;
 
 pub use model::{
     DetailLayout, DisplayMode, FocusPane, SelectedSide, SideSnapshot, TraceSnapshot, TrafficKind,
