@@ -77,6 +77,18 @@ It prints each received method, URI, header set, and bounded body preview to its
 terminal. This development-only log intentionally includes credential and
 cookie header values.
 
+The [Use cases
+section](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/use-cases/index.md)
+groups practical scenarios by purpose. For synthetic browser GET/POST forms,
+follow the [step-by-step HTTP/1.1 lab use
+case](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/use-cases/browser-form-lab/setup.md#quickstart).
+It starts with origin readiness, config validation and a dedicated browser,
+then matches GET/POST, edits, reject and Repeat with TUI transactions and origin
+arrivals. The [Web/API
+reference](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/use-cases/browser-form-lab/http-contract.md#web-surfaces)
+lists the added `/lab` page, `/lab/app.js`, `/lab/style.css`, `GET /lab/get` and
+`POST /lab/post`. They belong to the local test origin, not a Freja control plane.
+
 Freja's default runtime profile is local and interactive: `ui = "tui"`,
 `enforcement = "observe"`, and `hooks = "interactive"`. CONNECT remains a blind
 tunnel and audit capture remains metadata-only. ACL, destination-guard,

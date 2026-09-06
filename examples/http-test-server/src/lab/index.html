@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Freja · HTTP/1.1 form lab</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/lab/style.css">
+  <script src="/lab/app.js" defer></script>
+</head>
+<body>
+<main>
+  <header><p class="eyebrow">FREJA / LOCAL HTTP FIXTURE</p>
+    <h1>One request. Follow it through.</h1>
+    <p>Make a small GET query or POST form body, inspect it in Freja, then compare what this origin received.</p>
+  </header>
+  <aside class="notice"><strong>Synthetic data only.</strong> The origin terminal, echo and live TUI show unredacted data, including headers. A successful echo does not prove Freja was used. Confirm the request’s HTTP/1.1 version and TransactionId in the TUI.</aside>
+  <details>
+    <summary>Before sending: origin, proxy and pause</summary>
+    <ol>
+      <li>Run this origin and Freja in separate terminals. Use <code>examples/config/tui/freja.interactive.toml</code>: TUI + Enforce + Interactive, HTTP only. This lab explicitly allows loopback upstreams.</li>
+      <li>Set the browser’s HTTP proxy to <code>127.0.0.1:8080</code> and remove loopback/localhost bypasses. Open this page over <strong>http://</strong>. Browser bypass rules vary; check the TUI instead of trusting the setting alone.</li>
+      <li>The page GET and its local script/style requests can pause too. Select them in Freja and press <kbd>c</kbd> to continue. The 30-second decision timeout applies to each paused request.</li>
+      <li>Give each attempt a new case label. It helps find the request; Freja’s TransactionId is the identity. Repeat may send the same case again under a new transaction.</li>
+    </ol>
+  </details>
+  <section aria-labelledby="input-title">
+    <h2 id="input-title">1. Prepare a request</h2>
+    <p>Fixed destination: this origin’s <code>/lab/get</code> or <code>/lab/post</code>. No external destination is accepted.</p>
+    <form id="lab-form" autocomplete="off">
+      <fieldset id="inputs" disabled>
+        <legend>Two synthetic fields</legend>
+        <label for="method">Method and input location</label>
+        <select id="method"><option value="GET">GET — query in the request target</option><option value="POST">POST — URL-encoded form body</option></select>
+        <label for="case">Case label <span>1–32 ASCII letters, digits, - or _</span></label>
+        <input id="case" name="case" value="get-01" required maxlength="32" pattern="[A-Za-z0-9_-]{1,32}" spellcheck="false">
+        <label for="message">Message <span>0–256 UTF-8 bytes; empty is allowed</span></label>
+        <textarea id="message" name="message" rows="3" maxlength="256" spellcheck="false">hello 日本語 &amp; =</textarea>
+        <p id="byte-count">Message byte count</p>
+        <p id="validation" role="status"></p>
+        <div class="actions"><button id="send" type="submit">Send GET query</button><button id="clear" type="button" class="secondary">Clear message</button></div>
+      </fieldset>
+    </form>
+    <noscript>JavaScript is required for this lab. The form stays disabled to avoid accidental navigation or POST resubmission. The existing JSON routes remain available to curl.</noscript>
+    <h3>Prepared encoding — not sent yet</h3>
+    <pre id="preview" tabindex="0">Waiting for the local script. Continue /lab/app.js in Freja if it is paused.</pre>
+    <p class="hint">Space becomes <code>+</code>; <code>&amp;</code> and <code>=</code> in values become <code>%26</code> and <code>%3D</code>. Japanese text is UTF-8 percent-encoded. The server accepts exactly <code>case</code> and <code>message</code>, with at most 2 KiB of encoded query/body.</p>
+  </section>
+  <section aria-labelledby="result-title">
+    <h2 id="result-title">2. Inspect and compare</h2>
+    <p id="status" role="status" aria-live="polite">Not sent. If controls remain disabled, check Freja for the local script request.</p>
+    <h3>Last submitted bytes — before any Freja edit</h3>
+    <pre id="sent" tabindex="0">No submission.</pre>
+    <h3>Latest response — received bytes and decoded fields are separate</h3>
+    <pre id="result" tabindex="0">No response. The origin cannot identify Freja’s transaction for you.</pre>
+    <button id="again" type="button" class="secondary" disabled>Return to input (does not send)</button>
+    <p class="hint">Only the current form and latest attempt stay in this page’s memory. No history, storage, automatic retry or page reload is used. Results are bounded to 64 KiB. Re-enter a new case label before explicitly sending again.</p>
+  </section>
+  <details open>
+    <summary>Match the request, intervention and arrival</summary>
+    <dl>
+      <dt>Continue <kbd>c</kbd></dt><dd>Find the case in Traffic, check HTTP/1.1 and note its TransactionId. While paused, no corresponding HTTP request should be in origin stdout. Continue and compare the echo URI/body with <code>[received]</code> in the origin terminal.</dd>
+      <dt>Edit POST <kbd>e</kbd> / <kbd>i</kbd></dt><dd>Edit permitted end-to-end headers (for example <code>X-Lab-Edit: yes</code>) or UTF-8 body. Keep <code>case=post-edit&amp;message=changed</code> to preserve form meaning. A plain edited body is still received bytes, but the lab reports unavailable form interpretation. Method, target/query, Host and framing are read-only. Save and continue using the editor’s displayed controls.</dd>
+      <dt>Reject <kbd>r</kbd></dt><dd>An explicit operator reject occurs before forwarding. Match the rejected transaction in the TUI and confirm there is no corresponding origin request. An HTTP error alone does not prove reject or non-arrival.</dd>
+      <dt>Repeat <kbd>Shift+R</kbd>, then <kbd>s</kbd></dt><dd>On a paused row, Shift+R continues the original unchanged and creates a Repeat workspace. Sending that draft creates a new transaction and an additional origin request; it does not pause again. Read its latest response on Repeat, not as a new response to this browser form.</dd>
+    </dl>
+  </details>
+  <details>
+    <summary>If the result is missing or rejected</summary>
+    <ul>
+      <li><strong>Waiting:</strong> inspect Freja for a pause. The browser cannot detect that state. Its 45-second wait limit exceeds the sample’s 30-second decision timeout; cancelling that wait does not prove non-arrival.</li>
+      <li><strong>400 / 413 / 415 from the lab:</strong> the origin received an invalid, oversized or unsupported form. Read the error and the actual received bytes when available. Decoded fields are unavailable if the edit broke the form.</li>
+      <li><strong>Reject or decision timeout:</strong> check the TUI’s reason and origin terminal. Do not treat an Observe policy deny as an operator reject or actual block.</li>
+      <li><strong>Origin stopped / network error:</strong> arrival is unknown from this page. Check both terminals and restore the origin. Inputs stay here; returning to them does not retry.</li>
+      <li><strong>Echo but no matching Freja transaction:</strong> the browser may have bypassed the proxy. Freja traversal is unverified. A direct request is a useful control, not a passing proxy test.</li>
+    </ul>
+  </details>
+  <footer>HTTP/1.1 only · local, disposable data · existing JSON routes at <a href="/">/</a></footer>
+</main>
+</body>
+</html>

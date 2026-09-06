@@ -1,49 +1,9 @@
 //! End-to-end HTTP checks for the Axum test origin.
 
-use std::{net::SocketAddr, str};
-
 use serde_json::Value;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::{TcpListener, TcpStream},
-    task::JoinHandle,
-};
-
-struct TestServer {
-    address: SocketAddr,
-    task: JoinHandle<std::io::Result<()>>,
-}
-
-impl TestServer {
-    async fn spawn() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let task = tokio::spawn(axum::serve(listener, freja_http_test_server::app()).into_future());
-        Self { address, task }
-    }
-
-    async fn request(&self, request: &[u8]) -> Vec<u8> {
-        let mut stream = TcpStream::connect(self.address).await.unwrap();
-        stream.write_all(request).await.unwrap();
-        let mut response = Vec::new();
-        stream.read_to_end(&mut response).await.unwrap();
-        response
-    }
-}
-
-impl Drop for TestServer {
-    fn drop(&mut self) {
-        self.task.abort();
-    }
-}
-
-fn response_body(response: &[u8]) -> &[u8] {
-    let separator = response
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .unwrap();
-    &response[separator + 4..]
-}
+use std::str;
+mod support;
+use support::{TestServer, response_body};
 
 #[tokio::test]
 async fn get_echoes_request_target_and_headers() {

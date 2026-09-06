@@ -12,6 +12,7 @@ cargo-fuzz = true
 bytes = "1"
 freja-config = { path = "../crates/freja-config" }
 freja-domain = { path = "../crates/freja-domain" }
+freja-http-test-server = { path = "../examples/http-test-server", features = ["fuzzing"] }
 freja-policy = { path = "../crates/freja-policy" }
 freja-proxy = { path = "../crates/freja-proxy", default-features = false }
 http = "1"
@@ -54,3 +55,10 @@ bench = false
 
 [workspace]
 members = ["."]
+
+[[bin]]
+name = "browser_form"
+path = "fuzz_targets/browser_form.rs"
+test = false
+doc = false
+bench = false

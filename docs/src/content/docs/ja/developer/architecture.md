@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: Freja contributor向けのcrate境界、data flow、runtime snapshot、不変条件です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-06
 tags:
   - アーキテクチャ
   - 開発者
@@ -34,6 +34,12 @@ flowchart TD
 ```
 
 ## Crate境界
+
+独立した非公開の`examples/http-test-server`は7 crateの外にある開発originです。
+`/lab`は固定された同一origin向けHTML/CSS/JavaScriptで、短いURL-encoded GET/POSTを
+送信します。application formのdecodeはexample内に置き、FrejaのHTTP解析、policy、
+TUI操作には関与しません。integration testはFrejaへ依存しますが、production crateから
+exampleへの依存はありません。[browser form lab](../../use-cases/browser-form-lab/)を参照してください。
 
 ### `freja-domain`
 

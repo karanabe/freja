@@ -2,7 +2,7 @@
 title: Threat model
 description: trusted input、attack surface、実装済みcontrol、operatorに残るriskです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-06
 tags:
   - セキュリティ
   - threat-model
@@ -71,6 +71,18 @@ untrusted dataはTCP/SOCKS handshake、Hyper parsing、DNS、TLS handshake、str
 - built-in admin HTTP metrics endpointはなく、embedderがprocess-local APIをsampleする
 
 security-sensitive変更ではこのpageと該当境界のtestを更新してください。
+
+## 開発用browser form origin
+
+独立originの`/lab`は上限付きの合成field二つだけを受け取り、固定された同一originの
+pathへ送信します。credential、任意送信先、upload、入力・履歴の永続保存、外部assetは
+提供しません。echoとstdoutは意図的にunredactedなので専用browser profileと合成値を
+使います。不正なformへ編集されたbodyやエラー応答も`textContent`とcontrol文字escapeで
+表示します。入力・response・表示上限に加え、CSP、no-store、nosniffを設定します。
+既存JSON routeとterminal logはそれぞれ従来の上限を持ち、productionのsecurity境界では
+ありません。origin到達だけではFreja経由を証明できず、TUIの取引を別途照合します。
+browserのabort・再入力は未到達を証明せず、自動再送を起こしません。
+[labユースケース](../../use-cases/browser-form-lab/)を参照してください。
 
 ## Liveルール定義
 

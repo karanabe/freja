@@ -2,7 +2,7 @@
 title: Development and testing
 description: Workspace layout, validation gates, integration tests, fuzz targets, and documentation workflow.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-06
 tags:
   - testing
   - contributing
@@ -101,10 +101,90 @@ detector, and interactive TUI runs with broad or focused bounds. The CLI
 integration suite executes `check-config` against every shipped template so
 schema changes cannot silently leave an example invalid.
 
+## Browser form fixture
+
+The [HTTP/1.1 browser form lab](../../use-cases/browser-form-lab/) documents the
+interactive profile, loopback proxy setup, entry-page pauses and manual evidence
+to collect. `/lab` is a static same-origin page in the standalone example;
+existing JSON and curl routes remain available.
+
+The example is outside the seven-crate workspace and needs its own gates:
+
+```sh
+cargo fmt --manifest-path examples/http-test-server/Cargo.toml -- --check
+cargo clippy --manifest-path examples/http-test-server/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --manifest-path examples/http-test-server/Cargo.toml --all-features
+```
+
+`tests/browser_form.rs` exercises local HTTP contracts, strict bounded form
+interpretation, malformed edited bytes, header/display limits and JSON route
+compatibility. `tests/freja_form.rs` starts Freja against a local origin and uses
+the existing typed broker to continue, edit and reject requests, expire a pause,
+and run a Repeat with new transaction provenance. It checks HTTP request arrival
+separately from opening an upstream TCP connection, and includes direct-access
+and stopped-origin controls. It does not drive TUI keys.
+
+With Node.js 22+ and pnpm 11+, run the browser tests:
+
+```sh
+cd examples/http-test-server
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+Install Chromium's required host libraries when prompted. `tests/browser.mjs`
+starts a disposable local origin and checks GET/POST encoding, empty/Unicode
+input, UTF-8 limits, preserved re-entry, keyboard submission, safe text output,
+narrow layouts in both color modes, errors, pending/timeout state and response
+bounds. Browser error/delay fixtures are controlled simulations, separate from
+the Rust tests of actual Freja behavior. Neither is evidence of a maintainer
+completing the browser-plus-TUI workflow. Record revision, browser/OS and proxy
+setup, HTTP/1.1 and transaction correlation, origin arrivals and confusing steps
+for manual cases; mark any unperformed observation explicitly.
+
+## Browser lab visuals
+
+The [first GET page](../../use-cases/browser-form-lab/first-get/) in both locales shares `/images/browser-form-lab/get-ready.png`, stored under
+`docs/public/` and copied unchanged into the static site. Regenerate it from the
+real embedded `/lab` page after changing its controls or layout. With the pinned
+example Playwright dependency, Chromium and host libraries installed as above,
+run these commands **from the repository root**:
+
+```sh
+cargo build --manifest-path examples/http-test-server/Cargo.toml
+node docs/scripts/capture-browser-form-lab.mjs
+(cd docs && pnpm check)
+```
+
+The script starts and stops its own loopback origin on an ephemeral port. It uses
+a fresh Chromium context at 1100×2400 CSS pixels, device scale 1, `en-US`, light
+color scheme and reduced motion. It selects GET, fills case `get-01` and message
+`hello origin`, then moves keyboard focus to Send without submitting. It checks
+the prepared encoding and unsent state, waits for fonts, and crops the actual
+input/result sections. It does not alter the DOM or draw fictional controls;
+the B1–B7 guide legend explains the real controls. No address bar, machine-specific
+origin port, headers, credentials or real traffic appear in the image.
+
+The reference capture used Linux and Chromium 153.0.8010.12 (Playwright's pinned
+build 1243). OS fonts/native controls can change the pixels; review the regenerated
+image, button focus and synthetic text rather than treating a hash as a portable
+visual test. Keep both locales' alt text, caption and legend synchronized. This
+unsent origin screenshot does not establish traversal through Freja.
+
+The TUI ASCII map is a representative Traffic/Pretty/Split view, with empty rows
+omitted and T1–T4 documentation annotations. Check it against
+`crates/freja-ui/src/tui/render.rs` and the current key handling when updating it;
+confirm with a local paused `/lab` request, focus Flows with `1`, select the row
+and check Request/Response titles. Width and data affect wrapping and hints.
+Do not turn documentation annotations into alleged UI labels or use a terminal
+recording containing real traffic. Full browser-plus-TUI observation remains a
+separate manual check.
+
 ## Fuzz targets
 
 The nested `fuzz` workspace wires production parsers and state machines into
-five targets:
+five targets, plus the development origin's bounded application form decoder:
 
 ```sh
 cargo check --manifest-path fuzz/Cargo.toml --bins
@@ -112,7 +192,9 @@ cargo check --manifest-path fuzz/Cargo.toml --bins
 
 Targets cover configuration parsing, target parsing, HTTP mutation plans,
 binary scanning, and malformed/ambiguous HTTP framing. The framing target also
-drives the private capture-only HTTP/1 message-boundary state machine. Building
+drives the private capture-only HTTP/1 message-boundary state machine.
+`browser_form` drives the exact lab form decoder through the example's `fuzzing`
+feature with at most 2 KiB input; it does not parse HTTP wire framing. Building
 targets proves they remain connected; release hardening should also run
 time-bounded `cargo-fuzz` campaigns with retained corpora.
 

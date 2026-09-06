@@ -2,7 +2,7 @@
 title: TUI and typed hooks
 description: Observe flows in ratatui and understand automatic or interactive hook behavior.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-06
 tags:
   - tui
   - hooks
@@ -34,6 +34,10 @@ multi-listener TUI profile. `examples/config/tui/freja.interactive.toml` is a
 focused HTTP-only enforcement variant with smaller bounds and preflight
 inspection. Run only one example profile at a time because they share listener
 ports.
+
+The [HTTP/1.1 browser form lab](../../use-cases/browser-form-lab/) uses that focused profile
+with a local synthetic origin. It covers browser proxy setup, entry-page pauses,
+continue, allowed header/body edits, rejection and Repeat arrival checks.
 
 Run Freja in a real terminal. Traffic content in this view is intentionally
 unredacted and may contain credentials, cookies, query secrets, or personal

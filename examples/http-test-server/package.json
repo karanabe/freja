@@ -1,0 +1,11 @@
+{
+  "name": "freja-http-test-server-browser-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:browser": "cargo build && node --test tests/browser.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

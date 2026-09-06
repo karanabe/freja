@@ -2,7 +2,7 @@
 title: Architecture
 description: Crate boundaries, data flow, runtime snapshots, and invariants for Freja contributors.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-06
 tags:
   - architecture
   - developer
@@ -36,6 +36,13 @@ flowchart TD
 ```
 
 ## Crate boundaries
+
+The independent, non-published `examples/http-test-server` is a development
+origin outside these seven crates. Its `/lab` serves fixed same-origin HTML,
+CSS and JavaScript for short URL-encoded GET/POST input. Application form
+decoding stays in the example and does not participate in Freja's HTTP parsing,
+policy or TUI operations. Its integration tests depend on Freja; no production
+crate depends on the example. See the [browser form lab](../../use-cases/browser-form-lab/).
 
 ### `freja-domain`
 

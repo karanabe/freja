@@ -2,7 +2,7 @@
 title: 開発とテスト
 description: workspace構造、validation gate、integration test、fuzz target、documentation workflowです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-06
 tags:
   - テスト
   - contribution
@@ -59,15 +59,89 @@ curl --noproxy "" --proxy http://127.0.0.1:8080 \
 
 `examples/config/headless/`と`examples/config/tui/`以下のstandalone fileで、enforceするheadless運用、focused blocking detector、および広い上限またはfocusedな上限のinteractive TUIを試せます。CLI integration suiteは同梱する全templateへ`check-config`を実行し、schema変更でsampleが暗黙に無効にならないことを確認します。
 
+## Browser form fixture
+
+[HTTP/1.1 browser form lab](../../use-cases/browser-form-lab/)にinteractive profile、
+loopback proxy設定、入口ページのpause、手動で照合する証拠を記載しています。
+`/lab`は独立example内の同一origin向け静的ページで、既存JSON/curl routeも使えます。
+
+exampleは7 crateのworkspace外にあるため、個別に検証します。
+
+```sh
+cargo fmt --manifest-path examples/http-test-server/Cargo.toml -- --check
+cargo clippy --manifest-path examples/http-test-server/Cargo.toml --all-targets --all-features -- -D warnings
+cargo test --manifest-path examples/http-test-server/Cargo.toml --all-features
+```
+
+`tests/browser_form.rs`はlocal HTTP契約、上限付きform解釈、不正な編集済みbyte、
+header/表示上限、既存JSON route互換を確認します。`tests/freja_form.rs`はlocal
+originとFrejaを起動し、既存typed brokerでcontinue、編集、reject、pause期限切れ、
+新しいtransactionに対応するRepeatを実行します。upstream TCP接続とHTTP request
+到達を分けて確認し、直通とorigin停止の対照も含みます。TUIのキー操作は行いません。
+
+Node.js 22+とpnpm 11+でbrowser testを実行します。
+
+```sh
+cd examples/http-test-server
+pnpm install --frozen-lockfile
+pnpm exec playwright install chromium
+pnpm test:browser
+```
+
+Chromiumが必要とするhost libraryはinstallerの案内に従って用意します。
+`tests/browser.mjs`は使い捨てlocal originを起動し、GET/POST encoding、空欄・日本語、
+UTF-8上限、再入力、keyboard送信、安全な文字表示、両color modeの狭い画面、失敗、
+送信待ち・timeout、response上限を確認します。browserの失敗・遅延は制御した模擬応答で、
+実際のFrejaを確認するRust testとは区別します。どちらもmaintainerがbrowserとTUIの
+workflowを完遂した証拠にはなりません。手動ではrevision、browser/OSとproxy設定、
+HTTP/1.1と取引の対応、origin到達、迷った手順を記録し、未実施は未観察と明示します。
+
+## Browser lab visuals
+
+両言語の[最初のGET page](../../use-cases/browser-form-lab/first-get/)は`/images/browser-form-lab/get-ready.png`を共有します。`docs/public/`に置き、
+static siteへそのままcopyします。controlやlayoutを変更したら、実際の埋め込み`/lab`から
+再撮影してください。上記の固定版Playwright依存、Chromium、host libraryを用意したうえで、
+**repository rootから**次を実行します。
+
+```sh
+cargo build --manifest-path examples/http-test-server/Cargo.toml
+node docs/scripts/capture-browser-form-lab.mjs
+(cd docs && pnpm check)
+```
+
+scriptはephemeral portのloopback originを自分で起動・停止します。新しいChromium contextを
+1100×2400 CSS pixel、device scale 1、`en-US`、light color scheme、reduced motionで使います。
+GETを選び、case `get-01`、message `hello origin`を入れ、送信せずkeyboard focusをSendへ
+移します。prepared encodingと未送信状態を確認し、fontの準備を待って実際のinput/result
+sectionを切り出します。DOMの改変や架空controlの描画は行いません。guideのB1–B7 legendが
+実際のcontrolを説明します。address bar、machine固有のorigin port、header、credential、
+実trafficは画像に含めません。
+
+基準の撮影環境はLinux、Chromium 153.0.8010.12（Playwright固定版のbuild 1243）です。
+OSのfontやnative controlでpixelは変わるため、hashを環境共通のvisual testとせず、
+再撮影した画像、buttonのfocus、syntheticな文字を目視確認してください。
+英日のalt text、caption、legendを同期します。この未送信のorigin画像だけではFreja経由を
+証明できません。
+
+TUIのASCII図はTraffic/Pretty/Splitの代表状態で、空行を省略し、文書の注記T1–T4を付けています。
+更新時は`crates/freja-ui/src/tui/render.rs`と現在のkey処理に照合し、localのpaused `/lab`
+requestでも確認します。`1`でFlowsへfocusして対象行を選び、Request/Responseのtitleを
+確認してください。幅やdataにより折り返しとhintは変わります。文書の注記を実際のUI labelとして
+扱わず、実traffic入りのterminal録画も使わないでください。browserとTUIを通した一連の
+手動観察は別の確認として残ります。
+
 ## Fuzz target
 
-nested `fuzz` workspaceはproduction parser/state machineを5 targetへ接続します。
+nested `fuzz` workspaceにはproduction parser/state machineの5 targetに加え、
+開発originの上限付きapplication form decoder用targetがあります。
 
 ```sh
 cargo check --manifest-path fuzz/Cargo.toml --bins
 ```
 
-configuration parsing、target parsing、HTTP mutation plan、binary scanning、malformed/ambiguous HTTP framingを対象にします。framing targetはprivate capture-only HTTP/1 message-boundary state machineも駆動します。target buildは接続維持を証明しますが、release hardeningではcorpusを保持したtime-bounded `cargo-fuzz` campaignも実行してください。
+configuration parsing、target parsing、HTTP mutation plan、binary scanning、malformed/ambiguous HTTP framingを対象にします。framing targetはprivate capture-only HTTP/1 message-boundary state machineも駆動します。
+`browser_form`はexampleの`fuzzing` feature経由で実際のlab form decoderへ最大2 KiBを
+渡します。HTTP wire framingのparserではありません。target buildは接続維持を証明しますが、release hardeningではcorpusを保持したtime-bounded `cargo-fuzz` campaignも実行してください。
 
 ## Code constraint
 

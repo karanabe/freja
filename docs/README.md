@@ -36,7 +36,9 @@ same relative path so Starlight can connect translations.
 
 ```text
 src/content/docs/
-├── guides/             # Task-oriented operator guides
+├── guides/             # General feature and configuration operations
+├── use-cases/          # Concrete scenarios, from a goal to observed evidence
+│   └── browser-form-lab/ # Overview, setup, GET, interventions, recovery, contract
 ├── reference/          # CLI, configuration, and schema reference
 ├── troubleshooting/    # Symptoms, causes, and recovery
 ├── developer/          # Architecture, security, hooks, tests, ADRs
@@ -46,6 +48,39 @@ src/content/docs/
 Every page needs a title and description. Reuse a small stable tag vocabulary,
 set `sidebar.order` for intentional navigation, and update both locales in the
 same change. Use `.mdx` only for pages that import components.
+
+## Adding a use case
+
+Use cases explain how to achieve a concrete purpose end to end and how to tell
+what happened. Guides explain general feature/configuration operations;
+Reference documents complete contracts. Link to those shared explanations
+instead of duplicating them in a scenario. A fixture-specific HTTP contract can
+live beside its use case, clearly scoped to that fixture.
+
+Add only an implemented scenario with identified evidence and explicit manual
+validation gaps. Do not create placeholder pages or implied roadmaps. Add its
+purpose and entry link to both `use-cases/index.md` pages and a translated group
+under the top-level Use cases sidebar in `astro.config.mjs`. Keep the home entry
+pointing to the use-case list.
+
+Give each scenario an overview/page map. Split preparation, first success,
+interventions, recovery/cleanup and detailed contracts by reader task when the
+content needs multiple pages. Each page states its starting state, completion
+point and next destination; use explicit localized `prev`/`next` frontmatter
+and an overview link. Use descriptive page titles and semantic heading levels,
+not global step numbers across pages. Nest local actions under their topic
+(e.g. H3 preparation actions under H2 Quickstart). Keep ordered lists for actual
+local sequences and figure legends, and preserve previous fragments with
+invisible anchor aliases when renaming headings. Keep both locales' paths,
+commands, examples, figure labels and safety/evidence meanings aligned. Keep shared image paths and capture instructions stable.
+
+When moving an existing page, update canonical links in content and READMEs.
+Retain a short old-route migration page with `sidebar.hidden: true` and
+`pagefind: false`; preserve known fragment IDs with a direct link to each new
+destination. It remains an ordinary static page, usable without JavaScript or
+host-specific redirects. Do not keep the full article in both places. The old
+`guides/browser-form-lab/` route preserves `#quickstart`, `#cleanup`,
+`#web-surfaces` and `#failure-and-re-entry` in both locales.
 
 ## Validation
 
@@ -57,6 +92,11 @@ This validates frontmatter, English/Japanese route parity, generated routes,
 internal links and anchors, and Pagefind indexing. When changing layout or
 components, also inspect desktop and mobile widths in both color modes and
 verify keyboard focus.
+
+For a move, also test old URLs/fragments and their destination links on the
+built local site, plus the new sidebar, home entry, previous/next and locale
+switcher at desktop/mobile widths. Compare pre-move content to confirm that
+steps, code blocks, figures, contracts and cleanup guards survived the split.
 
 Production hosting is intentionally not encoded in this directory. Add Astro's
 `site` (and `base` when needed) only when the deployment hostname and path are

@@ -24,6 +24,7 @@ const STREAM_CHANNEL_CAPACITY: usize = 1;
 
 pub(super) fn router() -> Router {
     Router::new()
+        .merge(crate::lab::router())
         .route("/", get(index))
         .route("/healthz", get(health))
         .route("/get", get(echo))
@@ -48,6 +49,9 @@ async fn index() -> Json<ServerDescription> {
         service: "freja-http-test-server",
         warning: "development-only server; request headers and bodies are echoed",
         endpoints: vec![
+            "GET /lab",
+            "GET /lab/get?case=example&message=hello",
+            "POST /lab/post (application/x-www-form-urlencoded)",
             "GET /healthz",
             "GET /get",
             "POST /post",
@@ -89,19 +93,7 @@ async fn echo(request: Request) -> Response {
 }
 
 fn echo_response(method: &str, uri: String, headers: &HeaderMap, body: &Bytes) -> Response {
-    let body_utf8 = std::str::from_utf8(body).ok().map(str::to_owned);
-    let body_base64 = BASE64.encode(body);
-    let mut response = Json(RequestEcho {
-        method: method.to_owned(),
-        uri,
-        headers: capture_headers(headers),
-        body: CapturedBody {
-            byte_length: body.len(),
-            utf8: body_utf8,
-            base64: body_base64,
-        },
-    })
-    .into_response();
+    let mut response = Json(RequestEcho::capture(method, uri, headers, body)).into_response();
     response.headers_mut().insert(
         "x-freja-test-server",
         HeaderValue::from_static("request-echo"),
@@ -260,11 +252,26 @@ struct Health {
 }
 
 #[derive(Serialize)]
-struct RequestEcho {
+pub(super) struct RequestEcho {
     method: String,
     uri: String,
     headers: BTreeMap<String, Vec<String>>,
     body: CapturedBody,
+}
+
+impl RequestEcho {
+    pub(super) fn capture(method: &str, uri: String, headers: &HeaderMap, body: &[u8]) -> Self {
+        Self {
+            method: method.to_owned(),
+            uri,
+            headers: capture_headers(headers),
+            body: CapturedBody {
+                byte_length: body.len(),
+                utf8: std::str::from_utf8(body).ok().map(str::to_owned),
+                base64: BASE64.encode(body),
+            },
+        }
+    }
 }
 
 #[derive(Serialize)]

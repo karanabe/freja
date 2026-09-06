@@ -97,6 +97,9 @@ async fn run(arguments: Arguments) -> Result<(), AppError> {
         })?;
     let local_address = listener.local_addr().map_err(AppError::LocalAddress)?;
     println!("freja HTTP test server listening on http://{local_address}");
+    println!(
+        "browser form lab: http://{local_address}/lab (HTTP/1.1; verify the proxy path in Freja)"
+    );
     println!("request headers and bodies are echoed; do not use production secrets");
 
     axum::serve(listener, freja_http_test_server::app())

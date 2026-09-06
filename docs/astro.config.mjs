@@ -44,6 +44,18 @@ export default defineConfig({
 					items: [{ autogenerate: { directory: 'guides' } }],
 				},
 				{
+					label: 'Use cases',
+					translations: { ja: 'ユースケース' },
+					items: [
+						{ slug: 'use-cases' },
+						{
+							label: 'HTTP/1.1 browser form lab',
+							translations: { ja: 'HTTP/1.1 browserフォームlab' },
+							items: [{ autogenerate: { directory: 'use-cases/browser-form-lab' } }],
+						},
+					],
+				},
+				{
 					label: 'Reference',
 					translations: { ja: 'リファレンス' },
 					items: [{ autogenerate: { directory: 'reference' } }],

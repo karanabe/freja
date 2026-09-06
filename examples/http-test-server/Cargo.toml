@@ -9,17 +9,25 @@ publish = false
 description = "Local Axum origin server for manually exercising Freja"
 readme = "README.md"
 
+[features]
+fuzzing = []
+
 [dependencies]
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "query", "tokio"] }
 base64 = "0.23.1"
 bytes = "1.11.1"
 clap = { version = "4.5.46", features = ["derive"] }
+percent-encoding = "2.3.2"
 serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
 tokio = { version = "1.47.1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = "0.1.19"
 
 [dev-dependencies]
-serde_json = "1.0.143"
+freja-audit = { path = "../../crates/freja-audit" }
+freja-domain = { path = "../../crates/freja-domain" }
+freja-policy = { path = "../../crates/freja-policy" }
+freja-proxy = { path = "../../crates/freja-proxy" }
 
 [workspace]
 resolver = "3"

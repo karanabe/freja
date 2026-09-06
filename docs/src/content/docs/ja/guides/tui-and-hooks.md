@@ -2,7 +2,7 @@
 title: TUIと型付きHook
 description: ratatuiでflowを観測し、automaticまたはinteractive Hookの挙動を理解します。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-06
 tags:
   - TUI
   - Hook
@@ -31,6 +31,10 @@ cargo run -p freja
 `examples/config/tui/freja.toml`はmulti-listener TUI profile向けにenforcementを明示的に有効化します。`examples/config/tui/freja.interactive.toml`は、小さい上限とpreflight inspectionを使うHTTP専用enforcement variantです。各example profileはlistener portを共有するため、1つずつ起動してください。
 
 実terminalでFrejaを起動します。この画面のtraffic contentは意図的にredactせず、credential、cookie、query secret、個人情報を含む可能性があります。信頼できるlocal terminalだけで使用してください。audit redactionは変更されません。
+
+[HTTP/1.1 browser form lab](../../use-cases/browser-form-lab/)ではfocused profileとlocalな合成入力用
+originを使い、browser proxy設定、入口ページのpause、continue、許可されたheader/body
+編集、reject、Repeatとorigin到達を確認します。
 
 TUIには3 pageあります。
 

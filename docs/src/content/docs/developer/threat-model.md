@@ -2,7 +2,7 @@
 title: Threat model
 description: Trusted inputs, attack surfaces, implemented controls, and residual operator risks.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-06
 tags:
   - security
   - threat-model
@@ -123,6 +123,20 @@ serialization, and replay parsing.
 
 Security-sensitive changes must update this page and add tests at the boundary
 they alter.
+
+## Development browser form origin
+
+The standalone origin's `/lab` accepts only two bounded synthetic fields and
+sends to fixed same-origin paths. It provides no credentials, arbitrary target,
+uploads, persisted input/history, or external assets. Echo and stdout are
+intentionally unredacted; use a dedicated browser profile and synthetic data.
+Received values, including edited invalid form bodies and error responses, are
+rendered with `textContent` and escaped controls. CSP, no-store and nosniff headers
+supplement the input, response and display bounds. Existing JSON routes and
+terminal logging retain their own limits and are not a production security
+boundary. Origin receipt cannot attest to Freja traversal; verify the TUI
+transaction separately. Browser abort/re-entry does not prove non-arrival and
+never triggers an automatic resend. See the [lab use case](../../use-cases/browser-form-lab/).
 
 ## Live rule definitions
 

@@ -7,6 +7,10 @@ share one version and are released together.
 
 ### Added
 
+- Added a bounded HTTP/1.1 browser form lab at the standalone test origin's
+  `/lab`, with synthetic GET/POST input, preserved re-entry, actual request
+  receipts, and local browser/proxy tests for interception and Repeat.
+
 - Added read-only rule inspection from Diagnostics decisions: `j/k` selects,
   Enter opens, and Enter/q returns; `z` expands the evidence pane. Bounded
   definitions retain evaluator provenance and the decision's generation across
