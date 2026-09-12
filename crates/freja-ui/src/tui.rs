@@ -15,6 +15,8 @@ mod terminal;
 #[cfg(test)]
 mod diagnostics_tests;
 #[cfg(test)]
+mod editor_tests;
+#[cfg(test)]
 mod evidence_tests;
 
 pub use model::{
@@ -75,6 +77,8 @@ mod tests {
         assert!(rendered.contains("listener bound without terminal writes"));
         assert!(hex_ascii(b"A\0").starts_with("41 00"));
         assert_eq!(escape_terminal_bytes(b"A\x1b[2J"), "A\\x1b[2J");
+        assert_eq!(escape_terminal_bytes("界\n次".as_bytes()), "界\n次");
+        assert_eq!(escape_terminal_bytes(b"A\x1b\xffB"), "A\\x1b\\xffB");
     }
 
     #[test]

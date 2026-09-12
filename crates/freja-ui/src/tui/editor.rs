@@ -1,4 +1,9 @@
-use std::{collections::HashSet, error::Error, fmt};
+use std::{
+    collections::HashSet,
+    error::Error,
+    fmt,
+    sync::atomic::{AtomicU16, Ordering},
+};
 
 use freja_policy::hook::{
     BodyMutationPlan, DecodedBody, HeadMutationPlan, HeaderMutation, HttpRequestMutationPlan,
@@ -24,6 +29,9 @@ pub(super) struct RequestEditor {
     maximum_document_bytes: usize,
     buffer: String,
     cursor: usize,
+    // Rendering receives a shared model; the atomic retains the viewport
+    // without removing `Sync` from the public `TuiModel`.
+    viewport_top: AtomicU16,
     mode: EditorMode,
     status: String,
 }
@@ -150,6 +158,7 @@ impl RequestEditor {
             maximum_document_bytes,
             buffer,
             cursor,
+            viewport_top: AtomicU16::new(0),
             mode: EditorMode::Normal,
             status: "NORMAL — i insert | s submit | q discard".to_owned(),
         })
@@ -177,20 +186,26 @@ impl RequestEditor {
         self.status = format!("ERROR — {error}");
     }
 
-    pub(super) fn display_text(&self) -> String {
-        let mut output = self.buffer.clone();
-        output.insert(self.cursor, '▏');
-        output
+    pub(super) fn document(&self) -> &str {
+        &self.buffer
     }
 
-    pub(super) fn cursor_line(&self) -> u16 {
-        u16::try_from(
-            self.buffer[..self.cursor]
-                .bytes()
-                .filter(|byte| *byte == b'\n')
-                .count(),
-        )
-        .unwrap_or(u16::MAX)
+    pub(super) const fn cursor(&self) -> usize {
+        self.cursor
+    }
+
+    pub(super) fn keep_cursor_visible(&self, cursor_row: u16, visible_rows: u16) -> u16 {
+        if visible_rows == 0 {
+            return self.viewport_top.load(Ordering::Relaxed);
+        }
+        let mut top = self.viewport_top.load(Ordering::Relaxed);
+        if cursor_row < top {
+            top = cursor_row;
+        } else if cursor_row >= top.saturating_add(visible_rows) {
+            top = cursor_row.saturating_sub(visible_rows.saturating_sub(1));
+        }
+        self.viewport_top.store(top, Ordering::Relaxed);
+        top
     }
 
     pub(super) fn insert_character(&mut self, character: char) {
@@ -523,6 +538,33 @@ mod tests {
             changed_host.submission(),
             Err(RequestEditError::Mutation(_))
         ));
+    }
+
+    #[test]
+    fn request_editor_movement_preserves_a_full_bounded_unicode_draft() {
+        let body = "界\nsecond";
+        let snapshot = HttpRequestSnapshot {
+            method: Method::POST,
+            uri: Uri::from_static("/submit"),
+            version: Version::HTTP_11,
+            headers: HeaderMap::new(),
+            body: WireBody::new(body),
+            maximum_head_bytes: 4 * 1_024,
+            maximum_body_bytes: body.len(),
+        };
+        let mut editor = RequestEditor::new(&snapshot).unwrap();
+        editor.maximum_document_bytes = editor.buffer.len();
+        let original = editor.document().to_owned();
+
+        editor.move_right();
+        editor.move_down();
+        editor.move_up();
+        editor.move_left();
+        editor.insert_character('X');
+
+        assert_eq!(editor.document(), original);
+        assert!(editor.status().contains("request editor limit"));
+        assert_eq!(editor.submission().unwrap().body, body.as_bytes());
     }
 
     fn snapshot() -> HttpRequestSnapshot {

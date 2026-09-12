@@ -738,7 +738,7 @@ mod tests {
             .editor
             .as_ref()
             .unwrap()
-            .display_text()
+            .document()
             .matches('\n')
             .count();
         assert!(!handle_key(
@@ -751,7 +751,7 @@ mod tests {
                 .editor
                 .as_ref()
                 .unwrap()
-                .display_text()
+                .document()
                 .matches('\n')
                 .count(),
             lines_before + 1

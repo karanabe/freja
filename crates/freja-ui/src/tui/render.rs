@@ -2,6 +2,7 @@ use std::fmt::Write;
 
 use ratatui::{
     Frame,
+    buffer::CellWidth,
     layout::{Constraint, Direction as LayoutDirection, Layout, Rect},
     style::{Color, Modifier, Style},
     text::Line,
@@ -296,12 +297,12 @@ fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {
         .direction(LayoutDirection::Vertical)
         .constraints([Constraint::Min(4), Constraint::Length(3)])
         .split(area);
+    let visible_columns = areas[0].width.saturating_sub(2);
     let visible_rows = areas[0].height.saturating_sub(2);
-    let scroll = editor
-        .cursor_line()
-        .saturating_sub(visible_rows.saturating_sub(1));
+    let layout = editor_layout(editor, visible_columns);
+    let scroll = editor.keep_cursor_visible(layout.cursor_row, visible_rows);
     frame.render_widget(
-        Paragraph::new(escape_terminal_bytes(editor.display_text().as_bytes()))
+        Paragraph::new(layout.lines)
             .block(
                 Block::default()
                     .title(format!("HTTP/1.1 Request Editor [{:?}]", editor.mode()))
@@ -309,7 +310,6 @@ fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(Color::Cyan)),
             )
-            .wrap(Wrap { trim: false })
             .scroll((scroll, 0)),
         areas[0],
     );
@@ -321,6 +321,109 @@ fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {
         ),
         areas[1],
     );
+    if visible_columns > 0
+        && visible_rows > 0
+        && layout.cursor_row >= scroll
+        && layout.cursor_row < scroll.saturating_add(visible_rows)
+    {
+        frame.set_cursor_position((
+            areas[0]
+                .x
+                .saturating_add(1)
+                .saturating_add(layout.cursor_column),
+            areas[0]
+                .y
+                .saturating_add(1)
+                .saturating_add(layout.cursor_row.saturating_sub(scroll)),
+        ));
+    }
+}
+
+struct EditorLayout {
+    lines: Vec<Line<'static>>,
+    cursor_row: u16,
+    cursor_column: u16,
+}
+
+/// Wraps the escaped draft independently from the terminal caret so moving the
+/// caret cannot add a display cell or change an existing row boundary.
+fn editor_layout(editor: &super::editor::RequestEditor, width: u16) -> EditorLayout {
+    let document = escape_terminal_bytes(editor.document().as_bytes());
+    let prefix = escape_terminal_bytes(&editor.document().as_bytes()[..editor.cursor()]);
+    let cursor_logical_line = prefix.bytes().filter(|byte| *byte == b'\n').count();
+    let cursor_line_prefix = prefix.rsplit('\n').next().unwrap_or_default();
+    let mut lines = Vec::new();
+    let mut rows_before_cursor = 0_usize;
+
+    for (line_index, line) in document.split('\n').enumerate() {
+        let first_row = lines.len();
+        wrap_editor_line(line, width, &mut lines);
+        if line_index < cursor_logical_line {
+            rows_before_cursor = rows_before_cursor.saturating_add(lines.len() - first_row);
+        }
+    }
+
+    let (cursor_row_in_line, cursor_column) = wrapped_cursor(cursor_line_prefix, width);
+    EditorLayout {
+        lines,
+        cursor_row: u16::try_from(rows_before_cursor.saturating_add(cursor_row_in_line))
+            .unwrap_or(u16::MAX),
+        cursor_column,
+    }
+}
+
+fn wrap_editor_line(line: &str, width: u16, output: &mut Vec<Line<'static>>) {
+    if width == 0 {
+        return;
+    }
+    let output_start = output.len();
+    let source = Line::from(line);
+    let mut current = String::new();
+    let mut current_width = 0_u16;
+    for grapheme in source.styled_graphemes(Style::default()) {
+        let grapheme_width = grapheme.symbol.cell_width();
+        if grapheme_width > width {
+            continue;
+        }
+        if current_width > 0 && current_width.saturating_add(grapheme_width) > width {
+            output.push(Line::from(std::mem::take(&mut current)));
+            current_width = 0;
+        }
+        current.push_str(grapheme.symbol);
+        current_width = current_width.saturating_add(grapheme_width);
+        if current_width == width {
+            output.push(Line::from(std::mem::take(&mut current)));
+            current_width = 0;
+        }
+    }
+    if !current.is_empty() || output.len() == output_start {
+        output.push(Line::from(current));
+    }
+}
+
+fn wrapped_cursor(line_prefix: &str, width: u16) -> (usize, u16) {
+    if width == 0 {
+        return (0, 0);
+    }
+    let source = Line::from(line_prefix);
+    let mut row = 0_usize;
+    let mut column = 0_u16;
+    for grapheme in source.styled_graphemes(Style::default()) {
+        let grapheme_width = grapheme.symbol.cell_width();
+        if grapheme_width > width {
+            continue;
+        }
+        if column > 0 && column.saturating_add(grapheme_width) > width {
+            row = row.saturating_add(1);
+            column = 0;
+        }
+        column = column.saturating_add(grapheme_width);
+        if column == width {
+            row = row.saturating_add(1);
+            column = 0;
+        }
+    }
+    (row, column)
 }
 
 fn floating_area(area: Rect, width: u16, height: u16) -> Rect {
@@ -552,47 +655,42 @@ pub(super) fn escape_terminal_bytes(bytes: &[u8]) -> String {
     let mut output = String::new();
     let mut cursor = 0;
     while cursor < bytes.len() {
-        let byte = bytes[cursor];
-        if byte.is_ascii() {
-            match byte {
-                b'\n' => output.push('\n'),
-                b'\r' => output.push_str("\\r"),
-                b'\t' => output.push_str("\\t"),
-                0x20..=0x7e => output.push(char::from(byte)),
-                _ => {
-                    let _ = write!(output, "\\x{byte:02x}");
-                }
-            }
-            cursor += 1;
-            continue;
-        }
         match std::str::from_utf8(&bytes[cursor..]) {
             Ok(text) => {
-                for character in text.chars() {
-                    if character.is_control() {
-                        for encoded in character.to_string().as_bytes() {
-                            let _ = write!(output, "\\x{encoded:02x}");
-                        }
-                    } else {
-                        output.push(character);
-                    }
-                }
+                push_escaped_text(&mut output, text);
                 break;
             }
             Err(error) if error.valid_up_to() > 0 => {
                 let valid_end = cursor.saturating_add(error.valid_up_to());
                 if let Ok(text) = std::str::from_utf8(&bytes[cursor..valid_end]) {
-                    output.push_str(text);
+                    push_escaped_text(&mut output, text);
                 }
                 cursor = valid_end;
             }
             Err(_) => {
+                let byte = bytes[cursor];
                 let _ = write!(output, "\\x{byte:02x}");
                 cursor += 1;
             }
         }
     }
     output
+}
+
+fn push_escaped_text(output: &mut String, text: &str) {
+    for character in text.chars() {
+        match character {
+            '\n' => output.push('\n'),
+            '\r' => output.push_str("\\r"),
+            '\t' => output.push_str("\\t"),
+            character if character.is_control() => {
+                for byte in character.to_string().as_bytes() {
+                    let _ = write!(output, "\\x{byte:02x}");
+                }
+            }
+            character => output.push(character),
+        }
+    }
 }
 
 pub(super) fn hex_ascii(bytes: &[u8]) -> String {
