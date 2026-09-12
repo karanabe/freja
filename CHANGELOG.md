@@ -3,20 +3,56 @@
 All notable changes to Freja are documented here. The seven published crates
 share one version and are released together.
 
-## 0.2.0
+## 0.3.0
 
 ### Added
 
 - Added a bounded HTTP/1.1 browser form lab at the standalone test origin's
   `/lab`, with synthetic GET/POST input, preserved re-entry, actual request
   receipts, and local browser/proxy tests for interception and Repeat.
+- Added bounded per-decision connection context and read-only rule inspection
+  to Diagnostics. Operators can correlate a decision with its request or
+  destination and inspect the ordered inputs, outcomes, provenance, and policy
+  generation that produced it without changing audit serialization.
+- Added Vim-style modal request editing through `vim-navigation`, plus
+  Ctrl+h/j/k/l aliases for moving between TUI panes.
 
-- Added read-only rule inspection from Diagnostics decisions: `j/k` selects,
-  Enter opens, and Enter/q returns; `z` expands the evidence pane. Bounded
-  definitions retain evaluator provenance and the decision's generation across
-  reloads without changing audit serialization. ACL details include the
-  configured rules, default action and actual evaluation outcomes, distinguishing
-  empty policies from nonmatches and unavailable stage inputs.
+### Changed
+
+- Strengthened domain and configuration invariants with non-zero generations,
+  sequence numbers, limits, and cache sizes; typed HTTP status codes and byte
+  ranges; internally consistent decisions; and grouped TLS/checkpoint settings.
+- Replaced free-form audit authentication, hook, manual-action, and flow-outcome
+  strings with closed enums while preserving their existing JSON spellings.
+- Made credential-equivalent proxy hashes redact themselves in `Debug` output,
+  and made zero-sized TUI retention fail construction instead of being silently
+  raised to one.
+- Refreshed the documentation site navigation, accessible Mermaid rendering,
+  typography, branding, and localized use-case structure.
+
+### Fixed
+
+- Kept request-editor carets and viewports stable across soft wrapping,
+  scrolling, Unicode input, and repeated renders.
+- Made the Repeat workspace list, editable request, and latest response
+  independent focus stops so long results can be scrolled reliably.
+
+### Upgrade notes
+
+- Pin all Freja crates to `0.3.0`; mixed `0.2.x`/`0.3.x` workspace dependency
+  sets are unsupported.
+- Rust API consumers must use the validated constructors and accessors for
+  `Decision`, `Finding`, audit records and contexts, and validated configuration
+  values. `TuiModel::new` now returns `Result` for invalid zero limits;
+  `DecisionMade` requires a target; and `TrafficRow::traces` contains
+  `TraceSnapshot` values whose `trace` field holds the `DecisionTrace`.
+- The audit JSON representation of existing records is unchanged, but unknown
+  values in closed audit categories and zero sequence or policy-generation
+  values are now rejected during deserialization.
+
+## 0.2.0
+
+### Added
 
 - Added bounded TUI traffic and diagnostics views with correlated HTTP and TCP
   flows, Pretty/Raw/Hex presentation, and non-blocking event-loss counters.
@@ -43,14 +79,6 @@ share one version and are released together.
   ownership modules without changing the seven-crate dependency direction.
 - Clarified that the shipped multi-listener CLI owns concrete Tokio listeners;
   `freja-proxy/pingora-adapter` remains an isolated compatibility boundary.
-- Strengthened domain and configuration invariants with non-zero generations,
-  sequence numbers, limits, and cache sizes; typed HTTP status codes and byte
-  ranges; internally consistent decisions; and grouped TLS/checkpoint settings.
-- Replaced free-form audit authentication, hook, manual-action, and flow-outcome
-  strings with closed enums while preserving their existing JSON spellings.
-- Made credential-equivalent proxy hashes redact themselves in `Debug` output,
-  and made zero-sized TUI retention fail construction instead of being silently
-  raised to one.
 
 ### Upgrade notes
 
@@ -64,12 +92,6 @@ share one version and are released together.
 - The new `limits.ui_content_bytes` and `limits.ui_retained_rows` settings have
   bounded defaults. Interactive configurations must retain a complete bounded
   request and enough rows for every paused flow.
-- Rust API consumers must use the validated constructors and accessors for
-  `Decision`, `Finding`, audit records and contexts, and validated configuration
-  values. `TuiModel::new` now returns `Result` for invalid zero limits.
-- The audit JSON representation of existing records is unchanged, but unknown
-  values in closed audit categories and zero sequence or policy-generation
-  values are now rejected during deserialization.
 
 ## 0.1.0
 

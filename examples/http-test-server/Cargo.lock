@@ -444,7 +444,7 @@ dependencies = [
 
 [[package]]
 name = "freja-audit"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "ed25519-dalek",
  "freja-domain",
@@ -458,7 +458,7 @@ dependencies = [
 
 [[package]]
 name = "freja-domain"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "serde",
  "uuid",
@@ -485,7 +485,7 @@ dependencies = [
 
 [[package]]
 name = "freja-policy"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "freja-domain",
@@ -499,7 +499,7 @@ dependencies = [
 
 [[package]]
 name = "freja-proxy"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "arc-swap",
  "base64",

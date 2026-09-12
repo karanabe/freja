@@ -48,7 +48,7 @@ cargo run -p freja
 ## Configuration
 
 Complete local TUI, headless, and focused enforcement profiles are available
-in [`examples/config/`](examples/config/).
+in [`examples/config/`](https://github.com/karanabe/freja/tree/master/examples/config).
 
 ```console
 freja check-config --config ./freja.toml
@@ -61,19 +61,20 @@ requirements in the documentation before enabling them.
 
 ## Documentation
 
-- [Getting started](docs/src/content/docs/guides/getting-started.md)
-- [Use cases](docs/src/content/docs/use-cases/index.md)
-- [Configuration reference](docs/src/content/docs/reference/configuration.md)
-  and [CLI reference](docs/src/content/docs/reference/cli.md)
-- [Architecture](docs/src/content/docs/developer/architecture.md),
-  [threat model](docs/src/content/docs/developer/threat-model.md), and
-  [testing](docs/src/content/docs/developer/testing.md)
-- [Documentation site workflow](docs/README.md)
+- [Getting started](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/guides/getting-started.md)
+- [Use cases](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/use-cases/index.md)
+- [Configuration reference](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/reference/configuration.md)
+  and [CLI reference](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/reference/cli.md)
+- [Architecture](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/architecture.md),
+  [threat model](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/threat-model.md), and
+  [testing](https://github.com/karanabe/freja/blob/master/docs/src/content/docs/developer/testing.md)
+- [Release history](https://github.com/karanabe/freja/blob/master/CHANGELOG.md)
+- [Documentation site workflow](https://github.com/karanabe/freja/blob/master/docs/README.md)
 
 ### License
 
 <sup>
-Licensed under either of <a href="LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+Licensed under either of <a href="https://github.com/karanabe/freja/blob/master/LICENSE-APACHE">Apache License, Version 2.0</a> or <a href="https://github.com/karanabe/freja/blob/master/LICENSE-MIT">MIT license</a> at your option.
 </sup>
 
 <br>

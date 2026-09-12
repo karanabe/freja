@@ -2,7 +2,7 @@
 title: CLI reference
 description: Freja commands, options, exit behavior, logs, and Unix signals.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-12
 tags:
   - cli
   - reference
@@ -34,7 +34,7 @@ The coordinated release reports its workspace version directly:
 
 ```text
 $ freja --version
-freja 0.2.0
+freja 0.3.0
 ```
 
 ## `check-config`

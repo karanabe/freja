@@ -2,7 +2,7 @@
 title: Getting started
 description: Build Freja, validate a safe local configuration, and proxy your first request.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-12
 tags:
   - installation
   - quick-start
@@ -33,7 +33,7 @@ cargo build --release -p freja
 ./target/release/freja --help
 ```
 
-The 0.2.0 source tree reports `freja 0.2.0`. All seven workspace crates use
+The 0.3.0 source tree reports `freja 0.3.0`. All seven workspace crates use
 that coordinated version.
 
 Keep the binary and configuration under your normal software supply-chain

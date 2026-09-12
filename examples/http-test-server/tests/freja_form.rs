@@ -6,7 +6,9 @@ use axum::{
     http::{HeaderValue, Version},
     middleware,
 };
-use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
+use freja_audit::{
+    AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher, ManualModificationAction,
+};
 use freja_domain::{
     EnforcementMode, HookMode, HttpForwardListener, InspectionMode, ListenEndpoint,
     PolicyGeneration,
@@ -265,11 +267,21 @@ async fn reject_and_timeout_have_no_origin_request_and_distinct_audit_evidence()
         lab.assert_no_arrival().await;
         let mut matched = false;
         while let Ok(event) = lab.audit.try_recv() {
-            if event.context.transaction_id == Some(transaction) {
+            if event.context.transaction_id() == Some(transaction) {
                 matched |= if reject {
-                    matches!(event.event, AuditEvent::ManualModification { ref action } if action == "reject")
+                    matches!(
+                        event.event,
+                        AuditEvent::ManualModification {
+                            action: ManualModificationAction::Reject,
+                        }
+                    )
                 } else {
-                    matches!(event.event, AuditEvent::ManualModification { ref action } if action == "failed")
+                    matches!(
+                        event.event,
+                        AuditEvent::ManualModification {
+                            action: ManualModificationAction::Failed,
+                        }
+                    )
                 };
             }
         }

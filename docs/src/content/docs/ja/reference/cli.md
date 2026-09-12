@@ -2,7 +2,7 @@
 title: CLIリファレンス
 description: Frejaのcommand、option、終了動作、log、Unix signalです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-12
 tags:
   - CLI
   - リファレンス
@@ -32,7 +32,7 @@ commandなしの`freja`は、`--config`なしの`freja run`と同じで、組み
 
 ```text
 $ freja --version
-freja 0.2.0
+freja 0.3.0
 ```
 
 ## `check-config`

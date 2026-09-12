@@ -2,7 +2,7 @@
 title: はじめに
 description: Frejaをbuildし、安全なローカル設定を検証して、最初のリクエストをproxyします。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-05
+updatedAt: 2026-09-12
 tags:
   - インストール
   - クイックスタート
@@ -30,7 +30,7 @@ cargo build --release -p freja
 ./target/release/freja --help
 ```
 
-0.2.0のsource treeでは`freja 0.2.0`と表示します。workspace内7 crateはこのversionで同期します。
+0.3.0のsource treeでは`freja 0.3.0`と表示します。workspace内7 crateはこのversionで同期します。
 
 binaryと設定ファイルは、通常のsoftware supply chain管理下に置いてください。
 
