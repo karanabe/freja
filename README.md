@@ -1,4 +1,7 @@
 <br />
+<p align="center">
+  <img src="https://raw.githubusercontent.com/karanabe/freja/master/docs/src/assets/FrejaLogo.png" alt="Freja" width="520" />
+</p>
 <h1 align="center">Freja</h1>
 <h3 align="center">A local-first, explainable L4/L7 inspection proxy written in Rust.</h3>
 <br />

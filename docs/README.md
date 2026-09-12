@@ -1,7 +1,9 @@
 # Freja documentation site
 
 This directory contains the English and Japanese Freja documentation built
-with Astro Starlight. Product behavior is documented from the Rust
+with Astro Starlight. It includes responsive shared navigation, localized tag
+search, page metadata, themed Mermaid diagrams, KaTeX equations, and local
+system-font styling. Product behavior is documented from the Rust
 implementation, `examples/config/`, packaging files, and integration tests;
 temporary plans are not documentation sources.
 
@@ -47,7 +49,34 @@ src/content/docs/
 
 Every page needs a title and description. Reuse a small stable tag vocabulary,
 set `sidebar.order` for intentional navigation, and update both locales in the
-same change. Use `.mdx` only for pages that import components.
+same change. Regular pages render the description below the title and show the
+most recent date plus up to three tags; larger tag sets collapse behind a
+disclosure. Splash pages omit this metadata row. Use `.mdx` only for pages that
+import components.
+
+Add diagrams with a fenced `mermaid` block. Diagrams follow the project accent,
+rerender when the color mode changes, and fall back to their source if rendering
+fails. Include localized `accTitle` and `accDescr` directives in every diagram
+so its purpose and relationship remain available to assistive technology.
+
+Inline math uses single dollar delimiters and display math uses double dollar
+delimiters. KaTeX renders both forms during the build without client-side
+JavaScript. Escape a literal dollar sign as `\$` when it could be read as math.
+
+## Navigation and visual system
+
+Desktop pages show the shared Docs and Tags links in the header. On mobile the
+same links move into the sidebar menu; pages without a sidebar, including the
+home and tag pages, receive a compact menu with theme and language controls.
+The table of contents includes H2 through H4 headings.
+
+`src/components/PageTitle.astro` owns the visible description and metadata row.
+`src/components/PrimaryNavigation.astro` owns the links reused by desktop and
+mobile layouts. `src/styles/site.css` owns the shared typography and content
+surfaces, while `src/styles/theme.css` derives the palette from
+`--project-accent-hue`. The Starlight header and both localized landing pages
+load `src/assets/FrejaLogo.png`; `public/favicon.png` supplies the browser icon.
+Fonts remain local to the reader's operating system.
 
 ## Adding a use case
 

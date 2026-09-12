@@ -1,0 +1,36 @@
+---
+import Default from '@astrojs/starlight/components/Header.astro';
+import { Icon } from '@astrojs/starlight/components';
+import MobileNavigation from './MobileNavigation.astro';
+
+const { hasSidebar } = Astro.locals.starlightRoute;
+---
+
+<Default><slot /></Default>
+{
+	!hasSidebar && (
+		<details class="standalone-menu print:hidden">
+			<summary aria-label={Astro.locals.t('menuButton.accessibleLabel')}>
+				<Icon name="bars" class="open-menu" />
+				<Icon name="close" class="close-menu" />
+			</summary>
+			<div class="standalone-menu-panel"><MobileNavigation /></div>
+		</details>
+	)
+}
+
+<script>
+	for (const menu of document.querySelectorAll<HTMLDetailsElement>('.standalone-menu')) {
+		const summary = menu.querySelector('summary');
+		menu.addEventListener('keydown', (event) => {
+			if (event.key === 'Escape') {
+				menu.open = false;
+				summary?.focus();
+			}
+		});
+		document.addEventListener('click', (event) => {
+			if (event.target instanceof Node && !menu.contains(event.target)) menu.open = false;
+		});
+		matchMedia('(min-width: 50rem)').addEventListener('change', () => { menu.open = false; });
+	}
+</script>

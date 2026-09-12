@@ -2,7 +2,7 @@
 title: Engine and protocol boundaries
 description: How Tokio, Pingora ServerApp, Hyper, CONNECT, and relay ownership fit together.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-12
 tags:
   - architecture
   - pingora
@@ -56,6 +56,8 @@ making proxy-specific invariants explicit.
 
 ```mermaid
 stateDiagram-v2
+    accTitle: CONNECT commitment states
+    accDescr: A CONNECT request may be rejected before commitment or proceed through an established upstream connection into blind relay or TLS interception, after which failures close the tunnel.
     [*] --> Uncommitted
     Uncommitted --> Rejected: policy / port / connect failure
     Uncommitted --> UpstreamConnected: TCP connect succeeds

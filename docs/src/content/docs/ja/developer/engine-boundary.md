@@ -2,7 +2,7 @@
 title: Engineとprotocol境界
 description: Tokio、Pingora ServerApp、Hyper、CONNECT、relay ownershipの関係です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-01
+updatedAt: 2026-09-12
 tags:
   - アーキテクチャ
   - Pingora
@@ -40,6 +40,8 @@ malformed wire parsingを保守されたHTTP実装へ任せながら、proxy固�
 
 ```mermaid
 stateDiagram-v2
+    accTitle: CONNECT commitのstate
+    accDescr: CONNECT requestはcommit前にrejectされるか、確立済みupstream接続からblind relayまたはTLS interceptionへ進み、commit後のfailureではtunnelをcloseします。
     [*] --> Uncommitted
     Uncommitted --> Rejected: policy / port / connect failure
     Uncommitted --> UpstreamConnected: TCP connect succeeds

@@ -2,7 +2,7 @@
 title: Typed hook design
 description: Hook stages, mutation contracts, interactive flow state, and extension rules.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-12
 tags:
   - hooks
   - architecture
@@ -57,6 +57,8 @@ discover executable code.
 
 ```mermaid
 sequenceDiagram
+    accTitle: Interactive HTTP request decision sequence
+    accDescr: The network task collects and inspects a bounded request, pauses it through the broker for a TUI decision, and then validates the selected action.
     participant Flow as Network task
     participant Broker as Bounded broker
     participant TUI

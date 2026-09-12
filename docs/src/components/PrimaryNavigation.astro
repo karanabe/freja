@@ -1,0 +1,27 @@
+---
+const { locale } = Astro.locals.starlightRoute;
+const isJapanese = locale === 'ja';
+const homePath = isJapanese ? '/ja/' : '/';
+const tagsPath = isJapanese ? '/ja/tags/' : '/tags/';
+const pathname = Astro.url.pathname;
+const links = [
+	{
+		label: isJapanese ? 'ドキュメント' : 'Docs',
+		href: `${homePath}guides/getting-started/`,
+		current: pathname !== homePath && pathname !== tagsPath,
+	},
+	{
+		label: isJapanese ? 'タグ' : 'Tags',
+		href: tagsPath,
+		current: pathname === tagsPath,
+	},
+];
+---
+
+<nav class="primary-navigation" aria-label={isJapanese ? '主要ナビゲーション' : 'Primary navigation'}>
+	{
+		links.map(({ label, href, current }) => (
+			<a href={href} aria-current={current ? 'location' : undefined}>{label}</a>
+		))
+	}
+</nav>

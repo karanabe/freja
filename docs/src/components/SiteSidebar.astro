@@ -1,0 +1,7 @@
+---
+import Default from '@astrojs/starlight/components/Sidebar.astro';
+import PrimaryNavigation from './PrimaryNavigation.astro';
+---
+
+<div class="mobile-navigation md:sl-hidden"><PrimaryNavigation /></div>
+<Default><slot /></Default>

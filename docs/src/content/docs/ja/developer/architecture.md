@@ -14,6 +14,8 @@ Frejaはframework非依存のsecurity decisionをruntime/wire処理から分離�
 
 ```mermaid
 flowchart TD
+    accTitle: Frejaのcomponentとdata flow
+    accDescr: configurationをHTTP、TCP、SOCKS5 pathで共有するpolicy snapshotへcompileし、上限付きaudit/UI eventをstorageとreplayへpublishします。
     R[RawConfig] --> V[ValidatedConfig]
     V --> C[CompiledConfig]
     C --> S[ArcSwap policy snapshot]
@@ -92,6 +94,8 @@ bootstrap/error-erasure境界です。複数listener、signal、audit writer、c
 
 ```mermaid
 sequenceDiagram
+    accTitle: destination authorizationのsequence
+    accDescr: clientのtargetをDNS前に検査し、解決後は全addressを検査して、許可されたaddressだけへ接続してauditします。
     participant Client
     participant Proxy
     participant Policy

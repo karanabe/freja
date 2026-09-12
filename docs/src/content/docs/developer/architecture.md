@@ -16,6 +16,8 @@ policy, inspection, audit, hooks, and UI do not depend on them.
 
 ```mermaid
 flowchart TD
+    accTitle: Freja component and data flow
+    accDescr: Configuration compiles into a policy snapshot shared by the HTTP, TCP, and SOCKS5 paths, which publish bounded audit and UI events for storage and replay.
     R[RawConfig] --> V[ValidatedConfig]
     V --> C[CompiledConfig]
     C --> S[ArcSwap policy snapshot]
@@ -175,6 +177,8 @@ Tokio; the generic Pingora 0.8.1 `ServerApp` adapter remains compile-tested.
 
 ```mermaid
 sequenceDiagram
+    accTitle: Destination authorization sequence
+    accDescr: A client target is checked before DNS, every resolved address is checked afterward, and only an allowed address is connected and audited.
     participant Client
     participant Proxy
     participant Policy

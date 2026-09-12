@@ -1,0 +1,43 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+
+const { entry, locale } = Astro.locals.starlightRoute;
+const { description, publishedAt, updatedAt, tags = [] } = entry.data;
+const isJapanese = locale === 'ja';
+const date = updatedAt ?? publishedAt;
+const dateLabel = updatedAt
+	? (isJapanese ? '更新' : 'Updated')
+	: (isJapanese ? '公開' : 'Published');
+const formattedDate = date && new Intl.DateTimeFormat(isJapanese ? 'ja-JP' : 'en', {
+	year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC',
+}).format(date);
+const tagsLabel = isJapanese ? 'タグ' : 'Tags';
+const collapseTags = tags.length > 3;
+const showMetadata = entry.data.template !== 'splash' && (date || tags.length > 0);
+---
+
+<div class="page-heading">
+	<Default><slot /></Default>
+	{description && <p class="page-description">{description}</p>}
+	{
+		showMetadata && (
+			<div class="page-metadata" data-pagefind-ignore>
+				{date && <p class="page-date">{dateLabel} <time datetime={date.toISOString()}>{formattedDate}</time></p>}
+				{tags.length > 0 && (
+					collapseTags ? (
+						<details class="page-tags-disclosure">
+							<summary>{tagsLabel} ({tags.length})</summary>
+							<ul class="page-tags" aria-label={tagsLabel} role="list">
+								{tags.map((tag) => <li>{tag}</li>)}
+							</ul>
+						</details>
+					) : (
+						<ul class="page-tags" aria-label={tagsLabel} role="list">
+							{tags.map((tag) => <li>{tag}</li>)}
+						</ul>
+					)
+				)}
+			</div>
+		)
+	}
+</div>

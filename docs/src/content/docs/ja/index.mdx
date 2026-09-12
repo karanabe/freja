@@ -2,13 +2,13 @@
 title: Freja ドキュメント
 description: ローカルファーストで説明可能な検査プロキシの設定、運用、保護、拡張方法です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-06
+updatedAt: 2026-09-12
 tags:
   - 概要
   - プロキシ
 template: splash
 hero:
-  title: プロキシが何を、なぜ決めたかを見える形に。
+  title: プロキシが何を、<wbr>なぜ決めたかを見える形に。
   tagline: Frejaは、決定的なポリシートレース、上限付き検査、型付きHook、プライバシーを意識した監査を備えるローカルファーストのL4/L7検査プロキシです。
   actions:
     - text: はじめる
@@ -24,7 +24,12 @@ hero:
       variant: minimal
 ---
 
+import logo from '../../../assets/FrejaLogo.png';
+
 <div class="landing-shell not-content">
+  <div class="landing-logo">
+    <img src={logo.src} alt="" width="543" height="181" loading="eager" decoding="async" />
+  </div>
   <section class="landing-intro" aria-labelledby="landing-intro-title">
     <p class="landing-eyebrow">interactiveなデフォルト</p>
     <h2 id="landing-intro-title">判断経路を隠さず、ローカル通信を検査する。</h2>

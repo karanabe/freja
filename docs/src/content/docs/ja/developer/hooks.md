@@ -2,7 +2,7 @@
 title: 型付きHook設計
 description: Hook stage、mutation contract、interactive flow state、拡張ruleです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-12
 tags:
   - Hook
   - アーキテクチャ
@@ -38,6 +38,8 @@ HTTP head Hookは`HeadMutationPlan`、body Hookは`BodyMutationPlan`、TCP Hook�
 
 ```mermaid
 sequenceDiagram
+    accTitle: interactive HTTP request decisionのsequence
+    accDescr: network taskが上限付きrequestを収集・検査し、broker経由でTUI decisionを待って、選択されたactionをvalidateします。
     participant Flow as Network task
     participant Broker as Bounded broker
     participant TUI
