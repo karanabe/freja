@@ -1,7 +1,7 @@
 use std::{collections::HashSet, error::Error, fmt, sync::Arc};
 
 use freja_domain::{
-    Confidence, Decision, DecisionTrace, DetectorId, Direction, EnforcementAction, EvidenceHash,
+    ByteRange, Confidence, Decision, DetectorId, Direction, EnforcementAction, EvidenceHash,
     Finding, HttpReject, MatchReason, PolicyGeneration, PolicyStage, Protocol, RuleId, Severity,
     TcpClose, TcpCloseMode,
 };
@@ -228,7 +228,7 @@ impl InspectionProgram {
         let matched = self
             .patterns
             .iter()
-            .find(|pattern| pattern.detector_id == finding.detector_id);
+            .find(|pattern| &pattern.detector_id == finding.detector_id());
         let (rule_id, action) = matched.map_or((None, RuleAction::Allow), |pattern| {
             (Some(pattern.rule_id.clone()), pattern.action.clone())
         });
@@ -242,19 +242,16 @@ impl InspectionProgram {
             }),
         };
         (
-            Decision {
-                trace: DecisionTrace {
-                    policy_generation: self.generation,
-                    evaluated_stage: PolicyStage::Streaming,
-                    matched_rule: rule_id,
-                    match_reasons: vec![MatchReason {
-                        criterion: "detector-finding".to_owned(),
-                        observed: finding.detector_id.to_string(),
-                    }],
-                    final_action: action.kind(),
-                },
+            Decision::new(
                 action,
-            },
+                self.generation,
+                PolicyStage::Streaming,
+                rule_id,
+                vec![MatchReason {
+                    criterion: "detector-finding".to_owned(),
+                    observed: finding.detector_id().to_string(),
+                }],
+            ),
             matched.map_or(
                 RuleDefinition::InspectionDefault,
                 RuleDefinition::Inspection,
@@ -324,18 +321,19 @@ fn finding(
     start: usize,
     end: usize,
 ) -> Finding {
-    Finding {
-        detector_id: pattern.detector_id.clone(),
-        severity: pattern.severity,
-        confidence: pattern.confidence,
+    Finding::new(
+        pattern.detector_id.clone(),
+        pattern.severity,
+        pattern.confidence,
         direction,
-        byte_range: Some((
+        ByteRange::new(
             base_offset.saturating_add(usize_as_u64(start)),
             base_offset.saturating_add(usize_as_u64(end)),
-        )),
-        evidence_hash: EvidenceHash::from_sha256(Sha256::digest(&pattern.bytes).into()),
-        tags: pattern.tags.to_vec(),
-    }
+        )
+        .ok(),
+        EvidenceHash::from_sha256(Sha256::digest(&pattern.bytes).into()),
+        pattern.tags.to_vec(),
+    )
 }
 
 fn usize_as_u64(value: usize) -> u64 {
@@ -345,8 +343,8 @@ fn usize_as_u64(value: usize) -> u64 {
 #[cfg(test)]
 mod tests {
     use freja_domain::{
-        Confidence, DetectorId, Direction, EnforcementAction, PolicyGeneration, Protocol, RuleId,
-        Severity,
+        ByteRange, Confidence, DetectorId, Direction, EnforcementAction, PolicyGeneration,
+        Protocol, RuleId, Severity,
     };
 
     use crate::{InspectionPattern, InspectionProgram, RuleAction};
@@ -372,9 +370,12 @@ mod tests {
         let findings = scanner.inspect(b"WARE-suffix");
 
         assert_eq!(findings.len(), 1);
-        assert_eq!(findings[0].byte_range, Some((7, 14)));
+        assert_eq!(
+            findings[0].byte_range(),
+            Some(ByteRange::new(7, 14).unwrap())
+        );
         let decision = program.evaluate(&findings[0], Protocol::Tcp);
-        assert!(matches!(decision.action, EnforcementAction::TcpClose(_)));
-        assert_eq!(decision.trace.policy_generation.get(), 9);
+        assert!(matches!(decision.action(), EnforcementAction::TcpClose(_)));
+        assert_eq!(decision.trace().policy_generation.get(), 9);
     }
 }

@@ -1,10 +1,11 @@
 use std::net::SocketAddr;
 
 use bytes::{Bytes, BytesMut};
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, AuditHookStage, FlowOutcome};
 use freja_domain::{
-    Direction, EvaluationTarget, HookMode, HttpRequestFacts, HttpResponseFacts, InspectionMode,
-    Protocol, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
+    Direction, EvaluationTarget, HookMode, HttpRequestFacts, HttpResponseFacts, HttpStatusCode,
+    InspectionMode, Protocol, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SessionId,
+    TransactionId,
 };
 use freja_policy::{
     PolicyFacts,
@@ -146,8 +147,8 @@ impl HttpRepeatExecutor {
             RepeatOutcome::Failed(_) => 0,
         };
         let close_outcome = match &outcome {
-            RepeatOutcome::Response(_) => "completed".to_owned(),
-            RepeatOutcome::Failed(category) => failure_outcome(*category).to_owned(),
+            RepeatOutcome::Response(_) => FlowOutcome::Completed,
+            RepeatOutcome::Failed(category) => failure_outcome(*category),
         };
         self.services
             .publish(AuditEnvelope {
@@ -210,7 +211,7 @@ impl HttpRepeatExecutor {
         self.services.publish_http_response_event(
             session_id,
             transaction_id,
-            response.status.as_u16(),
+            HttpStatusCode::new(response.status.as_u16()).map_err(ProxyError::InvalidHttpStatus)?,
             format!("{:?}", response.version),
             headers::presentation_headers(&response.headers),
         );
@@ -218,7 +219,8 @@ impl HttpRepeatExecutor {
             .publish(AuditEnvelope {
                 context: audit_context(session_id, Some(transaction_id), &self.services),
                 event: AuditEvent::HttpResponseObserved {
-                    status: response.status.as_u16(),
+                    status: HttpStatusCode::new(response.status.as_u16())
+                        .map_err(ProxyError::InvalidHttpStatus)?,
                     headers: headers::audit_headers(&response.headers),
                 },
             })
@@ -434,7 +436,7 @@ impl HttpRepeatExecutor {
         self.services
             .publish_hook_outcome(
                 audit_context(session_id, Some(transaction_id), &self.services),
-                "http-request-head",
+                AuditHookStage::HttpRequestHead,
                 result.is_ok(),
             )
             .await
@@ -631,9 +633,12 @@ impl HttpRepeatExecutor {
         response: &Response<Incoming>,
     ) -> Result<(), AttemptError> {
         let snapshot = self.services.decision_snapshot();
+        let status = HttpStatusCode::new(response.status().as_u16())
+            .map_err(ProxyError::InvalidHttpStatus)
+            .map_err(AttemptError::Proxy)?;
         let facts = HttpResponseFacts::new(
             ResolvedTargetFacts::new(requested.clone(), selected_address.ip()),
-            response.status().as_u16(),
+            status,
             headers::policy_headers(response.headers()),
         );
         let context = audit_context(session_id, Some(transaction_id), &self.services);
@@ -679,7 +684,7 @@ impl HttpRepeatExecutor {
         self.services
             .publish_hook_outcome(
                 audit_context(session_id, Some(transaction_id), &self.services),
-                "http-response-head",
+                AuditHookStage::HttpResponseHead,
                 result.is_ok(),
             )
             .await
@@ -871,6 +876,7 @@ const fn failure_category(error: &ProxyError) -> RepeatFailureCategory {
         | ProxyError::LocalAddress(_)
         | ProxyError::Accept(_)
         | ProxyError::HttpConnection(_)
+        | ProxyError::InvalidHttpStatus(_)
         | ProxyError::HttpUpgrade(_)
         | ProxyError::TunnelRegistration
         | ProxyError::InternalPolicy(_)
@@ -884,17 +890,17 @@ const fn failure_category(error: &ProxyError) -> RepeatFailureCategory {
     }
 }
 
-const fn failure_outcome(category: RepeatFailureCategory) -> &'static str {
+const fn failure_outcome(category: RepeatFailureCategory) -> FlowOutcome {
     match category {
-        RepeatFailureCategory::InvalidRequest => "repeat-invalid-request",
-        RepeatFailureCategory::PolicyDenied => "repeat-policy-denied",
-        RepeatFailureCategory::Dns => "repeat-dns-failed",
-        RepeatFailureCategory::Connect => "repeat-connect-failed",
-        RepeatFailureCategory::Tls => "repeat-tls-failed",
-        RepeatFailureCategory::Upstream => "repeat-upstream-failed",
-        RepeatFailureCategory::Inspection => "repeat-inspection-failed",
-        RepeatFailureCategory::Audit => "repeat-audit-failed",
-        RepeatFailureCategory::Shutdown => "repeat-shutdown",
-        RepeatFailureCategory::Internal => "repeat-internal-failure",
+        RepeatFailureCategory::InvalidRequest => FlowOutcome::RepeatInvalidRequest,
+        RepeatFailureCategory::PolicyDenied => FlowOutcome::RepeatPolicyDenied,
+        RepeatFailureCategory::Dns => FlowOutcome::RepeatDnsFailed,
+        RepeatFailureCategory::Connect => FlowOutcome::RepeatConnectFailed,
+        RepeatFailureCategory::Tls => FlowOutcome::RepeatTlsFailed,
+        RepeatFailureCategory::Upstream => FlowOutcome::RepeatUpstreamFailed,
+        RepeatFailureCategory::Inspection => FlowOutcome::RepeatInspectionFailed,
+        RepeatFailureCategory::Audit => FlowOutcome::RepeatAuditFailed,
+        RepeatFailureCategory::Shutdown => FlowOutcome::RepeatShutdown,
+        RepeatFailureCategory::Internal => FlowOutcome::RepeatInternalFailure,
     }
 }

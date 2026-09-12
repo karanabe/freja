@@ -34,7 +34,8 @@ async fn requested_destination_denial_closes_before_upstream_connect() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str) == Some("deny-test-port")
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
+                == Some("deny-test-port")
     )));
 }
 
@@ -91,7 +92,7 @@ async fn tcp_detour_reselects_and_reauthorizes_the_upstream_before_relay() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if matches!(decision.action, EnforcementAction::TcpDetour(_))
+            if matches!(decision.action(), EnforcementAction::TcpDetour(_))
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
@@ -145,7 +146,7 @@ async fn allowed_hostname_is_denied_after_it_resolves_to_loopback() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("protect-loopback-destination")
     )));
 }

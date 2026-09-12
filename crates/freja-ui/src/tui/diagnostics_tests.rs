@@ -14,7 +14,7 @@ use crate::UiEvent;
 fn each_evaluation_keeps_its_own_connection_target() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(
         &mut model,
         session,
@@ -77,7 +77,7 @@ fn older_ui_decision_events_report_missing_connection_facts() {
     ))
     .unwrap();
     event.as_object_mut().unwrap().remove("target");
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     model.apply(serde_json::from_value(event).unwrap());
     model.show_diagnostics();
     assert!(screen(&model, 120, 30).contains("connection: unavailable"));
@@ -96,7 +96,7 @@ fn diagnostics_identifies_each_transaction_without_collapsing_evaluations() {
         "http://example.test:8080/second",
         "http://example.test:8080/second",
     ];
-    let mut model = TuiModel::new(3, 8);
+    let mut model = TuiModel::new(3, 8).unwrap();
     for (index, (&transaction, target)) in transactions.iter().zip(targets).enumerate() {
         observe(&mut model, session, transaction, "POST", target);
         finding(
@@ -112,7 +112,7 @@ fn diagnostics_identifies_each_transaction_without_collapsing_evaluations() {
     model.apply(UiEvent::HttpResponseObserved {
         session_id: session,
         transaction_id: transactions[0],
-        status: 200,
+        status: freja_domain::HttpStatusCode::new(200).unwrap(),
         version: "HTTP/1.1".to_owned(),
         headers: Vec::new(),
     });
@@ -142,7 +142,7 @@ fn diagnostics_identifies_each_transaction_without_collapsing_evaluations() {
 fn context_stays_visible_while_evidence_scrolls_and_expands() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 32);
+    let mut model = TuiModel::new(1, 32).unwrap();
     observe(
         &mut model,
         session,
@@ -175,7 +175,7 @@ fn long_targets_are_marked_and_bounded_at_minimum_size() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
     let target = format!("http://example.test:8080/{}end", "界e\u{301}".repeat(100));
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(&mut model, session, transaction, "GET", &target);
     decision(&mut model, session, Some(transaction), 1);
     model.show_diagnostics();
@@ -209,7 +209,7 @@ fn long_targets_are_marked_and_bounded_at_minimum_size() {
 fn connect_uses_observed_authority_without_inventing_an_inner_url() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(
         &mut model,
         session,
@@ -231,7 +231,7 @@ fn missing_and_late_metadata_never_borrows_another_requests_target() {
     let session = SessionId::new();
     let observed = TransactionId::new();
     let missing = TransactionId::new();
-    let mut model = TuiModel::new(2, 2);
+    let mut model = TuiModel::new(2, 2).unwrap();
     model.apply(UiEvent::FlowOpened {
         session_id: session,
         client: "127.0.0.1:40000".to_owned(),
@@ -272,7 +272,7 @@ fn evicted_request_metadata_is_not_reused_for_late_evidence() {
     let session = SessionId::new();
     let first = TransactionId::new();
     let second = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(
         &mut model,
         session,
@@ -320,7 +320,7 @@ fn evicted_request_metadata_is_not_reused_for_late_evidence() {
 fn request_context_escapes_controls_and_labels_partial_targets() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     model.apply(UiEvent::HttpObserved {
         session_id: session,
         transaction_id: transaction,
@@ -350,7 +350,7 @@ fn request_context_escapes_controls_and_labels_partial_targets() {
 #[test]
 fn tcp_evidence_keeps_session_correlation_and_existing_layout() {
     let sessions = [SessionId::new(), SessionId::new()];
-    let mut model = TuiModel::new(2, 2);
+    let mut model = TuiModel::new(2, 2).unwrap();
     decision(&mut model, sessions[0], None, 1);
     decision(&mut model, sessions[1], None, 2);
     model.show_diagnostics();
@@ -420,15 +420,15 @@ fn finding(
     model.apply(UiEvent::FindingDetected {
         session_id: session,
         transaction_id: transaction,
-        finding: Finding {
-            detector_id: DetectorId::new(detector).unwrap(),
-            severity: freja_domain::Severity::Low,
-            confidence: Confidence::Confirmed,
-            direction: Direction::HttpRequestBody,
-            byte_range: None,
-            evidence_hash: EvidenceHash::from_sha256([0; 32]),
-            tags: Vec::new(),
-        },
+        finding: Finding::new(
+            DetectorId::new(detector).unwrap(),
+            freja_domain::Severity::Low,
+            Confidence::Confirmed,
+            Direction::HttpRequestBody,
+            None,
+            EvidenceHash::from_sha256([0; 32]),
+            Vec::new(),
+        ),
     });
 }
 

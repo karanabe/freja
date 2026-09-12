@@ -1,8 +1,8 @@
 use std::{collections::HashSet, fmt};
 
 use freja_domain::{
-    Decision, DecisionTrace, EnforcementAction, HttpReject, MatchReason, PolicyGeneration,
-    Protocol, RuleId, TcpClose, TcpCloseMode, TcpDetour,
+    Decision, EnforcementAction, HttpReject, MatchReason, PolicyGeneration, Protocol, RuleId,
+    TcpClose, TcpCloseMode, TcpDetour,
 };
 
 use crate::evidence::{AclEvaluation, AclRuleResult, RuleDefinition};
@@ -322,14 +322,11 @@ fn decision(
             EnforcementAction::HttpReject(HttpReject::Forbidden)
         }
     };
-    Decision {
-        trace: DecisionTrace {
-            policy_generation: generation,
-            evaluated_stage: facts.stage(),
-            matched_rule,
-            match_reasons,
-            final_action: action.kind(),
-        },
+    Decision::new(
         action,
-    }
+        generation,
+        facts.stage(),
+        matched_rule,
+        match_reasons,
+    )
 }

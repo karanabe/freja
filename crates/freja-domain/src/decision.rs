@@ -1,4 +1,6 @@
-use serde::{Deserialize, Serialize};
+use std::{error::Error, fmt};
+
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
 
 use crate::{PolicyGeneration, RuleId, UpstreamEndpoint};
 
@@ -119,10 +121,130 @@ pub struct DecisionTrace {
 }
 
 /// Protocol action and its explanation.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Decision {
-    /// Protocol action proposed by policy.
-    pub action: EnforcementAction,
-    /// Deterministic explanation that must accompany the action into audit and UI paths.
-    pub trace: DecisionTrace,
+    action: EnforcementAction,
+    trace: DecisionTrace,
+}
+
+impl Decision {
+    /// Creates an action and a trace whose final category cannot disagree.
+    pub fn new(
+        action: EnforcementAction,
+        policy_generation: PolicyGeneration,
+        evaluated_stage: PolicyStage,
+        matched_rule: Option<RuleId>,
+        match_reasons: Vec<MatchReason>,
+    ) -> Self {
+        let final_action = action.kind();
+        Self {
+            action,
+            trace: DecisionTrace {
+                policy_generation,
+                evaluated_stage,
+                matched_rule,
+                match_reasons,
+                final_action,
+            },
+        }
+    }
+
+    /// Returns the protocol action proposed by policy.
+    pub const fn action(&self) -> &EnforcementAction {
+        &self.action
+    }
+
+    /// Returns the deterministic explanation accompanying the action.
+    pub const fn trace(&self) -> &DecisionTrace {
+        &self.trace
+    }
+
+    /// Splits the decision into its action and validated trace.
+    pub fn into_parts(self) -> (EnforcementAction, DecisionTrace) {
+        (self.action, self.trace)
+    }
+
+    fn from_serialized(
+        action: EnforcementAction,
+        trace: DecisionTrace,
+    ) -> Result<Self, DecisionError> {
+        let action_kind = action.kind();
+        if trace.final_action != action_kind {
+            return Err(DecisionError::ActionTraceMismatch {
+                action: action_kind,
+                trace: trace.final_action,
+            });
+        }
+        Ok(Self { action, trace })
+    }
+}
+
+#[derive(Deserialize)]
+struct SerializedDecision {
+    action: EnforcementAction,
+    trace: DecisionTrace,
+}
+
+impl<'de> Deserialize<'de> for Decision {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let serialized = SerializedDecision::deserialize(deserializer)?;
+        Self::from_serialized(serialized.action, serialized.trace).map_err(D::Error::custom)
+    }
+}
+
+/// A serialized decision whose action contradicts its explanation trace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecisionError {
+    /// The trace's final category does not describe the attached action.
+    ActionTraceMismatch {
+        /// Category derived from the attached action.
+        action: EnforcementActionKind,
+        /// Contradictory category stored in the trace.
+        trace: EnforcementActionKind,
+    },
+}
+
+impl fmt::Display for DecisionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ActionTraceMismatch { action, trace } => write!(
+                formatter,
+                "decision action category {action:?} does not match trace category {trace:?}"
+            ),
+        }
+    }
+}
+
+impl Error for DecisionError {}
+
+#[cfg(test)]
+mod tests {
+    use super::{Decision, EnforcementAction, EnforcementActionKind};
+
+    #[test]
+    fn deserialization_rejects_an_action_trace_mismatch() {
+        let value = serde_json::json!({
+            "action": {"kind": "allow"},
+            "trace": {
+                "policy_generation": 1,
+                "evaluated_stage": "http-request",
+                "matched_rule": null,
+                "match_reasons": [],
+                "final_action": "http-reject"
+            }
+        });
+
+        assert!(serde_json::from_value::<Decision>(value).is_err());
+        let decision = Decision::new(
+            EnforcementAction::Allow,
+            crate::PolicyGeneration::default(),
+            super::PolicyStage::HttpRequest,
+            None,
+            Vec::new(),
+        );
+        assert_eq!(decision.trace().final_action, EnforcementActionKind::Allow);
+    }
 }

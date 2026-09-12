@@ -1,50 +1,65 @@
 use std::{
     error::Error,
     fmt, fs,
+    num::NonZeroU64,
     path::{Path, PathBuf},
 };
 
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 use freja_domain::AuditSequence;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 
 use crate::RecordHash;
 
 /// Ed25519 signature over one audit record hash and its segment sequence.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SignedCheckpoint {
-    /// Last ordinary record covered by the signature.
-    pub covers_sequence: AuditSequence,
-    /// Hash of the covered record, which commits to the preceding chain.
-    pub record_hash: RecordHash,
-    /// Ed25519 public verification key as lower-case hexadecimal.
-    pub public_key_hex: String,
-    /// Ed25519 signature as lower-case hexadecimal.
-    pub signature_hex: String,
+    covers_sequence: AuditSequence,
+    record_hash: RecordHash,
+    #[serde(
+        rename = "public_key_hex",
+        serialize_with = "serialize_hex",
+        deserialize_with = "deserialize_hex"
+    )]
+    public_key: [u8; 32],
+    #[serde(
+        rename = "signature_hex",
+        serialize_with = "serialize_hex",
+        deserialize_with = "deserialize_hex"
+    )]
+    signature: [u8; 64],
 }
 
 impl SignedCheckpoint {
+    /// Returns the last ordinary record covered by the signature.
+    pub const fn covers_sequence(&self) -> AuditSequence {
+        self.covers_sequence
+    }
+
+    /// Returns the covered record hash, which commits to the preceding chain.
+    pub const fn record_hash(&self) -> RecordHash {
+        self.record_hash
+    }
+
+    /// Returns the fixed-size Ed25519 public verification key.
+    pub const fn public_key(&self) -> &[u8; 32] {
+        &self.public_key
+    }
+
+    /// Returns the fixed-size Ed25519 signature.
+    pub const fn signature(&self) -> &[u8; 64] {
+        &self.signature
+    }
+
     /// Verifies this checkpoint independently of local secret material.
     pub fn verifies(&self) -> bool {
-        let Ok(public_key) = hex::decode(&self.public_key_hex) else {
-            return false;
-        };
-        let Ok(public_key): Result<[u8; 32], _> = public_key.try_into() else {
-            return false;
-        };
-        let Ok(verifying_key) = VerifyingKey::from_bytes(&public_key) else {
-            return false;
-        };
-        let Ok(signature) = hex::decode(&self.signature_hex) else {
-            return false;
-        };
-        let Ok(signature): Result<[u8; 64], _> = signature.try_into() else {
+        let Ok(verifying_key) = VerifyingKey::from_bytes(&self.public_key) else {
             return false;
         };
         verifying_key
             .verify_strict(
                 &checkpoint_message(self.covers_sequence, self.record_hash),
-                &Signature::from_bytes(&signature),
+                &Signature::from_bytes(&self.signature),
             )
             .is_ok()
     }
@@ -101,8 +116,8 @@ impl CheckpointSigner {
         SignedCheckpoint {
             covers_sequence: sequence,
             record_hash,
-            public_key_hex: self.verifying_key_hex(),
-            signature_hex: hex::encode(signature.to_bytes()),
+            public_key: self.0.verifying_key().to_bytes(),
+            signature: signature.to_bytes(),
         }
     }
 }
@@ -111,7 +126,7 @@ impl CheckpointSigner {
 #[derive(Debug, Clone)]
 pub struct CheckpointSchedule {
     pub(super) signer: CheckpointSigner,
-    pub(super) interval: u64,
+    pub(super) interval: NonZeroU64,
 }
 
 impl CheckpointSchedule {
@@ -121,9 +136,7 @@ impl CheckpointSchedule {
     ///
     /// Returns [`CheckpointKeyError::ZeroInterval`] for zero.
     pub fn new(signer: CheckpointSigner, interval: u64) -> Result<Self, CheckpointKeyError> {
-        if interval == 0 {
-            return Err(CheckpointKeyError::ZeroInterval);
-        }
+        let interval = NonZeroU64::new(interval).ok_or(CheckpointKeyError::ZeroInterval)?;
         Ok(Self { signer, interval })
     }
 }
@@ -193,6 +206,25 @@ pub(super) fn checkpoint_message(sequence: AuditSequence, record_hash: RecordHas
     message.extend_from_slice(record_hash.as_bytes());
     message
 }
+
+fn serialize_hex<const N: usize, S>(bytes: &[u8; N], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&hex::encode(bytes))
+}
+
+fn deserialize_hex<'de, const N: usize, D>(deserializer: D) -> Result<[u8; N], D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = String::deserialize(deserializer)?;
+    let decoded = hex::decode(value).map_err(D::Error::custom)?;
+    decoded
+        .try_into()
+        .map_err(|_| D::Error::custom(format_args!("expected {N} bytes")))
+}
+
 #[cfg(unix)]
 fn validate_checkpoint_key_permissions(path: &Path) -> Result<(), CheckpointKeyError> {
     use std::os::unix::fs::PermissionsExt;

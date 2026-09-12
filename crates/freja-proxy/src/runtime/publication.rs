@@ -1,7 +1,7 @@
 use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, PublishError};
 use freja_domain::{
-    Decision, Direction, EnforcementMode, EvaluationTarget, Finding, Protocol, ReplayFacts,
-    ResolvedTargetFacts, SessionId, TransactionId,
+    Decision, Direction, EnforcementMode, EvaluationTarget, Finding, HttpStatusCode, Protocol,
+    ReplayFacts, ResolvedTargetFacts, SessionId, TransactionId,
 };
 use freja_policy::evidence::RuleDefinition;
 use tracing::warn;
@@ -33,12 +33,12 @@ impl DataPlaneServices {
 
     pub(crate) async fn publish_decision(
         &self,
-        mut context: freja_audit::AuditContext,
+        context: freja_audit::AuditContext,
         decision: Decision,
         definition: (RuleDefinition<'_>, EnforcementMode),
         target: EvaluationTarget,
     ) -> Result<(), ProxyError> {
-        context.policy_generation = decision.trace.policy_generation;
+        let context = context.with_policy_generation(decision.trace().policy_generation);
         self.publish(AuditEnvelope {
             context,
             event: AuditEvent::AclEvaluated {
@@ -48,9 +48,9 @@ impl DataPlaneServices {
         .await?;
         if let Some(events) = &self.events {
             events.try_publish(DataPlaneEvent::DecisionMade {
-                session_id: context.session_id,
-                transaction_id: context.transaction_id,
-                trace: decision.trace,
+                session_id: context.session_id(),
+                transaction_id: context.transaction_id(),
+                trace: decision.trace().clone(),
                 evidence: Some(definition.0.snapshot(definition.1)),
                 target: Some(target),
             });
@@ -72,8 +72,8 @@ impl DataPlaneServices {
         .await?;
         if let Some(events) = &self.events {
             events.try_publish(DataPlaneEvent::FindingDetected {
-                session_id: context.session_id,
-                transaction_id: context.transaction_id,
+                session_id: context.session_id(),
+                transaction_id: context.transaction_id(),
                 finding,
             });
         }
@@ -112,12 +112,12 @@ impl DataPlaneServices {
 
     pub(crate) async fn publish_inspection_decision(
         &self,
-        mut context: freja_audit::AuditContext,
+        context: freja_audit::AuditContext,
         decision: Decision,
         definition: (RuleDefinition<'_>, EnforcementMode),
         target: Option<&ResolvedTargetFacts>,
     ) -> Result<(), ProxyError> {
-        context.policy_generation = decision.trace.policy_generation;
+        let context = context.with_policy_generation(decision.trace().policy_generation);
         self.publish(AuditEnvelope {
             context,
             event: AuditEvent::InspectionEvaluated {
@@ -127,9 +127,9 @@ impl DataPlaneServices {
         .await?;
         if let Some(events) = &self.events {
             events.try_publish(DataPlaneEvent::DecisionMade {
-                session_id: context.session_id,
-                transaction_id: context.transaction_id,
-                trace: decision.trace,
+                session_id: context.session_id(),
+                transaction_id: context.transaction_id(),
+                trace: decision.trace().clone(),
                 evidence: Some(definition.0.snapshot(definition.1)),
                 target: target.cloned().map(EvaluationTarget::Resolved),
             });
@@ -162,7 +162,7 @@ impl DataPlaneServices {
         &self,
         session_id: SessionId,
         transaction_id: TransactionId,
-        status: u16,
+        status: HttpStatusCode,
         version: String,
         headers: Vec<(String, Vec<u8>)>,
     ) {

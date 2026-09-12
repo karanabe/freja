@@ -1,7 +1,7 @@
 use super::session::{SessionContext, serve_session};
 use std::{net::SocketAddr, sync::Arc};
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{SessionId, Socks5Listener};
 use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet};
 use tracing::warn;
@@ -115,7 +115,7 @@ async fn audit_capacity_rejection(
             event: AuditEvent::FlowClosed {
                 client_to_upstream_bytes: 0,
                 upstream_to_client_bytes: 0,
-                outcome: "connection-limit".to_owned(),
+                outcome: FlowOutcome::ConnectionLimit,
             },
         })
         .await

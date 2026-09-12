@@ -65,6 +65,8 @@ pub enum ProxyError {
         /// Hyper protocol or transport error.
         source: hyper::Error,
     },
+    /// A status supplied by an HTTP adapter violated the domain status invariant.
+    InvalidHttpStatus(freja_domain::HttpStatusCodeError),
     /// No upstream HTTP response arrived before the configured read deadline.
     UpstreamResponseTimedOut,
     /// Hyper could not upgrade a committed CONNECT exchange to a byte tunnel.
@@ -126,7 +128,7 @@ impl fmt::Display for ProxyError {
                 formatter,
                 "connection denied by policy rule {}",
                 decision
-                    .trace
+                    .trace()
                     .matched_rule
                     .as_ref()
                     .map_or("<default>", |rule| rule.as_str())
@@ -135,7 +137,7 @@ impl fmt::Display for ProxyError {
                 formatter,
                 "TCP detour selected more than once by policy rule {}",
                 decision
-                    .trace
+                    .trace()
                     .matched_rule
                     .as_ref()
                     .map_or("<default>", |rule| rule.as_str())
@@ -149,6 +151,9 @@ impl fmt::Display for ProxyError {
             Self::HttpConnection(_) => formatter.write_str("downstream HTTP/1 connection failed"),
             Self::UpstreamHttp { stage, .. } => {
                 write!(formatter, "upstream HTTP/1 {stage} failed")
+            }
+            Self::InvalidHttpStatus(_) => {
+                formatter.write_str("HTTP adapter produced an invalid status code")
             }
             Self::UpstreamResponseTimedOut => {
                 formatter.write_str("timed out waiting for upstream HTTP response")
@@ -194,6 +199,7 @@ impl Error for ProxyError {
             | Self::UpstreamHttp { source, .. }
             | Self::HttpUpgrade(source) => Some(source),
             Self::InternalPolicy(source) => Some(source),
+            Self::InvalidHttpStatus(source) => Some(source),
             Self::Audit(source) => Some(source),
             Self::Hook(source) => Some(source),
             Self::HookMutation(source) => Some(source),

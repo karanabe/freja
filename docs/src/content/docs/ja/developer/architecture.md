@@ -2,7 +2,7 @@
 title: アーキテクチャ
 description: Freja contributor向けのcrate境界、data flow、runtime snapshot、不変条件です。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-06
+updatedAt: 2026-09-12
 tags:
   - アーキテクチャ
   - 開発者
@@ -45,11 +45,16 @@ exampleへの依存はありません。[browser form lab](../../use-cases/brows
 
 validated identifier、endpoint、runtime mode、目的別fact、finding、decision、trace、listener specificationを所有します。全connectionは`SessionId`、全HTTP exchangeは`TransactionId`を持ちます。async runtime、parser、Pingoraには依存しません。
 
+domain constructorはprimitiveでは表せない関係を維持します。HTTP statusは3桁の
+`HttpStatusCode`、finding offsetは空でない`ByteRange`であり、`Decision`はactionから
+traceのfinal-action categoryを導出します。actionとtraceが一致しないdecisionの
+deserializeは拒否します。
+
 ### `freja-config`
 
 唯一のconfiguration compilerです。typestate pathにより、socketを開く前に不正なmode組み合わせ、zero bound、安全でないremote exposure、無制限capture、不正credential digest、empty CONNECT/interception allowlist、不正policy/detectorを拒否します。
 
-内部では`raw`がSerde向けTOML model、`validation`がsemantic/cross-field invariant、`compiled`がimmutableなpolicy/inspection programの構築を所有します。listener、resource limit、audit、inspection、TLSのruleは各stage内の担当moduleへ分離し、crate rootはstableなpublic APIだけを公開します。commandless/config-free startupでは`freja` composition rootが`RawConfig::default()`へloopback HTTP listener 1件を追加し、socketを開く前に完全なcompilerを通します。`freja-config`自体はlistenerを暗黙生成しません。
+内部では`raw`がSerde向けTOML model、`validation`がsemantic/cross-field invariant、`compiled`がimmutableなpolicy/inspection programの構築を所有します。listener、resource limit、audit、inspection、TLSのruleは各stage内の担当moduleへ分離し、crate rootはstableなpublic APIだけを公開します。validated boundはnon-zero valueを使い、有効なcheckpoint signingとTLS interceptionは独立したoptional fieldの組み合わせではなくgroup化した型で表します。commandless/config-free startupでは`freja` composition rootが`RawConfig::default()`へloopback HTTP listener 1件を追加し、socketを開く前に完全なcompilerを通します。`freja-config`自体はlistenerを暗黙生成しません。
 
 ### `freja-policy`
 
@@ -57,7 +62,7 @@ validated identifier、endpoint、runtime mode、目的別fact、finding、decis
 
 ### `freja-audit`
 
-central redaction後にtyped version-2 eventをserializeし、replayはversion 1との互換性を維持します。bounded channelと明示的fail-open/fail-closedはUI deliveryから独立しています。各recordは直前recordへlinkし、optional Ed25519 checkpointは外部pinされたkeyにより保持位置をauthenticateします。
+central redaction後にtyped version-2 eventをserializeし、replayはversion 1との互換性を維持します。status code、authentication結果、Hook stage/result、manual action、終了結果、schema version、hash、key、signatureはserialize直前までvalidatedな表現を保ちます。bounded channelと明示的fail-open/fail-closedはUI deliveryから独立しています。各recordは直前recordへlinkし、optional Ed25519 checkpointは外部pinされたkeyにより保持位置をauthenticateします。
 
 ### `freja-proxy`
 

@@ -73,12 +73,12 @@ async fn split_pattern_closes_flow_before_matched_chunk_in_enforce_mode() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("block-split-signature")
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::FlowClosed { outcome, .. } if outcome == "inspection-blocked"
+        AuditEvent::FlowClosed { outcome, .. } if outcome == &FlowOutcome::InspectionBlocked
     )));
 }
 
@@ -123,7 +123,7 @@ async fn tcp_preflight_blocks_split_pattern_before_forwarding_any_bytes() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("block-split-signature")
     )));
 }

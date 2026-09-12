@@ -54,9 +54,9 @@ fn omitted_runtime_uses_the_interactive_observe_profile() {
     assert_eq!(compiled.runtime().enforcement, EnforcementMode::Observe);
     assert_eq!(compiled.runtime().hooks, HookMode::Interactive);
     assert!(matches!(compiled.tls(), TlsConfig::Tunnel));
-    assert_eq!(compiled.audit().path, std::path::PathBuf::from("."));
-    assert_eq!(compiled.limits().ui_content_bytes, 64 * 1_024);
-    assert_eq!(compiled.limits().ui_retained_rows, 128);
+    assert_eq!(compiled.audit().path(), std::path::Path::new("."));
+    assert_eq!(compiled.limits().ui_content_bytes(), 64 * 1_024);
+    assert_eq!(compiled.limits().ui_retained_rows(), 128);
 }
 
 #[test]

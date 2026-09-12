@@ -1,9 +1,9 @@
 use std::net::SocketAddr;
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{
-    Decision, DecisionTrace, EnforcementAction, EvaluationTarget, HttpReject, MatchReason,
-    PolicyStage, Protocol, RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
+    Decision, EnforcementAction, EvaluationTarget, HttpReject, MatchReason, PolicyStage, Protocol,
+    RequestedTargetFacts, ResolvedTargetFacts, SessionId, TransactionId,
 };
 use http::{Method, Request, Response, StatusCode};
 use hyper::{body::Incoming, upgrade::OnUpgrade};
@@ -201,19 +201,16 @@ impl HttpService {
         snapshot: &crate::runtime::DecisionSnapshot,
     ) -> Decision {
         let action = EnforcementAction::HttpReject(HttpReject::Forbidden);
-        Decision {
-            trace: DecisionTrace {
-                policy_generation: snapshot.policy().generation(),
-                evaluated_stage: PolicyStage::HttpRequest,
-                matched_rule: Some(self.connect_port_rule.clone()),
-                match_reasons: vec![MatchReason {
-                    criterion: "connect-port-allowlist".to_owned(),
-                    observed: port.to_string(),
-                }],
-                final_action: action.kind(),
-            },
+        Decision::new(
             action,
-        }
+            snapshot.policy().generation(),
+            PolicyStage::HttpRequest,
+            Some(self.connect_port_rule.clone()),
+            vec![MatchReason {
+                criterion: "connect-port-allowlist".to_owned(),
+                observed: port.to_string(),
+            }],
+        )
     }
 }
 
@@ -258,25 +255,25 @@ async fn run_tunnel(
             event: AuditEvent::TunnelClosed {
                 client_to_upstream_bytes: stats.client_to_upstream_bytes,
                 upstream_to_client_bytes: stats.upstream_to_client_bytes,
-                outcome: outcome.to_owned(),
+                outcome,
             },
         })
         .await?;
     result.map(|_| ())
 }
-const fn tunnel_outcome(termination: RelayTermination) -> &'static str {
+const fn tunnel_outcome(termination: RelayTermination) -> FlowOutcome {
     match termination {
-        RelayTermination::Completed => "completed",
-        RelayTermination::IdleTimeout => "idle-timeout",
-        RelayTermination::Shutdown => "shutdown",
-        RelayTermination::InspectionBlocked => "inspection-blocked",
+        RelayTermination::Completed => FlowOutcome::Completed,
+        RelayTermination::IdleTimeout => FlowOutcome::IdleTimeout,
+        RelayTermination::Shutdown => FlowOutcome::Shutdown,
+        RelayTermination::InspectionBlocked => FlowOutcome::InspectionBlocked,
     }
 }
 
-pub(super) const fn tunnel_error_outcome(error: &ProxyError) -> &'static str {
+pub(super) const fn tunnel_error_outcome(error: &ProxyError) -> FlowOutcome {
     match error {
-        ProxyError::RelayRead { .. } | ProxyError::RelayWrite { .. } => "relay-failure",
-        ProxyError::Shutdown => "shutdown",
-        _ => "tunnel-failure",
+        ProxyError::RelayRead { .. } | ProxyError::RelayWrite { .. } => FlowOutcome::RelayFailure,
+        ProxyError::Shutdown => FlowOutcome::Shutdown,
+        _ => FlowOutcome::TunnelFailure,
     }
 }

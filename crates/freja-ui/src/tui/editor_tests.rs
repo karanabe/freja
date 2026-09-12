@@ -202,7 +202,7 @@ fn repeat_caret_crosses_a_narrow_unicode_wrap_without_reflowing_text() {
 #[test]
 fn ordinary_interactive_editor_uses_the_stable_caret_layout() {
     let request = intercepted_request("interactive-界\nsecond-row");
-    let mut model = TuiModel::new(2, 4);
+    let mut model = TuiModel::new(2, 4).unwrap();
     model.apply_intercept_request(&request);
     model.open_request_editor(&request).unwrap();
     let before = screen(&model, 80, 24);
@@ -265,7 +265,7 @@ fn repeat_send_changes_only_intentionally_edited_content() {
 
 fn repeat_editor_model(body: &str) -> TuiModel {
     let request = intercepted_request(body);
-    let mut model = TuiModel::new(2, 4);
+    let mut model = TuiModel::new(2, 4).unwrap();
     assert!(model.create_repeat_workspace(&request));
     model.open_repeat_editor().unwrap();
     model

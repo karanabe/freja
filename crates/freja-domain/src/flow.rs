@@ -1,8 +1,11 @@
-use std::{collections::BTreeMap, net::IpAddr};
+use std::{collections::BTreeMap, error::Error, fmt, net::IpAddr};
 
 use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::{Finding, Port, TargetHost};
+
+const MINIMUM_HTTP_STATUS_CODE: u16 = 100;
+const MAXIMUM_HTTP_STATUS_CODE: u16 = 999;
 
 /// Transport semantics relevant to destination policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -194,9 +197,79 @@ impl HttpRequestFacts {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HttpResponseFacts {
     target: ResolvedTargetFacts,
-    status: u16,
+    status: HttpStatusCode,
     headers: SanitizedHeaders,
 }
+
+/// A protocol-valid three-digit HTTP status code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "u16", into = "u16")]
+pub struct HttpStatusCode(u16);
+
+impl HttpStatusCode {
+    /// Validates a numeric HTTP status code.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HttpStatusCodeError`] when the value is not a three-digit
+    /// status code.
+    pub const fn new(value: u16) -> Result<Self, HttpStatusCodeError> {
+        if value < MINIMUM_HTTP_STATUS_CODE || value > MAXIMUM_HTTP_STATUS_CODE {
+            return Err(HttpStatusCodeError { value });
+        }
+        Ok(Self(value))
+    }
+
+    /// Returns the numeric three-digit status code.
+    pub const fn get(self) -> u16 {
+        self.0
+    }
+}
+
+impl TryFrom<u16> for HttpStatusCode {
+    type Error = HttpStatusCodeError;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<HttpStatusCode> for u16 {
+    fn from(value: HttpStatusCode) -> Self {
+        value.get()
+    }
+}
+
+impl fmt::Display for HttpStatusCode {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
+/// A numeric value outside HTTP's three-digit status-code space.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HttpStatusCodeError {
+    value: u16,
+}
+
+impl HttpStatusCodeError {
+    /// Returns the rejected numeric value.
+    pub const fn value(self) -> u16 {
+        self.value
+    }
+}
+
+impl fmt::Display for HttpStatusCodeError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            formatter,
+            "HTTP status code {} is not three digits",
+            self.value
+        )
+    }
+}
+
+impl Error for HttpStatusCodeError {}
 
 /// Owned facts persisted for deterministic offline policy evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,7 +294,11 @@ pub enum ReplayFacts {
 
 impl HttpResponseFacts {
     /// Creates response facts for one already-authorized upstream address.
-    pub const fn new(target: ResolvedTargetFacts, status: u16, headers: SanitizedHeaders) -> Self {
+    pub const fn new(
+        target: ResolvedTargetFacts,
+        status: HttpStatusCode,
+        headers: SanitizedHeaders,
+    ) -> Self {
         Self {
             target,
             status,
@@ -235,7 +312,7 @@ impl HttpResponseFacts {
     }
 
     /// Returns the upstream HTTP status code.
-    pub const fn status(&self) -> u16 {
+    pub const fn status(&self) -> HttpStatusCode {
         self.status
     }
 
@@ -247,7 +324,7 @@ impl HttpResponseFacts {
 
 #[cfg(test)]
 mod tests {
-    use super::SanitizedHeaders;
+    use super::{HttpStatusCode, SanitizedHeaders};
 
     #[test]
     fn differently_cased_header_names_are_merged() {
@@ -271,5 +348,13 @@ mod tests {
 
         assert_eq!(headers.iter().count(), 1);
         assert_eq!(headers.values("x-policy").unwrap().len(), 2);
+    }
+
+    #[test]
+    fn http_status_code_rejects_values_outside_the_three_digit_space() {
+        assert!(HttpStatusCode::new(99).is_err());
+        assert_eq!(HttpStatusCode::new(200).unwrap().get(), 200);
+        assert!(HttpStatusCode::new(1_000).is_err());
+        assert!(serde_json::from_str::<HttpStatusCode>("99").is_err());
     }
 }

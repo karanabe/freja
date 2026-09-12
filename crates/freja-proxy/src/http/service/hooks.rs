@@ -1,3 +1,4 @@
+use freja_audit::AuditHookStage;
 use freja_domain::{HookMode, TransactionId};
 use freja_policy::hook::{
     BodyMutationPlan, HttpRequestHead, HttpRequestSnapshot, HttpResponseHead, InteractiveDecision,
@@ -73,7 +74,7 @@ impl HttpService {
         let result = self.services.hooks().request_head(&input).await;
         let context = audit_context(self.session_id, Some(transaction_id), &self.services);
         self.services
-            .publish_hook_outcome(context, "http-request-head", result.is_ok())
+            .publish_hook_outcome(context, AuditHookStage::HttpRequestHead, result.is_ok())
             .await?;
         let plan = result.map_err(ProxyError::Hook)?;
         apply_head_mutation(request.headers_mut(), &plan).map_err(ProxyError::HookMutation)
@@ -94,7 +95,7 @@ impl HttpService {
         let result = self.services.hooks().response_head(&input).await;
         let context = audit_context(self.session_id, Some(transaction_id), &self.services);
         self.services
-            .publish_hook_outcome(context, "http-response-head", result.is_ok())
+            .publish_hook_outcome(context, AuditHookStage::HttpResponseHead, result.is_ok())
             .await?;
         let plan = result.map_err(ProxyError::Hook)?;
         apply_head_mutation(response.headers_mut(), &plan).map_err(ProxyError::HookMutation)

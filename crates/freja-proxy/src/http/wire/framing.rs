@@ -1,5 +1,15 @@
 use std::{error::Error, fmt};
 
+const INFORMATIONAL_STATUS_START: u16 = 100;
+const SUCCESS_STATUS_START: u16 = 200;
+const REDIRECTION_STATUS_START: u16 = 300;
+const SWITCHING_PROTOCOLS_STATUS: u16 = 101;
+const NO_CONTENT_STATUS: u16 = 204;
+const RESET_CONTENT_STATUS: u16 = 205;
+const NOT_MODIFIED_STATUS: u16 = 304;
+const HEX_ALPHABETIC_DIGIT_OFFSET: u8 = 10;
+const HEX_RADIX: u64 = 16;
+
 #[derive(Debug, Clone, Copy)]
 pub(super) enum MessageRole {
     Request,
@@ -420,11 +430,19 @@ fn parse_head(head: &[u8], role: MessageRole) -> Result<BodyFraming, WireFraming
         MessageRole::Response(_) => Some(parse_status(start)?),
     };
     if let (MessageRole::Response(context), Some(status)) = (role, status) {
-        let informational = (100..200).contains(&status) && status != 101;
+        let informational = (INFORMATIONAL_STATUS_START..SUCCESS_STATUS_START).contains(&status)
+            && status != SWITCHING_PROTOCOLS_STATUS;
         if context.request_was_head
             || informational
-            || matches!(status, 101 | 204 | 205 | 304)
-            || (context.request_was_connect && (200..300).contains(&status))
+            || matches!(
+                status,
+                SWITCHING_PROTOCOLS_STATUS
+                    | NO_CONTENT_STATUS
+                    | RESET_CONTENT_STATUS
+                    | NOT_MODIFIED_STATUS
+            )
+            || (context.request_was_connect
+                && (SUCCESS_STATUS_START..REDIRECTION_STATUS_START).contains(&status))
         {
             return Ok(BodyFraming::None { informational });
         }
@@ -507,12 +525,12 @@ fn parse_chunk_size(line: &[u8]) -> Result<u64, WireFramingError> {
     for digit in digits {
         let numeric = match digit {
             b'0'..=b'9' => u64::from(*digit - b'0'),
-            b'a'..=b'f' => u64::from(*digit - b'a' + 10),
-            b'A'..=b'F' => u64::from(*digit - b'A' + 10),
+            b'a'..=b'f' => u64::from(*digit - b'a' + HEX_ALPHABETIC_DIGIT_OFFSET),
+            b'A'..=b'F' => u64::from(*digit - b'A' + HEX_ALPHABETIC_DIGIT_OFFSET),
             _ => return Err(WireFramingError::InvalidChunkSize),
         };
         value = value
-            .checked_mul(16)
+            .checked_mul(HEX_RADIX)
             .and_then(|value| value.checked_add(numeric))
             .ok_or(WireFramingError::ChunkSizeOverflow)?;
     }

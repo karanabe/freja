@@ -3,6 +3,9 @@ mod framing;
 
 pub(super) use capture::{RequestCaptureHandle, RequestCaptureIo, ResponseCaptureIo};
 
+const FUZZ_MAXIMUM_HEAD_BYTES: usize = 64 * 1_024;
+const FUZZ_MAXIMUM_MESSAGE_BYTES: usize = 128 * 1_024;
+
 /// Exercises the capture-only HTTP/1 framer without exposing it as a parser API.
 pub(crate) fn is_valid_capture_framing(input: &[u8]) -> bool {
     let response = |request_was_head, request_was_connect| {
@@ -18,7 +21,8 @@ pub(crate) fn is_valid_capture_framing(input: &[u8]) -> bool {
 }
 
 fn framing_succeeds(role: framing::MessageRole, input: &[u8]) -> bool {
-    let mut framer = framing::Http1Framer::new(role, 64 * 1_024, 128 * 1_024);
+    let mut framer =
+        framing::Http1Framer::new(role, FUZZ_MAXIMUM_HEAD_BYTES, FUZZ_MAXIMUM_MESSAGE_BYTES);
     let split = input.len() / 2;
     let mut events = framer.push(&input[..split]);
     events.extend(framer.push(&input[split..]));

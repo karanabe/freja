@@ -26,12 +26,12 @@ fn replay_verifies_and_evaluates_recorded_facts() {
     let mut sink = JsonlAuditSink::new(Vec::new(), Redactor::new(Vec::new()));
     let first = sink
         .write_event(
-            AuditContext {
-                occurred_at: UnixMillis::from_millis(1),
+            AuditContext::new(
+                UnixMillis::from_millis(1),
                 session_id,
-                transaction_id: None,
-                policy_generation: PolicyGeneration::new(1).unwrap(),
-            },
+                None,
+                PolicyGeneration::new(1).unwrap(),
+            ),
             AuditEvent::ReplayFactsObserved {
                 facts: ReplayFacts::Requested(RequestedTargetFacts::new(
                     IpAddr::from([127, 0, 0, 1]),
@@ -45,24 +45,24 @@ fn replay_verifies_and_evaluates_recorded_facts() {
     let signer = CheckpointSigner::from_seed([23_u8; 32]);
     let public_key = signer.verifying_key_hex();
     sink.write_event(
-        AuditContext {
-            occurred_at: UnixMillis::from_millis(2),
+        AuditContext::new(
+            UnixMillis::from_millis(2),
             session_id,
-            transaction_id: None,
-            policy_generation: PolicyGeneration::new(1).unwrap(),
-        },
+            None,
+            PolicyGeneration::new(1).unwrap(),
+        ),
         AuditEvent::SignedCheckpoint {
-            checkpoint: signer.sign_checkpoint(first.sequence, first.record_hash),
+            checkpoint: signer.sign_checkpoint(first.sequence(), first.record_hash()),
         },
     )
     .unwrap();
     sink.write_event(
-        AuditContext {
-            occurred_at: UnixMillis::from_millis(3),
+        AuditContext::new(
+            UnixMillis::from_millis(3),
             session_id,
-            transaction_id: None,
-            policy_generation: PolicyGeneration::new(1).unwrap(),
-        },
+            None,
+            PolicyGeneration::new(1).unwrap(),
+        ),
         AuditEvent::PayloadPrefixCaptured {
             direction: Direction::ClientToUpstream,
             protocol: Protocol::Tcp,

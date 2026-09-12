@@ -28,7 +28,7 @@ pub(super) async fn run_proxy_command(path: Option<&Path>) -> AppResult<()> {
     let compiled = compile_configuration(path)
         .with_context(|| format!("could not compile {}", configuration_description(path)))?;
     if compiled.runtime().ui == UiMode::Tui {
-        let (ui, receiver) = UiPublisher::channel(compiled.limits().ui_event_capacity)
+        let (ui, receiver) = UiPublisher::channel(compiled.limits().ui_event_capacity())
             .context("could not create bounded UI event channel")?;
         let tracing_router =
             initialize_tui_tracing(ui.clone()).context("failed to initialize TUI tracing")?;
@@ -61,8 +61,8 @@ async fn run_proxy(
     let proxy_limits = proxy_limits(compiled.limits())?;
     let capture = capture_settings(compiled.capture())?;
     let (audit_publisher, audit_receiver) = AuditPublisher::channel(
-        compiled.audit().channel_capacity,
-        compiled.audit().failure_policy,
+        compiled.audit().channel_capacity(),
+        compiled.audit().failure_policy(),
     )
     .context("could not create bounded audit channel")?;
     let mut services = DataPlaneServices::new(
@@ -76,7 +76,7 @@ async fn run_proxy(
     .with_hooks(HookRunner::new(
         compiled.runtime().hooks,
         HookRegistry::default(),
-        compiled.limits().interception_timeout,
+        compiled.limits().interception_timeout(),
         HookFailurePolicy::FailClosed,
     ));
     if let Some(interceptor) = tls_interceptor(compiled.tls())? {
@@ -85,9 +85,9 @@ async fn run_proxy(
     let mut intercept_receiver = None;
     if compiled.runtime().hooks == HookMode::Interactive {
         let (broker, receiver) = InteractiveBroker::channel(
-            compiled.limits().ui_event_capacity,
-            compiled.limits().paused_flows,
-            compiled.limits().interception_timeout,
+            compiled.limits().ui_event_capacity(),
+            compiled.limits().paused_flows(),
+            compiled.limits().interception_timeout(),
             InterceptTimeoutPolicy::FailClosed,
         )
         .context("could not create bounded interactive interception channel")?;
@@ -116,7 +116,7 @@ async fn run_proxy(
             intercept_receiver.take(),
             repeat_sender,
             repeat_result_receiver,
-            compiled.limits().ui_retained_rows,
+            compiled.limits().ui_retained_rows(),
         )
         .context("could not start terminal UI")?;
         let (exit, thread) = task.into_parts();
@@ -180,7 +180,7 @@ fn prepare_repeat_services(
     if compiled.runtime().hooks != HookMode::Interactive {
         return (None, None, None);
     }
-    let capacity = compiled.limits().ui_retained_rows;
+    let capacity = compiled.limits().ui_retained_rows();
     let (request_sender, request_receiver) = tokio::sync::mpsc::channel(capacity);
     let (result_sender, result_receiver) = tokio::sync::mpsc::channel(capacity);
     (
@@ -204,8 +204,8 @@ fn attach_tui_services(
         return Ok(services);
     };
     let ui_capture = UiCaptureSettings::new(
-        compiled.limits().ui_content_bytes,
-        compiled.limits().ui_retained_rows,
+        compiled.limits().ui_content_bytes(),
+        compiled.limits().ui_retained_rows(),
     )
     .context("compiled configuration contains invalid TUI capture limits")?;
     Ok(services
@@ -215,12 +215,12 @@ fn attach_tui_services(
 
 fn proxy_limits(limits: Limits) -> AppResult<ProxyLimits> {
     ProxyLimits::new(
-        limits.connections,
-        limits.header_bytes,
-        limits.body_prefix_bytes,
-        limits.connect_timeout,
-        limits.read_timeout,
-        limits.idle_timeout,
+        limits.connections(),
+        limits.header_bytes(),
+        limits.body_prefix_bytes(),
+        limits.connect_timeout(),
+        limits.read_timeout(),
+        limits.idle_timeout(),
     )
     .context("compiled configuration contains invalid proxy limits")
 }
@@ -228,26 +228,20 @@ fn proxy_limits(limits: Limits) -> AppResult<ProxyLimits> {
 fn capture_settings(capture: CapturePolicy) -> AppResult<CaptureSettings> {
     match capture {
         CapturePolicy::MetadataOnly => Ok(CaptureSettings::metadata_only()),
-        CapturePolicy::Prefix { max_bytes } => CaptureSettings::prefix(max_bytes)
+        CapturePolicy::Prefix { max_bytes } => CaptureSettings::prefix(max_bytes.get())
             .context("compiled configuration contains an invalid capture bound"),
     }
 }
 
 fn tls_interceptor(config: &TlsConfig) -> AppResult<Option<TlsInterceptor>> {
-    let TlsConfig::Intercept {
-        ca_certificate,
-        ca_private_key,
-        intercept_hosts,
-        leaf_cache_entries,
-    } = config
-    else {
+    let TlsConfig::Intercept(interception) = config else {
         return Ok(None);
     };
     let settings = TlsInterceptionConfig::new(
-        ca_certificate.clone(),
-        ca_private_key.clone(),
-        intercept_hosts.clone(),
-        *leaf_cache_entries,
+        interception.ca_certificate().to_path_buf(),
+        interception.ca_private_key().to_path_buf(),
+        interception.intercept_hosts().to_vec(),
+        interception.leaf_cache_entries(),
     )
     .context("compiled configuration contains invalid TLS interception settings")?;
     TlsInterceptor::from_config(&settings)

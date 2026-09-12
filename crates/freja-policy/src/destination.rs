@@ -1,12 +1,16 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 use freja_domain::{
-    Decision, DecisionTrace, EnforcementAction, HttpReject, MatchReason, PolicyGeneration,
-    PolicyStage, Protocol, ResolvedTargetFacts, RuleId, TcpClose, TcpCloseMode,
+    Decision, EnforcementAction, HttpReject, MatchReason, PolicyGeneration, PolicyStage, Protocol,
+    ResolvedTargetFacts, RuleId, TcpClose, TcpCloseMode,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::{PolicyError, evidence::RuleDefinition};
+
+const EC2_IPV4_METADATA_ADDRESS: Ipv4Addr = Ipv4Addr::new(169, 254, 169, 254);
+const ALIBABA_IPV4_METADATA_ADDRESS: Ipv4Addr = Ipv4Addr::new(100, 100, 100, 200);
+const EC2_IPV6_METADATA_ADDRESS: Ipv6Addr = Ipv6Addr::new(0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254);
 
 /// Whether one sensitive address class is denied or explicitly permitted.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -137,19 +141,16 @@ fn deny_decision(
             mode: TcpCloseMode::Graceful,
         }),
     };
-    Decision {
-        trace: DecisionTrace {
-            policy_generation: generation,
-            evaluated_stage: PolicyStage::ResolvedDestination,
-            matched_rule: Some(matched_rule),
-            match_reasons: vec![MatchReason {
-                criterion: "destination-address-class".to_owned(),
-                observed: format!("{} ({address_class})", facts.resolved_ip()),
-            }],
-            final_action: action.kind(),
-        },
+    Decision::new(
         action,
-    }
+        generation,
+        PolicyStage::ResolvedDestination,
+        Some(matched_rule),
+        vec![MatchReason {
+            criterion: "destination-address-class".to_owned(),
+            observed: format!("{} ({address_class})", facts.resolved_ip()),
+        }],
+    )
 }
 
 fn is_unroutable(address: IpAddr) -> bool {
@@ -176,10 +177,9 @@ fn is_private(address: IpAddr) -> bool {
 fn is_metadata(address: IpAddr) -> bool {
     match address {
         IpAddr::V4(address) => {
-            address == Ipv4Addr::new(169, 254, 169, 254)
-                || address == Ipv4Addr::new(100, 100, 100, 200)
+            address == EC2_IPV4_METADATA_ADDRESS || address == ALIBABA_IPV4_METADATA_ADDRESS
         }
-        IpAddr::V6(address) => address == Ipv6Addr::new(0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254),
+        IpAddr::V6(address) => address == EC2_IPV6_METADATA_ADDRESS,
     }
 }
 
@@ -213,9 +213,9 @@ mod tests {
             .evaluate(PolicyGeneration::default(), &resolved([169, 254, 169, 254]))
             .unwrap();
 
-        assert!(matches!(decision.action, EnforcementAction::TcpClose(_)));
+        assert!(matches!(decision.action(), EnforcementAction::TcpClose(_)));
         assert_eq!(
-            decision.trace.matched_rule.as_ref().map(RuleId::as_str),
+            decision.trace().matched_rule.as_ref().map(RuleId::as_str),
             Some("protect-metadata-destination")
         );
     }

@@ -80,8 +80,10 @@ pub fn run_tui(
     mut repeat_receiver: Option<mpsc::Receiver<RepeatResult>>,
     retained_rows: usize,
 ) -> Result<(), TuiError> {
+    const MAXIMUM_ITEMS_PER_ROW: usize = 256;
+
+    let mut model = TuiModel::new(retained_rows, MAXIMUM_ITEMS_PER_ROW).map_err(TuiError::Model)?;
     let mut terminal = TerminalGuard::enter()?;
-    let mut model = TuiModel::new(retained_rows, 256);
     let mut pending = VecDeque::new();
     loop {
         let mut disconnected = false;

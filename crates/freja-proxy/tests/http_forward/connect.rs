@@ -206,8 +206,8 @@ async fn intercepted_connect_relays_an_http2_exchange() {
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::HttpResponseObserved { status: 200, .. }
-            if event.context.transaction_id.is_some()
+        AuditEvent::HttpResponseObserved { status, .. }
+            if status.get() == 200 && event.context.transaction_id().is_some()
     )));
 }
 
@@ -241,7 +241,7 @@ async fn certificate_pinning_failure_closes_and_audits_the_intercepted_tunnel() 
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::TunnelClosed { outcome, .. } if outcome == "tls-client-rejected"
+        AuditEvent::TunnelClosed { outcome, .. } if outcome == &FlowOutcome::TlsClientRejected
     )));
     assert!(
         !events
@@ -269,7 +269,7 @@ async fn connect_port_outside_listener_allowlist_is_forbidden() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("connect-port-allowlist")
     )));
 }
@@ -326,10 +326,12 @@ async fn proxy_authentication_rejects_missing_credentials_and_strips_valid_crede
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::ProxyAuthentication { outcome } if outcome == "rejected"
+        AuditEvent::ProxyAuthentication { outcome }
+            if outcome == &AuthenticationOutcome::Rejected
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::ProxyAuthentication { outcome } if outcome == "accepted"
+        AuditEvent::ProxyAuthentication { outcome }
+            if outcome == &AuthenticationOutcome::Accepted
     )));
 }

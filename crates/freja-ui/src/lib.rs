@@ -32,7 +32,9 @@ use std::{
     },
 };
 
-use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
+use freja_domain::{
+    DecisionTrace, Direction, EvaluationTarget, Finding, HttpStatusCode, SessionId, TransactionId,
+};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
@@ -79,7 +81,7 @@ pub enum UiEvent {
         /// HTTP exchange correlation identity.
         transaction_id: TransactionId,
         /// Parsed HTTP status code.
-        status: u16,
+        status: HttpStatusCode,
         /// Parsed HTTP version used by the semantic view.
         version: String,
         /// Response headers copied at the observation boundary.

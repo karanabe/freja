@@ -17,6 +17,9 @@ use vim_navigation::{
 
 pub(super) use vim_navigation::Mode as EditorMode;
 
+const HEADER_CAPACITY_EXCLUDES_REQUEST_LINE: usize = 1;
+const MINIMUM_HEADER_CAPACITY: usize = 1;
+
 #[derive(Debug)]
 pub(super) struct RequestEditor {
     original_method: String,
@@ -404,7 +407,9 @@ fn wire_request(document: &str) -> Result<(Vec<u8>, usize, usize), RequestEditEr
     wire.extend_from_slice(b"\r\n");
     let body_offset = wire.len();
     wire.extend_from_slice(&document.as_bytes()[body_start..]);
-    let header_capacity = line_count.saturating_sub(1).max(1);
+    let header_capacity = line_count
+        .saturating_sub(HEADER_CAPACITY_EXCLUDES_REQUEST_LINE)
+        .max(MINIMUM_HEADER_CAPACITY);
     Ok((wire, body_offset, header_capacity))
 }
 

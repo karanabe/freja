@@ -257,11 +257,11 @@ impl FlowInspector {
         let body = WireBody::new(bytes.clone());
         let (stage, result) = match direction {
             Direction::HttpRequestBody => (
-                "http-request-body",
+                freja_audit::AuditHookStage::HttpRequestBody,
                 self.services.hooks().request_body(&body).await,
             ),
             Direction::HttpResponseBody => (
-                "http-response-body",
+                freja_audit::AuditHookStage::HttpResponseBody,
                 self.services.hooks().response_body(&body).await,
             ),
             Direction::ClientToUpstream | Direction::UpstreamToClient => {

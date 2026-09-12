@@ -44,4 +44,7 @@ pub use raw::{
     RawAudit, RawCapturePolicy, RawConfig, RawInspection, RawInspectionPattern, RawLimits,
     RawListener, RawPolicy, RawProxyAuthentication, RawSafety, RawSocksAuthentication, RawTls,
 };
-pub use validation::{AuditConfig, CapturePolicy, Limits, TlsConfig, ValidatedConfig};
+pub use validation::{
+    AuditConfig, CapturePolicy, CheckpointSigningConfig, Limits, ListenerExposure, SafetyConfig,
+    TlsConfig, TlsInterception, ValidatedConfig,
+};

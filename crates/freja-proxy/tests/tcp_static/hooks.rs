@@ -57,7 +57,7 @@ async fn automatic_tcp_hook_transforms_chunk_and_emits_audit_event() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::HookExecuted { stage, outcome }
-            if stage == "tcp-client-chunk" && outcome == "completed"
+            if stage == &AuditHookStage::TcpClientChunk && outcome == &HookOutcome::Completed
     )));
 }
 
@@ -98,7 +98,7 @@ async fn tcp_hook_replacement_respects_the_configured_body_budget() {
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::FlowClosed { outcome, .. } if outcome == "hook-failure"
+        AuditEvent::FlowClosed { outcome, .. } if outcome == &FlowOutcome::HookFailure
     )));
 }
 

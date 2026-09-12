@@ -1,6 +1,6 @@
 use std::{error::Error, fmt, net::SocketAddr, time::Duration};
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, AuthenticationOutcome};
 use freja_domain::{Port, ProxyCredentialHash, SessionId, TargetHost};
 use sha2::{Digest, Sha256};
 use tokio::{
@@ -10,9 +10,37 @@ use tokio::{
 };
 
 use super::{
-    AUTH_NONE, AUTH_UNACCEPTABLE, AUTH_USERNAME_PASSWORD, AUTH_VERSION, DataPlaneServices,
-    ProxyError, SOCKS_VERSION, audit_context,
+    ADDRESS_TYPE_DOMAIN, ADDRESS_TYPE_IPV4, ADDRESS_TYPE_IPV6, AUTH_FAILURE, AUTH_NONE,
+    AUTH_SUCCESS, AUTH_UNACCEPTABLE, AUTH_USERNAME_PASSWORD, AUTH_VERSION, DataPlaneServices,
+    ProxyError, SOCKS_COMMAND_CONNECT, SOCKS_RESERVED, SOCKS_VERSION, audit_context,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SocksReply {
+    Succeeded,
+    GeneralFailure,
+    ConnectionNotAllowed,
+    HostUnreachable,
+    ConnectionRefused,
+    TtlExpired,
+    CommandNotSupported,
+    AddressTypeNotSupported,
+}
+
+impl SocksReply {
+    const fn code(self) -> u8 {
+        match self {
+            Self::Succeeded => 0,
+            Self::GeneralFailure => 1,
+            Self::ConnectionNotAllowed => 2,
+            Self::HostUnreachable => 4,
+            Self::ConnectionRefused => 5,
+            Self::TtlExpired => 6,
+            Self::CommandNotSupported => 7,
+            Self::AddressTypeNotSupported => 8,
+        }
+    }
+}
 
 pub(super) async fn negotiate_authentication(
     client: &mut TcpStream,
@@ -59,17 +87,23 @@ pub(super) async fn negotiate_authentication(
             context: audit_context(session_id, None, services),
             event: AuditEvent::ProxyAuthentication {
                 outcome: if authenticated {
-                    "accepted"
+                    AuthenticationOutcome::Accepted
                 } else {
-                    "rejected"
-                }
-                .to_owned(),
+                    AuthenticationOutcome::Rejected
+                },
             },
         })
         .await?;
     write_all(
         client,
-        &[AUTH_VERSION, u8::from(!authenticated)],
+        &[
+            AUTH_VERSION,
+            if authenticated {
+                AUTH_SUCCESS
+            } else {
+                AUTH_FAILURE
+            },
+        ],
         budget,
         "authentication response",
     )
@@ -128,20 +162,20 @@ pub(super) async fn read_request(
 ) -> Result<(TargetHost, Port), ProxyError> {
     let mut header = [0_u8; 4];
     read_exact(client, &mut header, budget, "request header").await?;
-    if header[0] != SOCKS_VERSION || header[2] != 0 {
+    if header[0] != SOCKS_VERSION || header[2] != SOCKS_RESERVED {
         return Err(ProxyError::Socks(SocksError::MalformedRequest));
     }
-    if header[1] != 1 {
-        send_reply(client, 7, None, budget).await?;
+    if header[1] != SOCKS_COMMAND_CONNECT {
+        send_reply(client, SocksReply::CommandNotSupported, None, budget).await?;
         return Err(ProxyError::Socks(SocksError::UnsupportedCommand));
     }
     let host = match header[3] {
-        1 => {
+        ADDRESS_TYPE_IPV4 => {
             let mut octets = [0_u8; 4];
             read_exact(client, &mut octets, budget, "IPv4 address").await?;
             TargetHost::Ip(octets.into())
         }
-        3 => {
+        ADDRESS_TYPE_DOMAIN => {
             let mut length = [0_u8; 1];
             read_exact(client, &mut length, budget, "domain length").await?;
             if length[0] == 0 {
@@ -156,13 +190,13 @@ pub(super) async fn read_request(
                 .map_err(SocksError::InvalidTarget)
                 .map_err(ProxyError::Socks)?
         }
-        4 => {
+        ADDRESS_TYPE_IPV6 => {
             let mut octets = [0_u8; 16];
             read_exact(client, &mut octets, budget, "IPv6 address").await?;
             TargetHost::Ip(octets.into())
         }
         _ => {
-            send_reply(client, 8, None, budget).await?;
+            send_reply(client, SocksReply::AddressTypeNotSupported, None, budget).await?;
             return Err(ProxyError::Socks(SocksError::UnsupportedAddressType));
         }
     };
@@ -176,20 +210,20 @@ pub(super) async fn read_request(
 
 pub(super) async fn send_reply(
     client: &mut TcpStream,
-    status: u8,
+    status: SocksReply,
     bound: Option<SocketAddr>,
     budget: Duration,
 ) -> Result<(), ProxyError> {
     let bound = bound.unwrap_or_else(|| SocketAddr::from(([0, 0, 0, 0], 0)));
-    let mut response = vec![SOCKS_VERSION, status, 0];
+    let mut response = vec![SOCKS_VERSION, status.code(), SOCKS_RESERVED];
     match bound {
         SocketAddr::V4(address) => {
-            response.push(1);
+            response.push(ADDRESS_TYPE_IPV4);
             response.extend_from_slice(&address.ip().octets());
             response.extend_from_slice(&address.port().to_be_bytes());
         }
         SocketAddr::V6(address) => {
-            response.push(4);
+            response.push(ADDRESS_TYPE_IPV6);
             response.extend_from_slice(&address.ip().octets());
             response.extend_from_slice(&address.port().to_be_bytes());
         }
@@ -235,14 +269,14 @@ fn constant_time_equal(left: &[u8], right: &[u8]) -> bool {
         == 0
 }
 
-pub(super) const fn reply_for_proxy_error(error: &ProxyError) -> u8 {
+pub(super) const fn reply_for_proxy_error(error: &ProxyError) -> SocksReply {
     match error {
-        ProxyError::ConnectTimedOut { .. } => 6,
-        ProxyError::ConnectFailed { .. } => 5,
+        ProxyError::ConnectTimedOut { .. } => SocksReply::TtlExpired,
+        ProxyError::ConnectFailed { .. } => SocksReply::ConnectionRefused,
         ProxyError::Dns { .. }
         | ProxyError::DnsTimedOut { .. }
-        | ProxyError::NoResolvedAddresses { .. } => 4,
-        _ => 1,
+        | ProxyError::NoResolvedAddresses { .. } => SocksReply::HostUnreachable,
+        _ => SocksReply::GeneralFailure,
     }
 }
 

@@ -21,7 +21,7 @@ mod evidence_tests;
 
 pub use model::{
     DetailLayout, DisplayMode, FocusPane, SelectedSide, SideSnapshot, TraceSnapshot, TrafficKind,
-    TrafficRow, TuiModel, TuiPage, WireState,
+    TrafficRow, TuiModel, TuiModelError, TuiPage, WireState,
 };
 pub use render::render;
 pub use runtime::{TuiTask, run_tui, spawn_tui};
@@ -34,7 +34,7 @@ use render::{escape_terminal_bytes, hex_ascii};
 mod tests {
     use ratatui::{Terminal, backend::TestBackend};
 
-    use super::{DisplayMode, TuiModel, escape_terminal_bytes, hex_ascii, render};
+    use super::{DisplayMode, TuiModel, TuiModelError, escape_terminal_bytes, hex_ascii, render};
     use crate::UiEvent;
     use freja_domain::{Direction, SessionId, TransactionId};
     use freja_policy::hook::{
@@ -43,9 +43,21 @@ mod tests {
     };
 
     #[test]
+    fn model_rejects_zero_retention_limits() {
+        assert_eq!(
+            TuiModel::new(0, 1).unwrap_err(),
+            TuiModelError::ZeroMaximumRows
+        );
+        assert_eq!(
+            TuiModel::new(1, 0).unwrap_err(),
+            TuiModelError::ZeroMaximumItemsPerRow
+        );
+    }
+
+    #[test]
     fn immutable_events_reduce_and_render_on_test_backend() {
         let session_id = SessionId::new();
-        let mut model = TuiModel::new(4, 4);
+        let mut model = TuiModel::new(4, 4).unwrap();
         model.apply(UiEvent::FlowOpened {
             session_id,
             client: "127.0.0.1:40000".to_owned(),
@@ -85,7 +97,7 @@ mod tests {
     fn traffic_page_renders_split_http_details_and_exact_raw_bytes() {
         let session_id = SessionId::new();
         let transaction_id = TransactionId::new();
-        let mut model = TuiModel::new(4, 4);
+        let mut model = TuiModel::new(4, 4).unwrap();
         model.apply(UiEvent::FlowOpened {
             session_id,
             client: "127.0.0.1:40000".to_owned(),
@@ -102,7 +114,7 @@ mod tests {
         model.apply(UiEvent::HttpResponseObserved {
             session_id,
             transaction_id,
-            status: 200,
+            status: freja_domain::HttpStatusCode::new(200).unwrap(),
             version: "HTTP/1.1".to_owned(),
             headers: vec![("content-length".to_owned(), b"2".to_vec())],
         });
@@ -146,7 +158,7 @@ mod tests {
         let session_id = SessionId::new();
         let old_transaction = TransactionId::new();
         let paused_transaction = TransactionId::new();
-        let mut model = TuiModel::new(1, 4);
+        let mut model = TuiModel::new(1, 4).unwrap();
         model.apply(UiEvent::HttpObserved {
             session_id,
             transaction_id: old_transaction,
@@ -253,7 +265,7 @@ mod tests {
             },
             response,
         };
-        let mut model = TuiModel::new(2, 4);
+        let mut model = TuiModel::new(2, 4).unwrap();
         assert!(model.create_repeat_workspace(&request));
         (model, source_transaction)
     }

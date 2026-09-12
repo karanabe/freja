@@ -76,12 +76,12 @@ async fn automatic_http_hooks_mutate_headers_body_and_reconstruct_framing() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::HookExecuted { stage, outcome }
-            if stage == "http-request-head" && outcome == "completed"
+            if stage == &AuditHookStage::HttpRequestHead && outcome == &HookOutcome::Completed
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::HookExecuted { stage, outcome }
-            if stage == "http-request-body" && outcome == "completed"
+            if stage == &AuditHookStage::HttpRequestBody && outcome == &HookOutcome::Completed
     )));
 }
 
@@ -219,7 +219,8 @@ async fn interactive_http_actions_mutate_bounded_request_and_are_audited() {
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::ManualModification { action } if action == "modify-request"
+        AuditEvent::ManualModification { action }
+            if action == &ManualModificationAction::ModifyRequest
     )));
 }
 

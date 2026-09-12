@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc};
 
-use freja_audit::{AuditContext, AuditEnvelope, AuditEvent, UnixMillis};
+use freja_audit::{AuditContext, AuditEnvelope, AuditEvent, FlowOutcome, UnixMillis};
 use freja_domain::{SessionId, TcpStaticListener};
 use tokio::{net::TcpListener, sync::Semaphore, task::JoinSet};
 use tracing::warn;
@@ -104,11 +104,13 @@ impl StaticTcpServer {
 
     async fn reject_at_capacity(&self, peer: SocketAddr) -> Result<(), ProxyError> {
         let session_id = SessionId::new();
-        let context = || AuditContext {
-            occurred_at: UnixMillis::now(),
-            session_id,
-            transaction_id: None,
-            policy_generation: self.services.policy().generation(),
+        let context = || {
+            AuditContext::new(
+                UnixMillis::now(),
+                session_id,
+                None,
+                self.services.policy().generation(),
+            )
         };
         self.services
             .publish(AuditEnvelope {
@@ -125,7 +127,7 @@ impl StaticTcpServer {
                 event: AuditEvent::FlowClosed {
                     client_to_upstream_bytes: 0,
                     upstream_to_client_bytes: 0,
-                    outcome: "connection-limit".to_owned(),
+                    outcome: FlowOutcome::ConnectionLimit,
                 },
             })
             .await

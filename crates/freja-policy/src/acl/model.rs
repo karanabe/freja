@@ -44,6 +44,16 @@ impl PortRange {
     pub fn contains(self, port: Port) -> bool {
         (self.start.get()..=self.end.get()).contains(&port.get())
     }
+
+    /// Returns the inclusive lower bound.
+    pub const fn start(self) -> Port {
+        self.start
+    }
+
+    /// Returns the inclusive upper bound.
+    pub const fn end(self) -> Port {
+        self.end
+    }
 }
 
 impl TryFrom<PortRangeRepr> for PortRange {

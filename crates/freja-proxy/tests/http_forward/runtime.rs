@@ -97,8 +97,8 @@ async fn atomic_reload_changes_policy_generation_for_existing_listener() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.policy_generation == reloaded_generation
-                && decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().policy_generation == reloaded_generation
+                && decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                     == Some("deny-localhost-after-reload")
     )));
 }

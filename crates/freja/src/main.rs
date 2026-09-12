@@ -104,7 +104,7 @@ mod tests {
     use std::{fs, io::Cursor, io::Write as _};
 
     use clap::Parser as _;
-    use freja_audit::AuditEvent;
+    use freja_audit::{AuditEvent, AuditSchemaVersion};
     use freja_domain::{SessionId, TransactionId};
     use freja_ui::{UiEvent, UiPublisher};
     use tracing_subscriber::fmt::MakeWriter as _;
@@ -150,9 +150,9 @@ mod tests {
 
     #[test]
     fn replay_rejects_unknown_schema_versions_explicitly() {
-        assert!(validate_replay_schema(1, 7).is_ok());
-        assert!(validate_replay_schema(2, 7).is_ok());
-        let error = validate_replay_schema(3, 7).unwrap_err();
+        assert!(validate_replay_schema(AuditSchemaVersion::V1, 7).is_ok());
+        assert!(validate_replay_schema(AuditSchemaVersion::V2, 7).is_ok());
+        let error = validate_replay_schema(AuditSchemaVersion::from_wire(3), 7).unwrap_err();
 
         assert_eq!(
             error.to_string(),
@@ -167,8 +167,8 @@ mod tests {
             source_transaction_id: TransactionId::new(),
         };
 
-        assert!(validate_replay_event_schema(2, &event, 4).is_ok());
-        let error = validate_replay_event_schema(1, &event, 4).unwrap_err();
+        assert!(validate_replay_event_schema(AuditSchemaVersion::V2, &event, 4).is_ok());
+        let error = validate_replay_event_schema(AuditSchemaVersion::V1, &event, 4).unwrap_err();
         assert_eq!(
             error.to_string(),
             "audit schema version 1 cannot contain an HTTP repeat event at line 4"

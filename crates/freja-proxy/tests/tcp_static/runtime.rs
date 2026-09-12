@@ -78,6 +78,6 @@ async fn connection_limit_rejects_excess_load_and_recovers_capacity() {
     let events = collect_events(&mut audit);
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::FlowClosed { outcome, .. } if outcome == "connection-limit"
+        AuditEvent::FlowClosed { outcome, .. } if outcome == &FlowOutcome::ConnectionLimit
     )));
 }

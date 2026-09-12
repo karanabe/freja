@@ -40,11 +40,10 @@ impl ForwardTarget {
         let host = TargetHost::parse(authority.host()).map_err(TargetError::Endpoint)?;
         let port = match authority.port_u16() {
             Some(port) => Port::new(port).map_err(TargetError::Endpoint)?,
-            None => Port::new(match scheme {
-                ForwardScheme::Http => 80,
-                ForwardScheme::Https => 443,
-            })
-            .map_err(TargetError::Endpoint)?,
+            None => match scheme {
+                ForwardScheme::Http => Port::HTTP,
+                ForwardScheme::Https => Port::HTTPS,
+            },
         };
         let path_and_query = uri.path_and_query().map_or("/", |value| value.as_str());
         let origin_uri = path_and_query

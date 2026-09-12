@@ -1,7 +1,9 @@
-use std::{error::Error, fmt};
+use std::{error::Error, fmt, num::NonZeroU64};
 
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+const MAXIMUM_TEXT_IDENTIFIER_BYTES: usize = 128;
 
 macro_rules! uuid_id {
     ($name:ident, $doc:literal) => {
@@ -69,6 +71,8 @@ pub enum IdError {
     },
     /// Policy generation zero was supplied even though zero is reserved.
     ZeroPolicyGeneration,
+    /// Audit sequence zero was supplied even though segments begin at one.
+    ZeroAuditSequence,
 }
 
 impl fmt::Display for IdError {
@@ -82,6 +86,7 @@ impl fmt::Display for IdError {
                 write!(formatter, "{kind} contains invalid character {character:?}")
             }
             Self::ZeroPolicyGeneration => formatter.write_str("policy generation must be non-zero"),
+            Self::ZeroAuditSequence => formatter.write_str("audit sequence must be non-zero"),
         }
     }
 }
@@ -151,8 +156,11 @@ fn validate_string_id(value: &str, kind: &'static str) -> Result<(), IdError> {
     if value.is_empty() {
         return Err(IdError::Empty { kind });
     }
-    if value.len() > 128 {
-        return Err(IdError::TooLong { kind, maximum: 128 });
+    if value.len() > MAXIMUM_TEXT_IDENTIFIER_BYTES {
+        return Err(IdError::TooLong {
+            kind,
+            maximum: MAXIMUM_TEXT_IDENTIFIER_BYTES,
+        });
     }
     if let Some(character) = value.chars().find(|character| {
         !character.is_ascii_alphanumeric() && !matches!(character, '-' | '_' | '.')
@@ -163,54 +171,136 @@ fn validate_string_id(value: &str, kind: &'static str) -> Result<(), IdError> {
 }
 
 /// Monotonically increasing identity of a compiled policy snapshot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct PolicyGeneration(u64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "u64", into = "u64")]
+pub struct PolicyGeneration(NonZeroU64);
 
 impl PolicyGeneration {
+    /// Initial generation used before the first compatible policy reload.
+    pub const INITIAL: Self = Self(NonZeroU64::MIN);
+
     /// Creates a non-zero policy generation.
     ///
     /// # Errors
     ///
     /// Returns [`IdError::ZeroPolicyGeneration`] when `value` is zero.
-    pub fn new(value: u64) -> Result<Self, IdError> {
-        if value == 0 {
-            return Err(IdError::ZeroPolicyGeneration);
+    pub const fn new(value: u64) -> Result<Self, IdError> {
+        match NonZeroU64::new(value) {
+            Some(value) => Ok(Self(value)),
+            None => Err(IdError::ZeroPolicyGeneration),
         }
-        Ok(Self(value))
     }
 
     /// Returns the numeric generation.
-    pub fn get(self) -> u64 {
-        self.0
+    pub const fn get(self) -> u64 {
+        self.0.get()
     }
 }
 
 impl Default for PolicyGeneration {
     fn default() -> Self {
-        Self(1)
+        Self::INITIAL
+    }
+}
+
+impl TryFrom<u64> for PolicyGeneration {
+    type Error = IdError;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<PolicyGeneration> for u64 {
+    fn from(value: PolicyGeneration) -> Self {
+        value.get()
     }
 }
 
 impl fmt::Display for PolicyGeneration {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(formatter)
+        self.get().fmt(formatter)
     }
 }
 
 /// Monotonic sequence number within one audit stream.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct AuditSequence(u64);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(try_from = "u64", into = "u64")]
+pub struct AuditSequence(NonZeroU64);
 
 impl AuditSequence {
-    /// Creates a sequence number.
-    pub const fn new(value: u64) -> Self {
-        Self(value)
+    /// First record position in a fresh audit segment.
+    pub const FIRST: Self = Self(NonZeroU64::MIN);
+
+    /// Creates a non-zero sequence number.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`IdError::ZeroAuditSequence`] when `value` is zero.
+    pub const fn new(value: u64) -> Result<Self, IdError> {
+        match NonZeroU64::new(value) {
+            Some(value) => Ok(Self(value)),
+            None => Err(IdError::ZeroAuditSequence),
+        }
     }
 
     /// Returns the numeric sequence.
     pub const fn get(self) -> u64 {
-        self.0
+        self.0.get()
+    }
+
+    /// Returns the next sequence, or `None` after the maximum value.
+    pub const fn checked_next(self) -> Option<Self> {
+        match self.get().checked_add(1) {
+            Some(value) => match NonZeroU64::new(value) {
+                Some(value) => Some(Self(value)),
+                None => None,
+            },
+            None => None,
+        }
+    }
+}
+
+impl TryFrom<u64> for AuditSequence {
+    type Error = IdError;
+
+    fn try_from(value: u64) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+
+impl From<AuditSequence> for u64 {
+    fn from(value: AuditSequence) -> Self {
+        value.get()
+    }
+}
+
+impl fmt::Display for AuditSequence {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.get().fmt(formatter)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{AuditSequence, PolicyGeneration};
+
+    #[test]
+    fn audit_sequence_is_non_zero_and_checked() {
+        assert!(AuditSequence::new(0).is_err());
+        assert!(serde_json::from_str::<AuditSequence>("0").is_err());
+        assert_eq!(AuditSequence::FIRST.get(), 1);
+        assert_eq!(
+            AuditSequence::FIRST.checked_next().map(AuditSequence::get),
+            Some(2)
+        );
+        assert_eq!(AuditSequence::new(u64::MAX).unwrap().checked_next(), None);
+    }
+
+    #[test]
+    fn policy_generation_deserialization_preserves_non_zero_invariant() {
+        assert!(PolicyGeneration::new(0).is_err());
+        assert!(serde_json::from_str::<PolicyGeneration>("0").is_err());
+        assert_eq!(PolicyGeneration::default(), PolicyGeneration::INITIAL);
     }
 }

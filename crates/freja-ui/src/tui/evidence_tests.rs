@@ -111,7 +111,7 @@ fn normal_and_expanded_details_restore_identity_and_scroll_for_both_close_keys()
         for close in [KeyCode::Enter, KeyCode::Char('q')] {
             let session = SessionId::new();
             let transaction = TransactionId::new();
-            let mut model = TuiModel::new(4, 8);
+            let mut model = TuiModel::new(4, 8).unwrap();
             observe(&mut model, session, transaction);
             for generation in 1..=3 {
                 model.apply(decision(session, transaction, generation));
@@ -166,7 +166,7 @@ fn arrivals_reload_and_same_url_transactions_do_not_replace_open_or_selected_eva
     let session = SessionId::new();
     let transaction = TransactionId::new();
     let other = TransactionId::new();
-    let mut model = TuiModel::new(4, 4);
+    let mut model = TuiModel::new(4, 4).unwrap();
     observe(&mut model, session, transaction);
     model.apply(decision(session, transaction, 1));
     model.show_diagnostics();
@@ -199,7 +199,7 @@ fn arrivals_reload_and_same_url_transactions_do_not_replace_open_or_selected_eva
 fn eviction_reports_loss_and_never_aliases_the_next_evaluation() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(&mut model, session, transaction);
     model.apply(decision(session, transaction, 1));
     model.show_diagnostics();
@@ -241,7 +241,7 @@ fn eviction_reports_loss_and_never_aliases_the_next_evaluation() {
 fn missing_definition_and_no_evaluation_are_explicit_and_definitions_are_not_serialized() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 4);
+    let mut model = TuiModel::new(1, 4).unwrap();
     observe(&mut model, session, transaction);
     model.show_diagnostics();
     key(&mut model, KeyCode::Enter);
@@ -282,7 +282,7 @@ fn oversized_definitions_and_reasons_remain_bounded_visible_and_scrollable() {
             100
         ];
     }
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(&mut model, session, transaction);
     model.apply(event);
     model.show_diagnostics();
@@ -324,20 +324,20 @@ fn finding_only_row_cannot_open_a_rule_and_selection_survives_continuous_arrival
     use freja_domain::{Confidence, DetectorId, Direction, EvidenceHash, Finding, Severity};
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 3);
+    let mut model = TuiModel::new(1, 3).unwrap();
     observe(&mut model, session, transaction);
     model.apply(UiEvent::FindingDetected {
         session_id: session,
         transaction_id: Some(transaction),
-        finding: Finding {
-            detector_id: DetectorId::new("same-id").unwrap(),
-            severity: Severity::High,
-            confidence: Confidence::Confirmed,
-            direction: Direction::HttpRequestBody,
-            byte_range: None,
-            evidence_hash: EvidenceHash::from_sha256([0; 32]),
-            tags: Vec::new(),
-        },
+        finding: Finding::new(
+            DetectorId::new("same-id").unwrap(),
+            Severity::High,
+            Confidence::Confirmed,
+            Direction::HttpRequestBody,
+            None,
+            EvidenceHash::from_sha256([0; 32]),
+            Vec::new(),
+        ),
     });
     model.show_diagnostics();
     key(&mut model, KeyCode::Char('j'));
@@ -396,7 +396,7 @@ fn default_inspection_and_builtin_details_show_distinct_provenance() {
     ] {
         let session = SessionId::new();
         let transaction = TransactionId::new();
-        let mut model = TuiModel::new(1, 2);
+        let mut model = TuiModel::new(1, 2).unwrap();
         observe(&mut model, session, transaction);
         let mut event = decision(session, transaction, 1);
         if let UiEvent::DecisionMade {
@@ -425,7 +425,7 @@ fn default_inspection_and_builtin_details_show_distinct_provenance() {
 fn minimum_terminal_keeps_identity_and_all_detail_sections_reachable() {
     let session = SessionId::new();
     let transaction = TransactionId::new();
-    let mut model = TuiModel::new(1, 2);
+    let mut model = TuiModel::new(1, 2).unwrap();
     observe(&mut model, session, transaction);
     model.apply(decision(session, transaction, 1));
     model.show_diagnostics();
@@ -461,7 +461,7 @@ fn resolved_acl_detail_explains_empty_configuration_and_unmatched_configured_rul
     for configured in [false, true] {
         let session = SessionId::new();
         let transaction = TransactionId::new();
-        let mut model = TuiModel::new(1, 2);
+        let mut model = TuiModel::new(1, 2).unwrap();
         model.apply(UiEvent::HttpObserved {
             session_id: session,
             transaction_id: transaction,
@@ -503,7 +503,7 @@ fn resolved_acl_detail_explains_empty_configuration_and_unmatched_configured_rul
         model.apply(UiEvent::DecisionMade {
             session_id: session,
             transaction_id: Some(transaction),
-            trace: decision.trace,
+            trace: decision.trace().clone(),
             evidence: Some(definition.snapshot(EnforcementMode::Observe)),
             target: Some(freja_domain::EvaluationTarget::Resolved(resolved)),
         });

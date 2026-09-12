@@ -2,6 +2,9 @@ use std::{error::Error, fmt, net::IpAddr, num::NonZeroU16, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 
+const MAXIMUM_DNS_NAME_BYTES: usize = 253;
+const MAXIMUM_DNS_LABEL_BYTES: usize = 63;
+
 /// A validation error for a network endpoint.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EndpointError {
@@ -46,10 +49,16 @@ impl fmt::Display for EndpointError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::EmptyHost => formatter.write_str("host must not be empty"),
-            Self::HostTooLong => formatter.write_str("host must not exceed 253 bytes"),
+            Self::HostTooLong => write!(
+                formatter,
+                "host must not exceed {MAXIMUM_DNS_NAME_BYTES} bytes"
+            ),
             Self::EmptyLabel => formatter.write_str("host contains an empty label"),
             Self::LabelTooLong { label } => {
-                write!(formatter, "host label {label:?} exceeds 63 bytes")
+                write!(
+                    formatter,
+                    "host label {label:?} exceeds {MAXIMUM_DNS_LABEL_BYTES} bytes"
+                )
             }
             Self::InvalidHostCharacter { character } => {
                 write!(formatter, "host contains invalid character {character:?}")
@@ -90,14 +99,14 @@ impl HostName {
         if normalized.is_empty() {
             return Err(EndpointError::EmptyHost);
         }
-        if normalized.len() > 253 {
+        if normalized.len() > MAXIMUM_DNS_NAME_BYTES {
             return Err(EndpointError::HostTooLong);
         }
         for label in normalized.split('.') {
             if label.is_empty() {
                 return Err(EndpointError::EmptyLabel);
             }
-            if label.len() > 63 {
+            if label.len() > MAXIMUM_DNS_LABEL_BYTES {
                 return Err(EndpointError::LabelTooLong {
                     label: label.to_owned(),
                 });
@@ -195,6 +204,12 @@ impl fmt::Display for TargetHost {
 pub struct Port(NonZeroU16);
 
 impl Port {
+    /// Conventional plaintext HTTP port.
+    pub const HTTP: Self = match NonZeroU16::new(80) {
+        Some(value) => Self(value),
+        None => Self(NonZeroU16::MIN),
+    };
+
     /// Conventional HTTPS and CONNECT port.
     pub const HTTPS: Self = match NonZeroU16::new(443) {
         Some(value) => Self(value),

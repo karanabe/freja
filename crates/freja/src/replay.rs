@@ -6,7 +6,7 @@ use std::{
 };
 
 use freja::{AppError, AppResult, ResultExt};
-use freja_audit::{AuditEvent, AuditRecord, RecordHash};
+use freja_audit::{AuditEvent, AuditRecord, AuditSchemaVersion, RecordHash};
 use freja_config::CompiledConfig;
 use freja_domain::{Decision, Direction, Protocol, ReplayFacts, SessionId, TransactionId};
 use freja_policy::{PolicyFacts, StreamScanner};
@@ -41,24 +41,22 @@ pub(super) fn replay_audit(
         line_number = line_number.saturating_add(1);
         let record = serde_json::from_str::<AuditRecord>(&line)
             .with_context(|| format!("invalid audit JSON at line {line_number}"))?;
-        validate_replay_schema(record.schema_version, line_number)?;
-        validate_replay_event_schema(record.schema_version, &record.event, line_number)?;
-        if record.sequence.get() != expected_sequence
-            || record.previous_hash != previous_hash
+        validate_replay_schema(record.schema_version(), line_number)?;
+        validate_replay_event_schema(record.schema_version(), record.event(), line_number)?;
+        if record.sequence().get() != expected_sequence
+            || record.previous_hash() != previous_hash
             || !record.verifies_hash()
         {
             return Err(AppError::msg(format!(
                 "audit integrity verification failed at line {line_number}"
             )));
         }
-        if let AuditEvent::SignedCheckpoint { checkpoint } = &record.event {
-            let key_matches = expected_checkpoint_key.is_none_or(|expected| {
-                hex::decode(&checkpoint.public_key_hex)
-                    .is_ok_and(|actual| actual.as_slice() == expected.as_slice())
-            });
+        if let AuditEvent::SignedCheckpoint { checkpoint } = record.event() {
+            let key_matches =
+                expected_checkpoint_key.is_none_or(|expected| checkpoint.public_key() == &expected);
             let covers_chain = previous_hash.is_some_and(|hash| {
-                checkpoint.covers_sequence.get() == expected_sequence.saturating_sub(1)
-                    && checkpoint.record_hash == hash
+                checkpoint.covers_sequence().get() == expected_sequence.saturating_sub(1)
+                    && checkpoint.record_hash() == hash
             });
             if !checkpoint.verifies() || !key_matches || !covers_chain {
                 return Err(AppError::msg(format!(
@@ -68,7 +66,7 @@ pub(super) fn replay_audit(
             verified_checkpoints = verified_checkpoints.saturating_add(1);
         }
         decisions = decisions.saturating_add(replay_record(&compiled, &record, &mut scanners)?);
-        previous_hash = Some(record.record_hash);
+        previous_hash = Some(record.record_hash());
         expected_sequence = expected_sequence.saturating_add(1);
     }
     if expected_checkpoint_key.is_some() && verified_checkpoints == 0 {
@@ -83,8 +81,11 @@ pub(super) fn replay_audit(
     Ok(())
 }
 
-pub(super) fn validate_replay_schema(schema_version: u16, line_number: usize) -> AppResult<()> {
-    if !matches!(schema_version, 1 | 2) {
+pub(super) fn validate_replay_schema(
+    schema_version: AuditSchemaVersion,
+    line_number: usize,
+) -> AppResult<()> {
+    if !schema_version.is_supported() {
         return Err(AppError::msg(format!(
             "unsupported audit schema version {schema_version} at line {line_number}"
         )));
@@ -93,11 +94,13 @@ pub(super) fn validate_replay_schema(schema_version: u16, line_number: usize) ->
 }
 
 pub(super) fn validate_replay_event_schema(
-    schema_version: u16,
+    schema_version: AuditSchemaVersion,
     event: &AuditEvent,
     line_number: usize,
 ) -> AppResult<()> {
-    if schema_version == 1 && matches!(event, AuditEvent::HttpRepeatStarted { .. }) {
+    if schema_version == AuditSchemaVersion::V1
+        && matches!(event, AuditEvent::HttpRepeatStarted { .. })
+    {
         return Err(AppError::msg(format!(
             "audit schema version 1 cannot contain an HTTP repeat event at line {line_number}"
         )));
@@ -154,7 +157,7 @@ fn replay_record(
     record: &AuditRecord,
     scanners: &mut HashMap<ReplayStreamKey, StreamScanner>,
 ) -> AppResult<u64> {
-    match &record.event {
+    match record.event() {
         AuditEvent::ReplayFactsObserved { facts } => replay_facts(compiled, record, facts),
         AuditEvent::PayloadPrefixCaptured {
             direction,
@@ -164,18 +167,18 @@ fn replay_record(
             let bytes = hex::decode(bytes_hex).with_context(|| {
                 format!(
                     "invalid captured bytes at sequence {}",
-                    record.sequence.get()
+                    record.sequence().get()
                 )
             })?;
-            if bytes.len() > compiled.limits().body_prefix_bytes {
+            if bytes.len() > compiled.limits().body_prefix_bytes() {
                 return Err(AppError::msg(format!(
                     "captured bytes at sequence {} exceed the configured replay body-prefix limit",
-                    record.sequence.get()
+                    record.sequence().get()
                 )));
             }
             let key = ReplayStreamKey {
-                session_id: record.session_id,
-                transaction_id: record.transaction_id,
+                session_id: record.session_id(),
+                transaction_id: record.transaction_id(),
                 direction: *direction,
                 protocol: *protocol,
             };
@@ -252,9 +255,9 @@ fn emit_replay_decision(
     decision: &Decision,
 ) -> AppResult<()> {
     let output = serde_json::json!({
-        "source_sequence": record.sequence,
-        "session_id": record.session_id,
-        "transaction_id": record.transaction_id,
+        "source_sequence": record.sequence(),
+        "session_id": record.session_id(),
+        "transaction_id": record.transaction_id(),
         "source": source,
         "decision": decision,
     });

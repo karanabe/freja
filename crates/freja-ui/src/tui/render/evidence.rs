@@ -8,6 +8,8 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
+const MAXIMUM_SCROLL_OFFSET: i64 = u16::MAX as i64;
+
 pub(super) fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
     let row = model.evidence_row();
     let lines = evaluation_lines(model, row);
@@ -77,7 +79,7 @@ pub(super) fn render_evidence(frame: &mut Frame<'_>, model: &TuiModel, area: Rec
             let height = wrap_evidence_lines(lines[..index].to_vec(), evidence_area.width).len();
             u16::try_from(
                 (i64::try_from(height).unwrap_or(i64::MAX) + i64::from(model.evidence_view.scroll))
-                    .clamp(0, 65535),
+                    .clamp(0, MAXIMUM_SCROLL_OFFSET),
             )
             .unwrap_or(u16::MAX)
         });
@@ -296,7 +298,10 @@ fn evaluation_lines(model: &TuiModel, row: Option<&TrafficRow>) -> Vec<Line<'sta
             Line::styled(
                 format!(
                     "finding {} {:?} {:?} {:?}",
-                    finding.detector_id, finding.severity, finding.confidence, finding.direction
+                    finding.detector_id(),
+                    finding.severity(),
+                    finding.confidence(),
+                    finding.direction()
                 ),
                 Style::default().fg(Color::Yellow),
             )

@@ -36,9 +36,9 @@ async fn connect_evaluation_targets_match_the_facts_used_by_policy() {
                 };
             }
             AuditEvent::AclEvaluated { decision } => expected.push((
-                envelope.context.session_id,
-                envelope.context.transaction_id,
-                decision.trace,
+                envelope.context.session_id(),
+                envelope.context.transaction_id(),
+                decision.trace().clone(),
                 latest_facts.clone(),
             )),
             _ => {}

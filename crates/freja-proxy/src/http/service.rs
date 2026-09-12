@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
-use freja_audit::{AuditEnvelope, AuditEvent};
-use freja_domain::{RuleId, SessionId, TransactionId};
+use freja_audit::{AuditEnvelope, AuditEvent, AuthenticationOutcome};
+use freja_domain::{HttpStatusCode, RuleId, SessionId, TransactionId};
 use http::{Method, Request, Response};
 use hyper::body::Incoming;
 use tokio::{sync::mpsc, task::JoinHandle};
@@ -88,17 +88,17 @@ impl HttpService {
                     context: audit_context(self.session_id, Some(transaction_id), &self.services),
                     event: AuditEvent::ProxyAuthentication {
                         outcome: if authenticated {
-                            "accepted"
+                            AuthenticationOutcome::Accepted
                         } else {
-                            "rejected"
-                        }
-                        .to_owned(),
+                            AuthenticationOutcome::Rejected
+                        },
                     },
                 })
                 .await?;
             if !authenticated {
                 let response = proxy_authentication_required(authentication);
-                let status = response.status().as_u16();
+                let status = HttpStatusCode::new(response.status().as_u16())
+                    .map_err(ProxyError::InvalidHttpStatus)?;
                 let response_headers = headers::audit_headers(response.headers());
                 self.audit_response(transaction_id, status, response_headers)
                     .await?;
@@ -114,7 +114,8 @@ impl HttpService {
             Ok(response) => response,
             Err(error) => response_for_error(error)?,
         };
-        let status = response.status().as_u16();
+        let status = HttpStatusCode::new(response.status().as_u16())
+            .map_err(ProxyError::InvalidHttpStatus)?;
         let response_headers = headers::audit_headers(response.headers());
         if self.services.publishes_events() {
             self.services.publish_http_response_event(
@@ -161,7 +162,7 @@ impl HttpService {
     async fn audit_response(
         &self,
         transaction_id: TransactionId,
-        status: u16,
+        status: HttpStatusCode,
         headers: std::collections::BTreeMap<String, Vec<String>>,
     ) -> Result<(), ProxyError> {
         self.services

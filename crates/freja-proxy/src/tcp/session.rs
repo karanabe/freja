@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{Protocol, RequestedTargetFacts, SessionId, UpstreamEndpoint};
 use tokio::net::TcpStream;
 
@@ -37,7 +37,7 @@ pub(super) async fn run_static_session(
     )
     .await;
     let (stats, outcome) = match &result {
-        Ok(relay) => (relay.stats, termination_name(relay.termination)),
+        Ok(relay) => (relay.stats, termination_outcome(relay.termination)),
         Err(error) => (RelayStats::default(), error_outcome(error)),
     };
     services
@@ -46,7 +46,7 @@ pub(super) async fn run_static_session(
             event: AuditEvent::FlowClosed {
                 client_to_upstream_bytes: stats.client_to_upstream_bytes,
                 upstream_to_client_bytes: stats.upstream_to_client_bytes,
-                outcome: outcome.to_owned(),
+                outcome,
             },
         })
         .await?;
@@ -105,35 +105,36 @@ async fn run_session_inner(
     .await
 }
 
-const fn termination_name(termination: RelayTermination) -> &'static str {
+const fn termination_outcome(termination: RelayTermination) -> FlowOutcome {
     match termination {
-        RelayTermination::Completed => "completed",
-        RelayTermination::IdleTimeout => "idle-timeout",
-        RelayTermination::Shutdown => "shutdown",
-        RelayTermination::InspectionBlocked => "inspection-blocked",
+        RelayTermination::Completed => FlowOutcome::Completed,
+        RelayTermination::IdleTimeout => FlowOutcome::IdleTimeout,
+        RelayTermination::Shutdown => FlowOutcome::Shutdown,
+        RelayTermination::InspectionBlocked => FlowOutcome::InspectionBlocked,
     }
 }
 
-const fn error_outcome(error: &ProxyError) -> &'static str {
+const fn error_outcome(error: &ProxyError) -> FlowOutcome {
     match error {
-        ProxyError::PolicyDenied { .. } => "policy-denied",
-        ProxyError::DetourLoop { .. } => "detour-loop",
-        ProxyError::Dns { .. } | ProxyError::NoResolvedAddresses { .. } => "dns-failure",
-        ProxyError::DnsTimedOut { .. } => "dns-timeout",
-        ProxyError::ConnectFailed { .. } => "connect-failure",
-        ProxyError::ConnectTimedOut { .. } => "connect-timeout",
-        ProxyError::RelayRead { .. } | ProxyError::RelayWrite { .. } => "relay-failure",
-        ProxyError::Audit(_) => "audit-failure",
+        ProxyError::PolicyDenied { .. } => FlowOutcome::PolicyDenied,
+        ProxyError::DetourLoop { .. } => FlowOutcome::DetourLoop,
+        ProxyError::Dns { .. } | ProxyError::NoResolvedAddresses { .. } => FlowOutcome::DnsFailure,
+        ProxyError::DnsTimedOut { .. } => FlowOutcome::DnsTimeout,
+        ProxyError::ConnectFailed { .. } => FlowOutcome::ConnectFailure,
+        ProxyError::ConnectTimedOut { .. } => FlowOutcome::ConnectTimeout,
+        ProxyError::RelayRead { .. } | ProxyError::RelayWrite { .. } => FlowOutcome::RelayFailure,
+        ProxyError::Audit(_) => FlowOutcome::AuditFailure,
         ProxyError::Hook(_)
         | ProxyError::HookMutation(_)
         | ProxyError::Interactive(_)
-        | ProxyError::InteractiveRejected => "hook-failure",
-        ProxyError::Shutdown => "shutdown",
+        | ProxyError::InteractiveRejected => FlowOutcome::HookFailure,
+        ProxyError::Shutdown => FlowOutcome::Shutdown,
         ProxyError::Bind { .. }
         | ProxyError::LocalAddress(_)
         | ProxyError::Accept(_)
         | ProxyError::HttpConnection(_)
         | ProxyError::UpstreamHttp { .. }
+        | ProxyError::InvalidHttpStatus(_)
         | ProxyError::UpstreamResponseTimedOut
         | ProxyError::HttpUpgrade(_)
         | ProxyError::TunnelRegistration
@@ -141,6 +142,6 @@ const fn error_outcome(error: &ProxyError) -> &'static str {
         | ProxyError::ConcurrencyClosed
         | ProxyError::Join(_)
         | ProxyError::Socks(_)
-        | ProxyError::Tls(_) => "runtime-failure",
+        | ProxyError::Tls(_) => FlowOutcome::RuntimeFailure,
     }
 }

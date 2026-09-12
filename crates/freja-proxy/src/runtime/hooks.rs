@@ -1,4 +1,6 @@
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{
+    AuditEnvelope, AuditEvent, AuditHookStage, HookOutcome, ManualModificationAction,
+};
 use freja_domain::Direction;
 use freja_policy::hook::{
     ChunkMutationPlan, HttpRequestSnapshot, InteractiveDecision, InterceptContext,
@@ -27,7 +29,7 @@ impl DataPlaneServices {
         let result = broker
             .intercept_http_request(
                 InterceptContext {
-                    session_id: context.session_id,
+                    session_id: context.session_id(),
                     transaction_id,
                     source_ip,
                 },
@@ -35,19 +37,19 @@ impl DataPlaneServices {
             )
             .await;
         let action = match &result {
-            Ok(InteractiveDecision::Continue) => "continue",
-            Ok(InteractiveDecision::Reject) => "reject",
-            Ok(InteractiveDecision::EditHeaders(_)) => "edit-headers",
-            Ok(InteractiveDecision::ReplaceBody(_)) => "replace-body",
-            Ok(InteractiveDecision::ModifyRequest(_)) => "modify-request",
-            Ok(InteractiveDecision::CancelModification) => "cancel-modification",
-            Err(_) => "failed",
+            Ok(InteractiveDecision::Continue) => ManualModificationAction::Continue,
+            Ok(InteractiveDecision::Reject) => ManualModificationAction::Reject,
+            Ok(InteractiveDecision::EditHeaders(_)) => ManualModificationAction::EditHeaders,
+            Ok(InteractiveDecision::ReplaceBody(_)) => ManualModificationAction::ReplaceBody,
+            Ok(InteractiveDecision::ModifyRequest(_)) => ManualModificationAction::ModifyRequest,
+            Ok(InteractiveDecision::CancelModification) => {
+                ManualModificationAction::CancelModification
+            }
+            Err(_) => ManualModificationAction::Failed,
         };
         self.publish(AuditEnvelope {
             context,
-            event: AuditEvent::ManualModification {
-                action: action.to_owned(),
-            },
+            event: AuditEvent::ManualModification { action },
         })
         .await?;
         result.map(Some).map_err(ProxyError::Interactive)
@@ -63,11 +65,11 @@ impl DataPlaneServices {
         }
         let (stage, result) = match direction {
             Direction::ClientToUpstream => (
-                "tcp-client-chunk",
+                AuditHookStage::TcpClientChunk,
                 self.hooks.tcp_client_chunk(&bytes).await,
             ),
             Direction::UpstreamToClient => (
-                "tcp-upstream-chunk",
+                AuditHookStage::TcpUpstreamChunk,
                 self.hooks.tcp_upstream_chunk(&bytes).await,
             ),
             Direction::HttpRequestBody | Direction::HttpResponseBody => {
@@ -75,16 +77,13 @@ impl DataPlaneServices {
             }
         };
         let outcome = if result.is_ok() {
-            "completed"
+            HookOutcome::Completed
         } else {
-            "failed"
+            HookOutcome::Failed
         };
         self.publish(AuditEnvelope {
             context,
-            event: AuditEvent::HookExecuted {
-                stage: stage.to_owned(),
-                outcome: outcome.to_owned(),
-            },
+            event: AuditEvent::HookExecuted { stage, outcome },
         })
         .await?;
         result.map_err(ProxyError::Hook)
@@ -93,14 +92,18 @@ impl DataPlaneServices {
     pub(crate) async fn publish_hook_outcome(
         &self,
         context: freja_audit::AuditContext,
-        stage: &'static str,
+        stage: AuditHookStage,
         succeeded: bool,
     ) -> Result<(), ProxyError> {
         self.publish(AuditEnvelope {
             context,
             event: AuditEvent::HookExecuted {
-                stage: stage.to_owned(),
-                outcome: if succeeded { "completed" } else { "failed" }.to_owned(),
+                stage,
+                outcome: if succeeded {
+                    HookOutcome::Completed
+                } else {
+                    HookOutcome::Failed
+                },
             },
         })
         .await

@@ -43,6 +43,14 @@ share one version and are released together.
   ownership modules without changing the seven-crate dependency direction.
 - Clarified that the shipped multi-listener CLI owns concrete Tokio listeners;
   `freja-proxy/pingora-adapter` remains an isolated compatibility boundary.
+- Strengthened domain and configuration invariants with non-zero generations,
+  sequence numbers, limits, and cache sizes; typed HTTP status codes and byte
+  ranges; internally consistent decisions; and grouped TLS/checkpoint settings.
+- Replaced free-form audit authentication, hook, manual-action, and flow-outcome
+  strings with closed enums while preserving their existing JSON spellings.
+- Made credential-equivalent proxy hashes redact themselves in `Debug` output,
+  and made zero-sized TUI retention fail construction instead of being silently
+  raised to one.
 
 ### Upgrade notes
 
@@ -56,6 +64,12 @@ share one version and are released together.
 - The new `limits.ui_content_bytes` and `limits.ui_retained_rows` settings have
   bounded defaults. Interactive configurations must retain a complete bounded
   request and enough rows for every paused flow.
+- Rust API consumers must use the validated constructors and accessors for
+  `Decision`, `Finding`, audit records and contexts, and validated configuration
+  values. `TuiModel::new` now returns `Result` for invalid zero limits.
+- The audit JSON representation of existing records is unchanged, but unknown
+  values in closed audit categories and zero sequence or policy-generation
+  values are now rejected during deserialization.
 
 ## 0.1.0
 

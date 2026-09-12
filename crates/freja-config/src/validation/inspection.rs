@@ -1,3 +1,5 @@
+use std::num::NonZeroUsize;
+
 use freja_policy::InspectionPattern;
 
 use crate::{RawCapturePolicy, RawInspectionPattern, ValidationError};
@@ -10,7 +12,7 @@ pub enum CapturePolicy {
     /// Store a bounded raw prefix after the global body limit is enforced.
     Prefix {
         /// Maximum retained bytes per captured direction.
-        max_bytes: usize,
+        max_bytes: NonZeroUsize,
     },
 }
 
@@ -20,16 +22,18 @@ impl TryFrom<(RawCapturePolicy, usize)> for CapturePolicy {
     fn try_from((raw, body_prefix_bytes): (RawCapturePolicy, usize)) -> Result<Self, Self::Error> {
         match raw {
             RawCapturePolicy::MetadataOnly => Ok(Self::MetadataOnly),
-            RawCapturePolicy::Prefix { max_bytes: 0 } => Err(ValidationError::ZeroLimit {
-                name: "capture.max_bytes",
-            }),
             RawCapturePolicy::Prefix { max_bytes } if max_bytes > body_prefix_bytes => {
                 Err(ValidationError::CapturePrefixExceedsBodyLimit {
                     capture_bytes: max_bytes,
                     body_prefix_bytes,
                 })
             }
-            RawCapturePolicy::Prefix { max_bytes } => Ok(Self::Prefix { max_bytes }),
+            RawCapturePolicy::Prefix { max_bytes } => {
+                let max_bytes = NonZeroUsize::new(max_bytes).ok_or(ValidationError::ZeroLimit {
+                    name: "capture.max_bytes",
+                })?;
+                Ok(Self::Prefix { max_bytes })
+            }
         }
     }
 }

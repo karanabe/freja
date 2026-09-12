@@ -1,6 +1,6 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{HttpForwardListener, RuleId, SessionId};
 use hyper::{server::conn::http1, service::service_fn};
 use hyper_util::rt::{TokioIo, TokioTimer};
@@ -128,7 +128,7 @@ impl HttpForwardServer {
                 event: AuditEvent::FlowClosed {
                     client_to_upstream_bytes: 0,
                     upstream_to_client_bytes: 0,
-                    outcome: "connection-limit".to_owned(),
+                    outcome: FlowOutcome::ConnectionLimit,
                 },
             })
             .await
@@ -174,7 +174,7 @@ async fn serve_connection(
             session_id,
             context.limits.header_bytes,
             capture.content_bytes(),
-            capture.retained_rows(),
+            capture.retained_rows_bound(),
         );
         let service = HttpService::new(
             context.peer,
@@ -218,9 +218,9 @@ async fn serve_connection(
     };
     let tracked_result = tracker.await.map_err(ProxyError::Join)?;
     let outcome = if connection_result.is_err() || tracked_result.is_err() {
-        "http-error"
+        FlowOutcome::HttpError
     } else {
-        "completed"
+        FlowOutcome::Completed
     };
     context
         .services
@@ -229,7 +229,7 @@ async fn serve_connection(
             event: AuditEvent::FlowClosed {
                 client_to_upstream_bytes: 0,
                 upstream_to_client_bytes: 0,
-                outcome: outcome.to_owned(),
+                outcome,
             },
         })
         .await?;

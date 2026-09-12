@@ -2,7 +2,7 @@
 title: 監査schema
 description: version 2 JSONL field、compatibility、event variant、redaction、hash chain、signed checkpointです。
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-12
 tags:
   - 監査
   - schema
@@ -43,6 +43,28 @@ hashはprevious linkを含むdeterministic JSON serializationを対象にしま�
 - `signed-checkpoint`
 
 version 2は`http-repeat-started`を追加し、それ以前のevent shapeは変更しません。replayはversion 1と2を受け付け、v1と表示されたrecord内のv2専用repeat event、および未知のversionをfield意味の推測なしで拒否します。
+
+一部のscalar fieldは閉じたkebab-case vocabularyを使います。wire表現を維持しつつ、
+Freja producerが生成できない値を拒否します。
+
+- `http-response-observed.status`は100から999までのinteger
+- `proxy-authentication.outcome`は`accepted`または`rejected`
+- `hook-executed.stage`は`http-request-head`、`http-request-body`、
+  `http-response-head`、`http-response-body`、`tcp-client-chunk`、
+  `tcp-upstream-chunk`のいずれかで、outcomeは`completed`または`failed`
+- `manual-modification.action`は`continue`、`reject`、`edit-headers`、
+  `replace-body`、`modify-request`、`cancel-modification`、`failed`のいずれか
+- `flow-closed.outcome`と`tunnel-closed.outcome`はproducerが定義したlifecycle categoryを
+  使う。`completed`、`idle-timeout`、`shutdown`、`inspection-blocked`、
+  `policy-denied`、`detour-loop`、`dns-failure`、`dns-timeout`、
+  `connect-failure`、`connect-timeout`、`relay-failure`、`audit-failure`、
+  `hook-failure`、`runtime-failure`、`authentication-failed`、
+  `socks-protocol-error`、`connection-limit`、`http-error`、`tunnel-failure`、
+  `tls-client-rejected`、`tls-client-timeout`、`tls-upstream-rejected`、
+  `tls-alpn-rejected`、`tls-upstream-timeout`、およびrepeat executorが生成する
+  `repeat-*` failure category
+
+これらのfieldに未知の値がある場合、型なし文字列として扱わずdeserializeに失敗します。
 
 ## Redactionとcapture
 

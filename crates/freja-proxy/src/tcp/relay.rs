@@ -9,6 +9,8 @@ use tokio::{
 
 use crate::{ProxyError, ShutdownSignal, inspection::FlowInspector};
 
+const RELAY_READ_BUFFER_BYTES: usize = 16 * 1_024;
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct RelayLimits {
     idle_timeout: Duration,
@@ -145,8 +147,8 @@ where
     let mut stats = RelayStats::default();
     let mut client_open = true;
     let mut upstream_open = true;
-    let mut client_buffer = vec![0_u8; 16 * 1_024].into_boxed_slice();
-    let mut upstream_buffer = vec![0_u8; 16 * 1_024].into_boxed_slice();
+    let mut client_buffer = vec![0_u8; RELAY_READ_BUFFER_BYTES].into_boxed_slice();
+    let mut upstream_buffer = vec![0_u8; RELAY_READ_BUFFER_BYTES].into_boxed_slice();
     let preflight = inspection
         .as_ref()
         .is_some_and(FlowInspector::uses_preflight);

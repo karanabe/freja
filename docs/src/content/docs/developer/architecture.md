@@ -2,7 +2,7 @@
 title: Architecture
 description: Crate boundaries, data flow, runtime snapshots, and invariants for Freja contributors.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-06
+updatedAt: 2026-09-12
 tags:
   - architecture
   - developer
@@ -51,6 +51,12 @@ findings, decisions, traces, and listener specifications. Every connection has
 a `SessionId`; every HTTP exchange has a `TransactionId`. It has no async
 runtime, parser, or Pingora dependency.
 
+Domain constructors preserve relationships that primitives cannot express:
+HTTP status values are three-digit `HttpStatusCode` values, finding offsets are
+non-empty `ByteRange` values, and a `Decision` derives its trace's final-action
+category from the action. Deserialization rejects a decision whose action and
+trace disagree.
+
 ### `freja-config`
 
 Owns the only configuration compiler. The typestate path rejects invalid mode
@@ -62,7 +68,9 @@ Internally, `raw` owns the Serde-facing TOML model, `validation` owns semantic
 and cross-field invariants, and `compiled` builds the immutable policy and
 inspection programs. Listener, resource-limit, audit, inspection, and TLS
 rules are isolated within their owning stage; the crate root only exposes the
-stable public API. For commandless/config-free startup, the `freja` composition
+stable public API. Validated bounds use non-zero values, and enabled checkpoint
+signing and TLS interception are grouped types rather than combinations of
+independent optional fields. For commandless/config-free startup, the `freja` composition
 root adds one loopback HTTP listener to `RawConfig::default()` and still runs
 the complete compiler before opening sockets; `freja-config` itself does not
 invent a listener.
@@ -78,7 +86,9 @@ automatic and interactive hooks live here without wire access.
 ### `freja-audit`
 
 Serializes typed version-2 events after central redaction while replay remains
-compatible with version 1. Its bounded channel
+compatible with version 1. Status codes, authentication results, hook stages
+and results, manual actions, terminal outcomes, schema versions, hashes, keys,
+and signatures retain validated representations until serialization. Its bounded channel
 and explicit fail-open/fail-closed behavior are independent from UI delivery.
 Each record links to its predecessor; optional periodic Ed25519 checkpoints
 authenticate retained positions when their public key is pinned externally.

@@ -10,6 +10,7 @@ use super::{FocusPane, TraceSnapshot, TrafficRow, TuiModel};
 const MAXIMUM_CONTEXT_BYTES: usize = 16 * 1024;
 const MAXIMUM_REASONS: usize = 64;
 const MAXIMUM_REASON_BYTES: usize = 1024;
+const MAXIMUM_EVIDENCE_SCROLL: i32 = u16::MAX as i32;
 
 type RowIdentity = (SessionId, Option<TransactionId>);
 
@@ -220,7 +221,7 @@ impl TuiModel {
                 .evidence_view
                 .scroll
                 .saturating_add(amount)
-                .clamp(-65535, 65535);
+                .clamp(-MAXIMUM_EVIDENCE_SCROLL, MAXIMUM_EVIDENCE_SCROLL);
             true
         } else {
             false

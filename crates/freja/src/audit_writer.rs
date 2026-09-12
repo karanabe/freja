@@ -14,20 +14,26 @@ use freja_config::CompiledConfig;
 use tokio::{sync::mpsc, task::JoinHandle};
 use tracing::info;
 
+const MAXIMUM_SEGMENT_NAME_ATTEMPTS: u8 = 100;
+
 pub(super) fn spawn_audit_writer(
     compiled: &CompiledConfig,
     audit_receiver: mpsc::Receiver<AuditEnvelope>,
 ) -> AppResult<JoinHandle<Result<(), AuditError>>> {
-    let (audit_file, audit_path) = create_audit_segment(&compiled.audit().path)?;
+    let (audit_file, audit_path) = create_audit_segment(compiled.audit().path())?;
     info!(path = %audit_path.display(), "audit segment created");
-    let redactor = Redactor::new(compiled.audit().redact_query_parameters.clone());
-    let checkpoint = match &compiled.audit().checkpoint_signing_key {
-        Some(path) => {
-            let signer = CheckpointSigner::load_hex_seed(path).with_context(|| {
-                format!("could not load audit checkpoint key {}", path.display())
-            })?;
+    let redactor = Redactor::new(compiled.audit().redact_query_parameters().iter().cloned());
+    let checkpoint = match compiled.audit().checkpoint_signing() {
+        Some(signing) => {
+            let signer =
+                CheckpointSigner::load_hex_seed(signing.key_path()).with_context(|| {
+                    format!(
+                        "could not load audit checkpoint key {}",
+                        signing.key_path().display()
+                    )
+                })?;
             Some(
-                CheckpointSchedule::new(signer, compiled.audit().checkpoint_interval)
+                CheckpointSchedule::new(signer, signing.interval())
                     .context("could not configure audit checkpoints")?,
             )
         }
@@ -58,7 +64,7 @@ pub(super) fn create_audit_segment(configured_path: &Path) -> AppResult<(File, P
         .duration_since(UNIX_EPOCH)
         .context("system clock is before the Unix epoch")?
         .as_millis();
-    for collision in 0_u8..100 {
+    for collision in 0_u8..MAXIMUM_SEGMENT_NAME_ATTEMPTS {
         let name = format!(
             "freja-{timestamp}-{}-{collision:02}.jsonl",
             std::process::id()

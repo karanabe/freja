@@ -28,7 +28,7 @@ async fn allowed_static_tcp_connection_relays_bytes_and_audits_counts() {
     assert!(
         events
             .iter()
-            .all(|event| event.context.policy_generation.get() == 11)
+            .all(|event| event.context.policy_generation().get() == 11)
     );
     assert!(events.iter().any(|event| matches!(
         event.event,

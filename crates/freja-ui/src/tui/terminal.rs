@@ -2,7 +2,7 @@ use std::{error::Error, fmt, io};
 
 use ratatui::DefaultTerminal;
 
-use super::{TuiModel, render};
+use super::{TuiModel, TuiModelError, render};
 
 /// Terminal setup, rendering, or input failure.
 #[derive(Debug)]
@@ -16,6 +16,8 @@ pub enum TuiError {
     },
     /// The dedicated terminal-owner thread could not be created.
     ThreadSpawn(io::Error),
+    /// Bounded model settings were invalid.
+    Model(TuiModelError),
 }
 
 impl fmt::Display for TuiError {
@@ -23,6 +25,7 @@ impl fmt::Display for TuiError {
         match self {
             Self::Io { operation, .. } => write!(formatter, "TUI {operation} failed"),
             Self::ThreadSpawn(_) => formatter.write_str("failed to spawn dedicated TUI thread"),
+            Self::Model(error) => error.fmt(formatter),
         }
     }
 }
@@ -31,6 +34,7 @@ impl Error for TuiError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
             Self::Io { source, .. } | Self::ThreadSpawn(source) => Some(source),
+            Self::Model(error) => Some(error),
         }
     }
 }

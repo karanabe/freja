@@ -2,22 +2,29 @@ mod audit;
 mod inspection;
 mod limits;
 mod listener;
+mod safety;
 mod tls;
 
 use freja_domain::{
     HookMode, InspectionMode, ListenerSpec, PolicyGeneration, RuntimeProfile, UiMode,
 };
-use freja_policy::{AclRule, DestinationGuardSettings, InspectionPattern, RuleAction};
+use freja_policy::{AclRule, InspectionPattern, RuleAction};
 
-pub use self::{audit::AuditConfig, inspection::CapturePolicy, limits::Limits, tls::TlsConfig};
+pub use self::{
+    audit::{AuditConfig, CheckpointSigningConfig},
+    inspection::CapturePolicy,
+    limits::Limits,
+    safety::{ListenerExposure, SafetyConfig},
+    tls::{TlsConfig, TlsInterception},
+};
 
-use crate::{RawConfig, RawInspection, RawPolicy, RawSafety, ValidationError};
+use crate::{RawConfig, RawInspection, RawPolicy, ValidationError};
 
 /// Configuration whose external values and cross-field constraints are valid.
 #[derive(Debug, Clone)]
 pub struct ValidatedConfig {
     pub(crate) runtime: RuntimeProfile,
-    pub(crate) safety: RawSafety,
+    pub(crate) safety: SafetyConfig,
     pub(crate) limits: Limits,
     pub(crate) audit: AuditConfig,
     pub(crate) capture: CapturePolicy,
@@ -25,7 +32,6 @@ pub struct ValidatedConfig {
     pub(crate) inspection_patterns: Vec<InspectionPattern>,
     pub(crate) tls: TlsConfig,
     pub(crate) generation: PolicyGeneration,
-    pub(crate) destination_guard_settings: DestinationGuardSettings,
     pub(crate) default_action: RuleAction,
     pub(crate) rules: Vec<AclRule>,
     pub(crate) listeners: Vec<ListenerSpec>,
@@ -54,22 +60,23 @@ impl TryFrom<RawConfig> for ValidatedConfig {
             return Err(ValidationError::NoListeners);
         }
 
+        let safety = SafetyConfig::from(safety);
         let limits = Limits::try_from(raw_limits)?;
         if runtime.hooks == HookMode::Interactive
-            && limits.ui_content_bytes < limits.body_prefix_bytes
+            && limits.ui_content_bytes() < limits.body_prefix_bytes()
         {
             return Err(ValidationError::UiContentBelowBodyLimit {
-                ui_content_bytes: limits.ui_content_bytes,
-                body_prefix_bytes: limits.body_prefix_bytes,
+                ui_content_bytes: limits.ui_content_bytes(),
+                body_prefix_bytes: limits.body_prefix_bytes(),
             });
         }
-        let capture = CapturePolicy::try_from((raw_capture, limits.body_prefix_bytes))?;
+        let capture = CapturePolicy::try_from((raw_capture, limits.body_prefix_bytes()))?;
         let RawInspection {
             mode: inspection_mode,
             patterns,
         } = raw_inspection;
         let inspection_patterns =
-            inspection::validate_patterns(patterns, limits.body_prefix_bytes)?;
+            inspection::validate_patterns(patterns, limits.body_prefix_bytes())?;
         let tls = tls::validate(raw_tls)?;
         let audit = AuditConfig::try_from(raw_audit)?;
 
@@ -80,13 +87,7 @@ impl TryFrom<RawConfig> for ValidatedConfig {
         } = raw_policy;
         let generation =
             PolicyGeneration::new(generation).map_err(|_| ValidationError::ZeroPolicyGeneration)?;
-        let destination_guard_settings = DestinationGuardSettings {
-            private: safety.private_destinations,
-            link_local: safety.link_local_destinations,
-            loopback: safety.loopback_destinations,
-            metadata: safety.metadata_destinations,
-        };
-        let listeners = listener::validate_all(raw_listeners, safety.allow_non_loopback)?;
+        let listeners = listener::validate_all(raw_listeners, safety.permits_non_loopback_bind())?;
 
         Ok(Self {
             runtime,
@@ -98,7 +99,6 @@ impl TryFrom<RawConfig> for ValidatedConfig {
             inspection_patterns,
             tls,
             generation,
-            destination_guard_settings,
             default_action,
             rules,
             listeners,

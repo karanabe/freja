@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    num::NonZeroUsize,
+    path::{Path, PathBuf},
+};
 
 use freja_domain::TlsHandling;
 use freja_policy::HostPattern;
@@ -11,16 +14,38 @@ pub enum TlsConfig {
     /// Preserve end-to-end TLS and relay opaque encrypted bytes.
     Tunnel,
     /// Terminate TLS for explicitly allowed hostnames using operator-owned CA material.
-    Intercept {
-        /// PEM CA certificate path.
-        ca_certificate: PathBuf,
-        /// PEM CA private-key path.
-        ca_private_key: PathBuf,
-        /// Non-empty set of host patterns eligible for interception.
-        intercept_hosts: Vec<HostPattern>,
-        /// Non-zero in-memory leaf-certificate cache capacity.
-        leaf_cache_entries: usize,
-    },
+    Intercept(TlsInterception),
+}
+
+/// Complete, validated inputs for TLS interception.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsInterception {
+    ca_certificate: PathBuf,
+    ca_private_key: PathBuf,
+    intercept_hosts: Vec<HostPattern>,
+    leaf_cache_entries: NonZeroUsize,
+}
+
+impl TlsInterception {
+    /// Returns the PEM CA certificate path.
+    pub fn ca_certificate(&self) -> &Path {
+        &self.ca_certificate
+    }
+
+    /// Returns the sensitive PEM CA private-key path.
+    pub fn ca_private_key(&self) -> &Path {
+        &self.ca_private_key
+    }
+
+    /// Returns the non-empty host allowlist eligible for interception.
+    pub fn intercept_hosts(&self) -> &[HostPattern] {
+        &self.intercept_hosts
+    }
+
+    /// Returns the non-zero in-memory leaf-certificate cache capacity.
+    pub const fn leaf_cache_entries(&self) -> usize {
+        self.leaf_cache_entries.get()
+    }
 }
 
 pub(super) fn validate(raw: RawTls) -> Result<TlsConfig, ValidationError> {
@@ -40,16 +65,15 @@ fn validate_interception(raw: RawTls) -> Result<TlsConfig, ValidationError> {
     if raw.intercept_hosts.is_empty() {
         return Err(ValidationError::TlsInterceptionRequiresAllowlist);
     }
-    if raw.leaf_cache_entries == 0 {
-        return Err(ValidationError::ZeroLimit {
+    let leaf_cache_entries =
+        NonZeroUsize::new(raw.leaf_cache_entries).ok_or(ValidationError::ZeroLimit {
             name: "tls.leaf_cache_entries",
-        });
-    }
+        })?;
 
-    Ok(TlsConfig::Intercept {
+    Ok(TlsConfig::Intercept(TlsInterception {
         ca_certificate,
         ca_private_key,
         intercept_hosts: raw.intercept_hosts,
-        leaf_cache_entries: raw.leaf_cache_entries,
-    })
+        leaf_cache_entries,
+    }))
 }

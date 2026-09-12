@@ -27,8 +27,14 @@ impl fmt::Display for ListenerError {
 }
 
 /// SHA-256 digest of the exact HTTP Basic `username:password` credential.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProxyCredentialHash([u8; 32]);
+
+impl fmt::Debug for ProxyCredentialHash {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("ProxyCredentialHash([REDACTED])")
+    }
+}
 
 impl ProxyCredentialHash {
     /// Wraps a SHA-256 digest calculated from the exact `username:password` bytes.
@@ -236,5 +242,18 @@ impl ListenerSpec {
             Self::TcpStatic(listener) => listener.bind(),
             Self::Socks5(listener) => listener.bind(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ProxyCredentialHash;
+
+    #[test]
+    fn credential_hash_debug_is_redacted() {
+        let hash = ProxyCredentialHash::new([0x5a; 32]);
+        let debug = format!("{hash:?}");
+        assert!(debug.contains("[REDACTED]"));
+        assert!(!debug.contains("90"));
     }
 }

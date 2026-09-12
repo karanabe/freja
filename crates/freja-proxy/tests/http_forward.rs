@@ -11,7 +11,10 @@ use std::{
 };
 
 use bytes::Bytes;
-use freja_audit::{AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditPublisher};
+use freja_audit::{
+    AuditEnvelope, AuditEvent, AuditFailurePolicy, AuditHookStage, AuditPublisher,
+    AuthenticationOutcome, FlowOutcome, HookOutcome, ManualModificationAction,
+};
 use freja_domain::{
     Confidence, DetectorId, Direction, EnforcementMode, HookMode, HostName, HttpForwardListener,
     InspectionMode, ListenEndpoint, PolicyGeneration, Port, ProxyAuthentication,

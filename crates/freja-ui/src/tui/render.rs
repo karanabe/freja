@@ -19,6 +19,20 @@ use evidence::{render_evidence, render_rule_detail};
 
 const MINIMUM_WIDTH: u16 = 80;
 const MINIMUM_HEIGHT: u16 = 24;
+const FLOW_LIST_PERCENT: u16 = 25;
+const FLOW_DETAIL_PERCENT: u16 = 75;
+const SPLIT_SIDE_PERCENT: u16 = 50;
+const EXPANDED_PANE_WIDTH_PERCENT: u16 = 94;
+const EXPANDED_PANE_HEIGHT_PERCENT: u16 = 92;
+const EDITOR_WIDTH_PERCENT: u16 = 96;
+const EDITOR_HEIGHT_PERCENT: u16 = 94;
+const EDITOR_MINIMUM_CONTENT_ROWS: u16 = 4;
+const EDITOR_STATUS_ROWS: u16 = 3;
+const HEX_BYTES_PER_ROW: usize = 16;
+const HEX_BYTE_COLUMN_WIDTH: usize = 3;
+const DIAGNOSTICS_EVIDENCE_PERCENT: u16 = 45;
+const DIAGNOSTICS_MINIMUM_LOG_ROWS: u16 = 5;
+const DIAGNOSTICS_STATISTICS_ROWS: u16 = 8;
 
 /// Renders the active Traffic or Diagnostics page.
 pub fn render(frame: &mut Frame<'_>, model: &TuiModel) {
@@ -63,14 +77,20 @@ fn render_minimum_size(frame: &mut Frame<'_>) {
 fn render_traffic(frame: &mut Frame<'_>, model: &TuiModel) {
     let areas = Layout::default()
         .direction(LayoutDirection::Vertical)
-        .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+        .constraints([
+            Constraint::Percentage(FLOW_LIST_PERCENT),
+            Constraint::Percentage(FLOW_DETAIL_PERCENT),
+        ])
         .split(frame.area());
     render_flows(frame, model, areas[0]);
     match model.layout {
         DetailLayout::Split => {
             let details = Layout::default()
                 .direction(LayoutDirection::Horizontal)
-                .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+                .constraints([
+                    Constraint::Percentage(SPLIT_SIDE_PERCENT),
+                    Constraint::Percentage(SPLIT_SIDE_PERCENT),
+                ])
                 .split(areas[1]);
             render_side(frame, model, SelectedSide::Request, details[0]);
             render_side(frame, model, SelectedSide::Response, details[1]);
@@ -177,7 +197,11 @@ fn side_title(row: &TrafficRow, side: SelectedSide, mode: DisplayMode) -> String
 }
 
 fn render_expanded_pane(frame: &mut Frame<'_>, model: &TuiModel, pane: FocusPane) {
-    let area = floating_area(frame.area(), 94, 92);
+    let area = floating_area(
+        frame.area(),
+        EXPANDED_PANE_WIDTH_PERCENT,
+        EXPANDED_PANE_HEIGHT_PERCENT,
+    );
     frame.render_widget(Clear, area);
     match pane {
         FocusPane::Flows => render_flows(frame, model, area),
@@ -194,12 +218,18 @@ fn render_expanded_pane(frame: &mut Frame<'_>, model: &TuiModel, pane: FocusPane
 fn render_repeat(frame: &mut Frame<'_>, model: &TuiModel) {
     let areas = Layout::default()
         .direction(LayoutDirection::Vertical)
-        .constraints([Constraint::Percentage(25), Constraint::Percentage(75)])
+        .constraints([
+            Constraint::Percentage(FLOW_LIST_PERCENT),
+            Constraint::Percentage(FLOW_DETAIL_PERCENT),
+        ])
         .split(frame.area());
     render_repeat_workspaces(frame, model, areas[0]);
     let details = Layout::default()
         .direction(LayoutDirection::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([
+            Constraint::Percentage(SPLIT_SIDE_PERCENT),
+            Constraint::Percentage(SPLIT_SIDE_PERCENT),
+        ])
         .split(areas[1]);
     render_repeat_side(frame, model, SelectedSide::Request, details[0]);
     render_repeat_side(frame, model, SelectedSide::Response, details[1]);
@@ -291,11 +321,14 @@ fn render_request_editor(frame: &mut Frame<'_>, model: &TuiModel) {
     let Some(editor) = model.editor.as_ref() else {
         return;
     };
-    let area = floating_area(frame.area(), 96, 94);
+    let area = floating_area(frame.area(), EDITOR_WIDTH_PERCENT, EDITOR_HEIGHT_PERCENT);
     frame.render_widget(Clear, area);
     let areas = Layout::default()
         .direction(LayoutDirection::Vertical)
-        .constraints([Constraint::Min(4), Constraint::Length(3)])
+        .constraints([
+            Constraint::Min(EDITOR_MINIMUM_CONTENT_ROWS),
+            Constraint::Length(EDITOR_STATUS_ROWS),
+        ])
         .split(area);
     let visible_columns = areas[0].width.saturating_sub(2);
     let visible_rows = areas[0].height.saturating_sub(2);
@@ -503,10 +536,10 @@ fn raw_lines(side: &SideSnapshot, kind: TrafficKind) -> Vec<Line<'static>> {
 fn hex_lines(side: &SideSnapshot, kind: TrafficKind) -> Vec<Line<'static>> {
     let (bytes, status) = display_bytes(side, kind);
     let mut lines = bytes
-        .chunks(16)
+        .chunks(HEX_BYTES_PER_ROW)
         .enumerate()
         .map(|(line, chunk)| {
-            let offset = line.saturating_mul(16);
+            let offset = line.saturating_mul(HEX_BYTES_PER_ROW);
             Line::from(format!("{offset:08x}  {}", hex_ascii(chunk)))
         })
         .collect::<Vec<_>>();
@@ -592,9 +625,9 @@ fn render_diagnostics(frame: &mut Frame<'_>, model: &TuiModel) {
     let areas = Layout::default()
         .direction(LayoutDirection::Vertical)
         .constraints([
-            Constraint::Percentage(45),
-            Constraint::Min(5),
-            Constraint::Length(8),
+            Constraint::Percentage(DIAGNOSTICS_EVIDENCE_PERCENT),
+            Constraint::Min(DIAGNOSTICS_MINIMUM_LOG_ROWS),
+            Constraint::Length(DIAGNOSTICS_STATISTICS_ROWS),
         ])
         .split(frame.area());
     render_evidence(frame, model, areas[0]);
@@ -706,7 +739,11 @@ pub(super) fn hex_ascii(bytes: &[u8]) -> String {
         .map(|byte| format!("{byte:02x}"))
         .collect::<Vec<_>>()
         .join(" ");
-    let padding = " ".repeat(16_usize.saturating_sub(bytes.len()).saturating_mul(3));
+    let padding = " ".repeat(
+        HEX_BYTES_PER_ROW
+            .saturating_sub(bytes.len())
+            .saturating_mul(HEX_BYTE_COLUMN_WIDTH),
+    );
     let ascii = bytes
         .iter()
         .map(|byte| {

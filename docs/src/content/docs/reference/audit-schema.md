@@ -2,7 +2,7 @@
 title: Audit schema
 description: Version 2 JSONL fields, compatibility, event variants, redaction, hash chaining, and signed checkpoints.
 publishedAt: 2026-08-31
-updatedAt: 2026-09-03
+updatedAt: 2026-09-12
 tags:
   - audit
   - schema
@@ -50,6 +50,30 @@ Version 2 includes:
 Version 2 adds `http-repeat-started`; all earlier event shapes remain unchanged.
 Replay accepts versions 1 and 2, rejects a v2-only repeat event labeled as v1,
 and rejects unknown versions rather than guessing field semantics.
+
+Several scalar fields use a closed, kebab-case vocabulary. This preserves the
+wire representation while rejecting values that no Freja producer can emit:
+
+- `http-response-observed.status` is an integer from 100 through 999;
+- `proxy-authentication.outcome` is `accepted` or `rejected`;
+- `hook-executed.stage` is `http-request-head`, `http-request-body`,
+  `http-response-head`, `http-response-body`, `tcp-client-chunk`, or
+  `tcp-upstream-chunk`, and its outcome is `completed` or `failed`;
+- `manual-modification.action` is `continue`, `reject`, `edit-headers`,
+  `replace-body`, `modify-request`, `cancel-modification`, or `failed`;
+- `flow-closed.outcome` and `tunnel-closed.outcome` use the producer-defined
+  lifecycle categories: `completed`, `idle-timeout`, `shutdown`,
+  `inspection-blocked`, `policy-denied`, `detour-loop`, `dns-failure`,
+  `dns-timeout`, `connect-failure`, `connect-timeout`, `relay-failure`,
+  `audit-failure`, `hook-failure`, `runtime-failure`,
+  `authentication-failed`, `socks-protocol-error`, `connection-limit`,
+  `http-error`, `tunnel-failure`, `tls-client-rejected`,
+  `tls-client-timeout`, `tls-upstream-rejected`, `tls-alpn-rejected`,
+  `tls-upstream-timeout`, and the `repeat-*` failure categories emitted by the
+  repeat executor.
+
+Unknown values in these fields fail deserialization instead of becoming
+untyped strings.
 
 ## Redaction and capture
 

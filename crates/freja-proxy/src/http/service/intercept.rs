@@ -9,7 +9,7 @@ use std::{
     task::{Context, Poll},
 };
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{SessionId, TransactionId};
 use http::{Request, Response, Version};
 use hyper::{
@@ -25,6 +25,8 @@ use tokio::{
     time::timeout,
 };
 use tokio_rustls::TlsAcceptor;
+
+const MINIMUM_HTTP1_READ_BUFFER_BYTES: usize = 8 * 1_024;
 
 use super::{
     DataPlaneServices, ForwardTarget, HttpService, ProxyBody, ProxyError, RelayStats,
@@ -266,7 +268,7 @@ pub(super) async fn run_intercepted_tunnel(
     .await;
     let stats = counters.stats();
     let outcome = match &result {
-        Ok(()) => "completed",
+        Ok(()) => FlowOutcome::Completed,
         Err(error) => intercepted_tunnel_error_outcome(error),
     };
     services
@@ -275,23 +277,27 @@ pub(super) async fn run_intercepted_tunnel(
             event: AuditEvent::TunnelClosed {
                 client_to_upstream_bytes: stats.client_to_upstream_bytes,
                 upstream_to_client_bytes: stats.upstream_to_client_bytes,
-                outcome: outcome.to_owned(),
+                outcome,
             },
         })
         .await?;
     result
 }
 
-const fn intercepted_tunnel_error_outcome(error: &ProxyError) -> &'static str {
+const fn intercepted_tunnel_error_outcome(error: &ProxyError) -> FlowOutcome {
     match error {
-        ProxyError::Tls(crate::TlsError::DownstreamHandshake(_)) => "tls-client-rejected",
-        ProxyError::Tls(crate::TlsError::DownstreamHandshakeTimedOut) => "tls-client-timeout",
-        ProxyError::Tls(crate::TlsError::UpstreamHandshake { .. }) => "tls-upstream-rejected",
+        ProxyError::Tls(crate::TlsError::DownstreamHandshake(_)) => FlowOutcome::TlsClientRejected,
+        ProxyError::Tls(crate::TlsError::DownstreamHandshakeTimedOut) => {
+            FlowOutcome::TlsClientTimeout
+        }
+        ProxyError::Tls(crate::TlsError::UpstreamHandshake { .. }) => {
+            FlowOutcome::TlsUpstreamRejected
+        }
         ProxyError::Tls(
             crate::TlsError::ApplicationProtocolMismatch { .. }
             | crate::TlsError::UnsupportedApplicationProtocol { .. },
-        ) => "tls-alpn-rejected",
-        ProxyError::UpstreamResponseTimedOut => "tls-upstream-timeout",
+        ) => FlowOutcome::TlsAlpnRejected,
+        ProxyError::UpstreamResponseTimedOut => FlowOutcome::TlsUpstreamTimeout,
         other => tunnel_error_outcome(other),
     }
 }
@@ -378,7 +384,7 @@ where
     builder
         .timer(TokioTimer::new())
         .header_read_timeout(limits.read_timeout)
-        .max_buf_size(limits.header_bytes.max(8 * 1_024));
+        .max_buf_size(limits.header_bytes.max(MINIMUM_HTTP1_READ_BUFFER_BYTES));
     let downstream_connection = builder.serve_connection(TokioIo::new(downstream), request_service);
     tokio::pin!(downstream_connection);
     tokio::pin!(upstream_connection);

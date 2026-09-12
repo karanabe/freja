@@ -53,7 +53,7 @@ impl DecisionSnapshot {
 
     pub(crate) fn permits(&self, decision: &Decision) -> bool {
         self.inner.enforcement == EnforcementMode::Observe
-            || matches!(decision.action, EnforcementAction::Allow)
+            || matches!(decision.action(), EnforcementAction::Allow)
     }
 }
 

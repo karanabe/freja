@@ -72,7 +72,7 @@ async fn authorize_requested_target(
                 EvaluationTarget::Requested(selected.clone()),
             )
             .await?;
-        let EnforcementAction::TcpDetour(detour) = &requested_decision.action else {
+        let EnforcementAction::TcpDetour(detour) = requested_decision.action() else {
             if !snapshot.permits(&requested_decision) {
                 record_action(
                     session_id,
@@ -155,7 +155,7 @@ async fn authorize_resolved_targets(
                 EvaluationTarget::Resolved(resolved),
             )
             .await?;
-        if matches!(decision.action, EnforcementAction::TcpDetour(_))
+        if matches!(decision.action(), EnforcementAction::TcpDetour(_))
             && !snapshot.permits(&decision)
         {
             record_action(session_id, transaction_id, services, decision.clone()).await?;
@@ -222,12 +222,12 @@ pub(crate) fn audit_context(
     transaction_id: Option<TransactionId>,
     services: &DataPlaneServices,
 ) -> AuditContext {
-    AuditContext {
-        occurred_at: UnixMillis::now(),
+    AuditContext::new(
+        UnixMillis::now(),
         session_id,
         transaction_id,
-        policy_generation: services.policy().generation(),
-    }
+        services.policy().generation(),
+    )
 }
 
 async fn resolve(

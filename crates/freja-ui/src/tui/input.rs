@@ -10,6 +10,8 @@ use super::{
     model::EditorTarget,
 };
 
+const PAGE_SCROLL_ROWS: u16 = 10;
+
 pub(super) fn handle_input(
     model: &mut TuiModel,
     pending: &mut VecDeque<InterceptRequest>,
@@ -65,8 +67,8 @@ pub(super) fn handle_key_with_repeat(
             KeyCode::Enter | KeyCode::Char('q') => model.close_rule_detail(),
             KeyCode::Up | KeyCode::Char('k') => detail.scroll = detail.scroll.saturating_sub(1),
             KeyCode::Down | KeyCode::Char('j') => detail.scroll = detail.scroll.saturating_add(1),
-            KeyCode::PageUp => detail.scroll = detail.scroll.saturating_sub(10),
-            KeyCode::PageDown => detail.scroll = detail.scroll.saturating_add(10),
+            KeyCode::PageUp => detail.scroll = detail.scroll.saturating_sub(PAGE_SCROLL_ROWS),
+            KeyCode::PageDown => detail.scroll = detail.scroll.saturating_add(PAGE_SCROLL_ROWS),
             KeyCode::Home => detail.scroll = 0,
             _ => {}
         }
@@ -186,10 +188,10 @@ pub(super) fn handle_key_with_repeat(
             model.scroll_down(1);
         }
         KeyCode::PageUp => {
-            model.scroll_up(10);
+            model.scroll_up(PAGE_SCROLL_ROWS);
         }
         KeyCode::PageDown => {
-            model.scroll_down(10);
+            model.scroll_down(PAGE_SCROLL_ROWS);
         }
         KeyCode::Char('c') if model.page != TuiPage::Repeat => {
             respond_selected(model, pending, InteractiveDecision::Continue);
@@ -243,8 +245,8 @@ fn handle_expanded_key(key: KeyCode, model: &mut TuiModel) {
         }
         KeyCode::Up | KeyCode::Char('k') => model.scroll_up(1),
         KeyCode::Down | KeyCode::Char('j') => model.scroll_down(1),
-        KeyCode::PageUp => model.scroll_up(10),
-        KeyCode::PageDown => model.scroll_down(10),
+        KeyCode::PageUp => model.scroll_up(PAGE_SCROLL_ROWS),
+        KeyCode::PageDown => model.scroll_down(PAGE_SCROLL_ROWS),
         KeyCode::Char('h') => model.select_request_side(),
         KeyCode::Char('l') => model.select_response_side(),
         KeyCode::Char('m') => model.cycle_display_mode(),

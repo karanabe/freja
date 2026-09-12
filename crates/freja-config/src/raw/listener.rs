@@ -1,3 +1,5 @@
+use std::fmt;
+
 use freja_domain::Port;
 use serde::Deserialize;
 
@@ -33,9 +35,9 @@ pub enum RawListener {
     },
 }
 
-/// A secret-free HTTP proxy credential configuration. Cleartext credentials
-/// are never accepted in a configuration file.
-#[derive(Debug, Clone, Deserialize)]
+/// A hashed HTTP proxy credential configuration. Cleartext credentials are
+/// never accepted, and debug output redacts the credential-equivalent digest.
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RawProxyAuthentication {
     #[serde(default = "default_proxy_realm")]
@@ -45,13 +47,32 @@ pub struct RawProxyAuthentication {
     pub credential_sha256: String,
 }
 
-/// A secret-free SOCKS5 credential configuration. Cleartext credentials are
-/// never accepted in a configuration file.
-#[derive(Debug, Clone, Deserialize)]
+impl fmt::Debug for RawProxyAuthentication {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RawProxyAuthentication")
+            .field("realm", &self.realm)
+            .field("credential_sha256", &"[REDACTED]")
+            .finish()
+    }
+}
+
+/// A hashed SOCKS5 credential configuration. Cleartext credentials are never
+/// accepted, and debug output redacts the credential-equivalent digest.
+#[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RawSocksAuthentication {
     /// Hex-encoded SHA-256 of the exact `username:password` bytes.
     pub credential_sha256: String,
+}
+
+impl fmt::Debug for RawSocksAuthentication {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RawSocksAuthentication")
+            .field("credential_sha256", &"[REDACTED]")
+            .finish()
+    }
 }
 
 fn default_proxy_realm() -> String {
@@ -60,4 +81,24 @@ fn default_proxy_realm() -> String {
 
 fn default_connect_ports() -> Vec<u16> {
     vec![Port::HTTPS.get()]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{RawProxyAuthentication, RawSocksAuthentication};
+
+    #[test]
+    fn raw_credential_debug_is_redacted() {
+        let digest = "credential-equivalent-digest".to_owned();
+        let proxy = RawProxyAuthentication {
+            realm: "Freja".to_owned(),
+            credential_sha256: digest.clone(),
+        };
+        let socks = RawSocksAuthentication {
+            credential_sha256: digest.clone(),
+        };
+
+        assert!(!format!("{proxy:?}").contains(&digest));
+        assert!(!format!("{socks:?}").contains(&digest));
+    }
 }

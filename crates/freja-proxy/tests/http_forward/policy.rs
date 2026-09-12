@@ -26,7 +26,7 @@ async fn denied_http_destination_returns_synthetic_forbidden() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("deny-blocked-host")
     )));
 }
@@ -59,7 +59,7 @@ async fn request_header_policy_denial_happens_before_upstream_connect() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("deny-request-header")
     )));
 }
@@ -95,9 +95,9 @@ async fn response_header_policy_denial_replaces_the_upstream_response() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("deny-response-header")
-                && decision.trace.evaluated_stage == freja_domain::PolicyStage::HttpResponse
+                && decision.trace().evaluated_stage == freja_domain::PolicyStage::HttpResponse
     )));
 }
 
@@ -127,7 +127,7 @@ async fn hostname_allowed_by_acl_is_forbidden_after_loopback_resolution() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::ActionExecuted { decision }
-            if decision.trace.matched_rule.as_ref().map(RuleId::as_str)
+            if decision.trace().matched_rule.as_ref().map(RuleId::as_str)
                 == Some("protect-loopback-destination")
     )));
 }

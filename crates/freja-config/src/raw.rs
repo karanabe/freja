@@ -17,6 +17,21 @@ pub use self::{
 
 use crate::{ConfigError, ValidatedConfig};
 
+const DEFAULT_CONNECTION_LIMIT: usize = 1_024;
+const DEFAULT_HEADER_BYTE_LIMIT: usize = 64 * 1_024;
+const DEFAULT_BODY_PREFIX_BYTE_LIMIT: usize = 64 * 1_024;
+const DEFAULT_CONNECT_TIMEOUT_MILLIS: u64 = 10_000;
+const DEFAULT_READ_TIMEOUT_MILLIS: u64 = 30_000;
+const DEFAULT_IDLE_TIMEOUT_MILLIS: u64 = 60_000;
+const DEFAULT_PAUSED_FLOW_LIMIT: usize = 16;
+const DEFAULT_INTERCEPTION_TIMEOUT_MILLIS: u64 = 30_000;
+const DEFAULT_UI_EVENT_CAPACITY: usize = 1_024;
+const DEFAULT_UI_CONTENT_BYTE_LIMIT: usize = 64 * 1_024;
+const DEFAULT_UI_RETAINED_ROWS: usize = 128;
+const DEFAULT_AUDIT_CHANNEL_CAPACITY: usize = 1_024;
+const DEFAULT_CHECKPOINT_INTERVAL: u64 = 1_000;
+const DEFAULT_POLICY_GENERATION: u64 = 1;
+
 /// Direct TOML representation. It must be validated before runtime use.
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -123,17 +138,17 @@ pub struct RawLimits {
 impl Default for RawLimits {
     fn default() -> Self {
         Self {
-            connections: 1_024,
-            header_bytes: 64 * 1_024,
-            body_prefix_bytes: 64 * 1_024,
-            connect_timeout_ms: 10_000,
-            read_timeout_ms: 30_000,
-            idle_timeout_ms: 60_000,
-            paused_flows: 16,
-            interception_timeout_ms: 30_000,
-            ui_event_capacity: 1_024,
-            ui_content_bytes: 64 * 1_024,
-            ui_retained_rows: 128,
+            connections: DEFAULT_CONNECTION_LIMIT,
+            header_bytes: DEFAULT_HEADER_BYTE_LIMIT,
+            body_prefix_bytes: DEFAULT_BODY_PREFIX_BYTE_LIMIT,
+            connect_timeout_ms: DEFAULT_CONNECT_TIMEOUT_MILLIS,
+            read_timeout_ms: DEFAULT_READ_TIMEOUT_MILLIS,
+            idle_timeout_ms: DEFAULT_IDLE_TIMEOUT_MILLIS,
+            paused_flows: DEFAULT_PAUSED_FLOW_LIMIT,
+            interception_timeout_ms: DEFAULT_INTERCEPTION_TIMEOUT_MILLIS,
+            ui_event_capacity: DEFAULT_UI_EVENT_CAPACITY,
+            ui_content_bytes: DEFAULT_UI_CONTENT_BYTE_LIMIT,
+            ui_retained_rows: DEFAULT_UI_RETAINED_ROWS,
         }
     }
 }
@@ -160,7 +175,7 @@ impl Default for RawAudit {
     fn default() -> Self {
         Self {
             path: PathBuf::from("."),
-            channel_capacity: 1_024,
+            channel_capacity: DEFAULT_AUDIT_CHANNEL_CAPACITY,
             failure_policy: AuditFailurePolicy::FailClosed,
             redact_query_parameters: vec![
                 "access_token".to_owned(),
@@ -170,7 +185,7 @@ impl Default for RawAudit {
                 "token".to_owned(),
             ],
             checkpoint_signing_key: None,
-            checkpoint_interval: 1_000,
+            checkpoint_interval: DEFAULT_CHECKPOINT_INTERVAL,
         }
     }
 }
@@ -190,7 +205,7 @@ pub struct RawPolicy {
 impl Default for RawPolicy {
     fn default() -> Self {
         Self {
-            generation: 1,
+            generation: DEFAULT_POLICY_GENERATION,
             default_action: RuleAction::Allow,
             rules: Vec::new(),
         }

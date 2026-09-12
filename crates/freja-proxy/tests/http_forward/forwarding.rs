@@ -50,7 +50,7 @@ async fn absolute_form_is_forwarded_as_origin_form_with_regenerated_host() {
     );
     assert!(events.iter().any(|event| matches!(
         event.event,
-        AuditEvent::HttpResponseObserved { status: 200, .. }
+        AuditEvent::HttpResponseObserved { status, .. } if status.get() == 200
     )));
 }
 

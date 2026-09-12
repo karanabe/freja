@@ -1,6 +1,7 @@
 use std::{
     collections::VecDeque,
     io::IoSlice,
+    num::NonZeroUsize,
     pin::Pin,
     sync::{Arc, Mutex, MutexGuard},
     task::{Context, Poll},
@@ -24,7 +25,7 @@ struct RequestCaptureState {
     framer: Http1Framer,
     records: VecDeque<RequestRecord>,
     dropped_tail: usize,
-    maximum_records: usize,
+    maximum_records: NonZeroUsize,
     enabled: bool,
     eof: bool,
 }
@@ -47,7 +48,7 @@ impl RequestCaptureState {
         for event in events {
             match event {
                 FramerEvent::Started { sequence } => {
-                    if self.dropped_tail > 0 || self.records.len() == self.maximum_records {
+                    if self.dropped_tail > 0 || self.records.len() == self.maximum_records.get() {
                         self.dropped_tail = self.dropped_tail.saturating_add(1);
                     } else {
                         self.records.push_back(RequestRecord {
@@ -245,7 +246,7 @@ impl<S> RequestCaptureIo<S> {
         session_id: SessionId,
         maximum_head_bytes: usize,
         maximum_content_bytes: usize,
-        maximum_records: usize,
+        maximum_records: NonZeroUsize,
     ) -> (Self, RequestCaptureHandle) {
         let maximum_capture_bytes = maximum_head_bytes.saturating_add(maximum_content_bytes);
         let handle = RequestCaptureHandle {
@@ -257,7 +258,7 @@ impl<S> RequestCaptureIo<S> {
                 ),
                 records: VecDeque::new(),
                 dropped_tail: 0,
-                maximum_records: maximum_records.max(1),
+                maximum_records,
                 enabled: true,
                 eof: false,
             })),

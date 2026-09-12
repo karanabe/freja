@@ -4,6 +4,8 @@ use freja_domain::TlsHandling;
 use freja_policy::HostPattern;
 use serde::Deserialize;
 
+const DEFAULT_LEAF_CACHE_ENTRIES: usize = 256;
+
 /// Opt-in TLS interception inputs. Tunnel mode ignores CA fields.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -27,7 +29,7 @@ impl Default for RawTls {
             ca_certificate: None,
             ca_private_key: None,
             intercept_hosts: Vec::new(),
-            leaf_cache_entries: 256,
+            leaf_cache_entries: DEFAULT_LEAF_CACHE_ENTRIES,
         }
     }
 }

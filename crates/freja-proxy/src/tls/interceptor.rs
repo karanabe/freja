@@ -79,7 +79,7 @@ impl TlsInterceptor {
             &ca_pem,
             &key_pem,
             config.intercept_hosts.clone(),
-            config.leaf_cache_entries,
+            config.leaf_cache_entries.get(),
             roots,
         )
     }

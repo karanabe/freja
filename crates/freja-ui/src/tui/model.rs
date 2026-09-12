@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, error::Error, fmt, num::NonZeroUsize};
 
 use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
 use freja_policy::hook::{
@@ -9,6 +9,38 @@ use freja_policy::hook::{
 use crate::UiEvent;
 
 use super::editor::{RequestEditError, RequestEditor};
+
+const DEFAULT_MAXIMUM_ROWS: NonZeroUsize = match NonZeroUsize::new(128) {
+    Some(value) => value,
+    None => NonZeroUsize::MIN,
+};
+const DEFAULT_MAXIMUM_ITEMS_PER_ROW: NonZeroUsize = match NonZeroUsize::new(64) {
+    Some(value) => value,
+    None => NonZeroUsize::MIN,
+};
+const FIRST_EVALUATION_ID: u64 = 1;
+
+/// Invalid bounded-retention settings for [`TuiModel`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuiModelError {
+    /// A zero row limit would make every flow immediately unobservable.
+    ZeroMaximumRows,
+    /// A zero per-row item limit would make every finding and trace unobservable.
+    ZeroMaximumItemsPerRow,
+}
+
+impl fmt::Display for TuiModelError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ZeroMaximumRows => formatter.write_str("TUI maximum rows must be non-zero"),
+            Self::ZeroMaximumItemsPerRow => {
+                formatter.write_str("TUI maximum items per row must be non-zero")
+            }
+        }
+    }
+}
+
+impl Error for TuiModelError {}
 
 /// Top-level TUI page selected by the operator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -213,8 +245,8 @@ pub struct TuiModel {
     sessions: Vec<SessionMetadata>,
     pub(super) operational_logs: VecDeque<String>,
     pub(super) selected: usize,
-    maximum_rows: usize,
-    maximum_items_per_row: usize,
+    maximum_rows: NonZeroUsize,
+    maximum_items_per_row: NonZeroUsize,
     paused_transactions: Vec<TransactionId>,
     pub(super) page: TuiPage,
     pub(super) layout: DetailLayout,
@@ -240,22 +272,33 @@ pub struct TuiModel {
 
 impl Default for TuiModel {
     fn default() -> Self {
-        Self::new(128, 64)
+        Self::from_limits(DEFAULT_MAXIMUM_ROWS, DEFAULT_MAXIMUM_ITEMS_PER_ROW)
     }
 }
 
 impl TuiModel {
     /// Creates a reducer with explicit retained-row and per-row evidence limits.
-    pub fn new(maximum_rows: usize, maximum_items_per_row: usize) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TuiModelError`] when either retention limit is zero.
+    pub fn new(maximum_rows: usize, maximum_items_per_row: usize) -> Result<Self, TuiModelError> {
+        let maximum_rows = NonZeroUsize::new(maximum_rows).ok_or(TuiModelError::ZeroMaximumRows)?;
+        let maximum_items_per_row = NonZeroUsize::new(maximum_items_per_row)
+            .ok_or(TuiModelError::ZeroMaximumItemsPerRow)?;
+        Ok(Self::from_limits(maximum_rows, maximum_items_per_row))
+    }
+
+    fn from_limits(maximum_rows: NonZeroUsize, maximum_items_per_row: NonZeroUsize) -> Self {
         Self {
             evidence_view: super::evidence::EvidenceView::default(),
-            next_evaluation_id: 1,
+            next_evaluation_id: FIRST_EVALUATION_ID,
             rows: VecDeque::new(),
             sessions: Vec::new(),
             operational_logs: VecDeque::new(),
             selected: 0,
-            maximum_rows: maximum_rows.max(1),
-            maximum_items_per_row: maximum_items_per_row.max(1),
+            maximum_rows,
+            maximum_items_per_row,
             paused_transactions: Vec::new(),
             page: TuiPage::Traffic,
             layout: DetailLayout::Split,
@@ -287,7 +330,7 @@ impl TuiModel {
             UiEvent::OperationalLog { message } => push_bounded(
                 &mut self.operational_logs,
                 message,
-                self.maximum_items_per_row,
+                self.maximum_items_per_row.get(),
             ),
             UiEvent::FlowOpened {
                 session_id,
@@ -322,7 +365,7 @@ impl TuiModel {
                     return;
                 };
                 let row = &mut self.rows[index];
-                row.response.start_line = Some(response_start_line(&version, status));
+                row.response.start_line = Some(response_start_line(&version, status.get()));
                 row.response.headers = headers;
                 if matches!(row.response.wire, WireState::Pending) {
                     row.response.wire = WireState::Unavailable(
@@ -350,7 +393,7 @@ impl TuiModel {
                     push_bounded(
                         &mut self.rows[index].traces,
                         TraceSnapshot::bounded(id, trace, target, evidence),
-                        self.maximum_items_per_row,
+                        self.maximum_items_per_row.get(),
                     );
                 }
             }
@@ -363,7 +406,7 @@ impl TuiModel {
                     push_bounded(
                         &mut self.rows[index].findings,
                         finding,
-                        self.maximum_items_per_row,
+                        self.maximum_items_per_row.get(),
                     );
                 }
             }
@@ -705,10 +748,10 @@ impl TuiModel {
             self.show_repeat();
             return true;
         }
-        if self.repeat_workspaces.len() >= self.maximum_rows {
+        if self.repeat_workspaces.len() >= self.maximum_rows.get() {
             self.set_input_notice(format!(
                 "repeat workspace limit ({}) reached; delete one before adding another",
-                self.maximum_rows
+                self.maximum_rows.get()
             ));
             return false;
         }
@@ -998,7 +1041,7 @@ impl TuiModel {
         }) {
             return Some(index);
         }
-        if self.rows.len() == self.maximum_rows {
+        if self.rows.len() == self.maximum_rows.get() {
             let removable = self.rows.iter().position(|candidate| {
                 candidate
                     .transaction_id
@@ -1042,7 +1085,7 @@ impl TuiModel {
     }
 
     fn push_row(&mut self, row: TrafficRow) -> Option<usize> {
-        if self.rows.len() == self.maximum_rows {
+        if self.rows.len() == self.maximum_rows.get() {
             let removable = self.rows.iter().position(|candidate| {
                 candidate.closed
                     && candidate

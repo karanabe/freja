@@ -21,14 +21,17 @@ pub mod listener;
 pub mod mode;
 
 pub use decision::{
-    Decision, DecisionTrace, EnforcementAction, EnforcementActionKind, HttpReject, MatchReason,
-    PolicyStage, TcpClose, TcpCloseMode, TcpDetour,
+    Decision, DecisionError, DecisionTrace, EnforcementAction, EnforcementActionKind, HttpReject,
+    MatchReason, PolicyStage, TcpClose, TcpCloseMode, TcpDetour,
 };
 pub use endpoint::{EndpointError, HostName, ListenEndpoint, Port, TargetHost, UpstreamEndpoint};
-pub use finding::{Confidence, Direction, EvidenceHash, Finding, InspectionMode, Severity};
+pub use finding::{
+    ByteRange, ByteRangeError, Confidence, Direction, EvidenceHash, Finding, InspectionMode,
+    Severity,
+};
 pub use flow::{
-    EvaluationTarget, HttpRequestFacts, HttpResponseFacts, Protocol, ReplayFacts,
-    RequestedTargetFacts, ResolvedTargetFacts, SanitizedHeaders,
+    EvaluationTarget, HttpRequestFacts, HttpResponseFacts, HttpStatusCode, HttpStatusCodeError,
+    Protocol, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, SanitizedHeaders,
 };
 pub use ids::{
     AuditSequence, DetectorId, IdError, PolicyGeneration, RuleId, SessionId, TransactionId,

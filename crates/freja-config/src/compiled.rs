@@ -4,7 +4,7 @@ use freja_domain::{InspectionMode, ListenerSpec, RuntimeProfile};
 use freja_policy::{AclPolicy, DestinationGuard, InspectionProgram};
 
 use crate::{
-    AuditConfig, CapturePolicy, ConfigError, Limits, RawConfig, RawSafety, TlsConfig,
+    AuditConfig, CapturePolicy, ConfigError, Limits, RawConfig, SafetyConfig, TlsConfig,
     ValidatedConfig,
 };
 
@@ -12,7 +12,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct CompiledConfig {
     runtime: RuntimeProfile,
-    safety: RawSafety,
+    safety: SafetyConfig,
     limits: Limits,
     audit: AuditConfig,
     capture: CapturePolicy,
@@ -41,7 +41,7 @@ impl CompiledConfig {
     }
 
     /// Returns the validated destination and listener safety settings.
-    pub const fn safety(&self) -> RawSafety {
+    pub const fn safety(&self) -> SafetyConfig {
         self.safety
     }
 
@@ -101,8 +101,8 @@ impl ValidatedConfig {
     pub fn compile(self) -> Result<CompiledConfig, ConfigError> {
         let policy = AclPolicy::new(self.generation, self.rules, self.default_action)
             .map_err(ConfigError::Policy)?;
-        let destination_guard =
-            DestinationGuard::new(self.destination_guard_settings).map_err(ConfigError::Policy)?;
+        let destination_guard = DestinationGuard::new(self.safety.destination_guard_settings())
+            .map_err(ConfigError::Policy)?;
         let inspection = InspectionProgram::new(self.generation, self.inspection_patterns)
             .map_err(ConfigError::Inspection)?;
 

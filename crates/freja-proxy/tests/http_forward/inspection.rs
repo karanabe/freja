@@ -28,11 +28,11 @@ async fn preflight_request_body_detection_returns_block_page_before_forwarding()
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::FindingDetected { finding }
-            if finding.direction == Direction::HttpRequestBody
+            if finding.direction() == Direction::HttpRequestBody
     )));
     assert!(events.iter().any(|event| matches!(
         &event.event,
-        AuditEvent::HttpResponseObserved { status: 403, .. }
+        AuditEvent::HttpResponseObserved { status, .. } if status.get() == 403
     )));
 }
 
@@ -61,7 +61,7 @@ async fn preflight_response_body_detection_replaces_upstream_response() {
     assert!(events.iter().any(|event| matches!(
         &event.event,
         AuditEvent::FindingDetected { finding }
-            if finding.direction == Direction::HttpResponseBody
+            if finding.direction() == Direction::HttpResponseBody
     )));
 }
 

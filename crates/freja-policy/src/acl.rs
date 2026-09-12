@@ -29,8 +29,8 @@
 //! );
 //!
 //! let decision = policy.evaluate(PolicyFacts::Requested(&facts));
-//! assert!(matches!(decision.action, EnforcementAction::TcpClose(_)));
-//! assert_eq!(decision.trace.matched_rule.as_ref().map(RuleId::as_str), Some("deny-tcp"));
+//! assert!(matches!(decision.action(), EnforcementAction::TcpClose(_)));
+//! assert_eq!(decision.trace().matched_rule.as_ref().map(RuleId::as_str), Some("deny-tcp"));
 //! # Ok(())
 //! # }
 //! ```
@@ -91,12 +91,15 @@ mod tests {
         let facts = requested("api.example.test");
         let decision = policy.evaluate(PolicyFacts::Requested(&facts));
 
-        assert!(matches!(decision.action, EnforcementAction::HttpReject(_)));
+        assert!(matches!(
+            decision.action(),
+            EnforcementAction::HttpReject(_)
+        ));
         assert_eq!(
-            decision.trace.matched_rule.as_ref().map(RuleId::as_str),
+            decision.trace().matched_rule.as_ref().map(RuleId::as_str),
             Some("deny-example")
         );
-        assert_eq!(decision.trace.policy_generation.get(), 7);
+        assert_eq!(decision.trace().policy_generation.get(), 7);
     }
 
     #[test]
@@ -132,11 +135,11 @@ mod tests {
         let link_local = ResolvedTargetFacts::new(requested, IpAddr::from([169, 254, 169, 254]));
 
         assert!(matches!(
-            policy.evaluate(PolicyFacts::Resolved(&public)).action,
+            policy.evaluate(PolicyFacts::Resolved(&public)).action(),
             EnforcementAction::Allow
         ));
         assert!(matches!(
-            policy.evaluate(PolicyFacts::Resolved(&link_local)).action,
+            policy.evaluate(PolicyFacts::Resolved(&link_local)).action(),
             EnforcementAction::HttpReject(_)
         ));
     }
@@ -155,15 +158,18 @@ mod tests {
         let requested = requested("example.test");
 
         let early = policy.evaluate(PolicyFacts::Requested(&requested));
-        assert!(matches!(early.action, EnforcementAction::Allow));
-        assert!(early.trace.matched_rule.is_none());
+        assert!(matches!(early.action(), EnforcementAction::Allow));
+        assert!(early.trace().matched_rule.is_none());
 
         let resolved = ResolvedTargetFacts::new(requested, IpAddr::from([192, 0, 2, 10]));
         let post = HttpRequestFacts::new(resolved, "POST", "/upload", SanitizedHeaders::default());
         let decision = policy.evaluate(PolicyFacts::HttpRequest(&post));
-        assert!(matches!(decision.action, EnforcementAction::HttpReject(_)));
+        assert!(matches!(
+            decision.action(),
+            EnforcementAction::HttpReject(_)
+        ));
         assert_eq!(
-            decision.trace.matched_rule.as_ref().map(RuleId::as_str),
+            decision.trace().matched_rule.as_ref().map(RuleId::as_str),
             Some("deny-non-get")
         );
     }

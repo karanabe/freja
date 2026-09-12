@@ -1,8 +1,9 @@
 use std::{net::SocketAddr, sync::Arc};
 
 use freja_domain::{
-    Direction, EvaluationTarget, HttpRequestFacts, HttpResponseFacts, InspectionMode, Protocol,
-    ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts, TransactionId,
+    Direction, EvaluationTarget, HttpRequestFacts, HttpResponseFacts, HttpStatusCode,
+    InspectionMode, Protocol, ReplayFacts, RequestedTargetFacts, ResolvedTargetFacts,
+    TransactionId,
 };
 use freja_policy::{PolicyFacts, hook::normalize_replaced_body_headers};
 use http::{HeaderValue, Method, Request, Response, StatusCode, Version, header};
@@ -50,18 +51,20 @@ impl HttpService {
             Ok(response) => response,
             Err(error) => response_for_error(error)?,
         };
+        let status = HttpStatusCode::new(response.status().as_u16())
+            .map_err(ProxyError::InvalidHttpStatus)?;
         if self.services.publishes_events() {
             self.services.publish_http_response_event(
                 self.session_id,
                 transaction_id,
-                response.status().as_u16(),
+                status,
                 format!("{:?}", response.version()),
                 headers::presentation_headers(response.headers()),
             );
         }
         self.audit_response(
             transaction_id,
-            response.status().as_u16(),
+            status,
             headers::audit_headers(response.headers()),
         )
         .await?;
@@ -432,9 +435,11 @@ impl HttpService {
         response: &Response<Incoming>,
     ) -> Result<bool, ProxyError> {
         let snapshot = self.services.decision_snapshot();
+        let status = HttpStatusCode::new(response.status().as_u16())
+            .map_err(ProxyError::InvalidHttpStatus)?;
         let facts = HttpResponseFacts::new(
             ResolvedTargetFacts::new(requested.clone(), selected_address.ip()),
-            response.status().as_u16(),
+            status,
             headers::policy_headers(response.headers()),
         );
         self.services

@@ -22,12 +22,12 @@
 //! let (publisher, mut receiver) =
 //!     AuditPublisher::channel(8, AuditFailurePolicy::FailClosed)?;
 //! publisher.publish(AuditEnvelope {
-//!     context: AuditContext {
-//!         occurred_at: UnixMillis::from_millis(1),
-//!         session_id: SessionId::new(),
-//!         transaction_id: None,
-//!         policy_generation: PolicyGeneration::default(),
-//!     },
+//!     context: AuditContext::new(
+//!         UnixMillis::from_millis(1),
+//!         SessionId::new(),
+//!         None,
+//!         PolicyGeneration::default(),
+//!     ),
 //!     event: AuditEvent::ConnectionAccepted {
 //!         client: "127.0.0.1:50000".to_owned(),
 //!         listener: "127.0.0.1:8080".to_owned(),
@@ -47,7 +47,9 @@ mod sink;
 
 pub use checkpoint::{CheckpointKeyError, CheckpointSchedule, CheckpointSigner, SignedCheckpoint};
 pub use model::{
-    AuditContext, AuditEvent, AuditFailurePolicy, AuditRecord, RecordHash, UnixMillis,
+    AuditContext, AuditEvent, AuditFailurePolicy, AuditHookStage, AuditRecord, AuditSchemaVersion,
+    AuthenticationOutcome, FlowOutcome, HookOutcome, ManualModificationAction, RecordHash,
+    UnixMillis,
 };
 pub use publisher::{AuditChannelError, AuditEnvelope, AuditPublisher, PublishError};
 pub use redaction::Redactor;
@@ -68,8 +70,9 @@ mod tests {
     };
 
     use super::{
-        AuditContext, AuditEnvelope, AuditEvent, CheckpointSigner, JsonlAuditSink, Redactor,
-        UnixMillis, drain_jsonl,
+        AuditContext, AuditEnvelope, AuditEvent, AuditHookStage, AuditSchemaVersion,
+        AuthenticationOutcome, CheckpointSigner, FlowOutcome, HookOutcome, JsonlAuditSink,
+        ManualModificationAction, Redactor, SignedCheckpoint, UnixMillis, drain_jsonl,
     };
 
     struct FlushReporter(mpsc::SyncSender<()>);
@@ -87,12 +90,12 @@ mod tests {
     }
 
     fn context(transaction_id: Option<TransactionId>) -> AuditContext {
-        AuditContext {
-            occurred_at: UnixMillis::from_millis(42),
-            session_id: SessionId::new(),
+        AuditContext::new(
+            UnixMillis::from_millis(42),
+            SessionId::new(),
             transaction_id,
-            policy_generation: PolicyGeneration::default(),
-        }
+            PolicyGeneration::default(),
+        )
     }
 
     #[test]
@@ -161,15 +164,15 @@ mod tests {
                 AuditEvent::FlowClosed {
                     client_to_upstream_bytes: 10,
                     upstream_to_client_bytes: 20,
-                    outcome: "completed".to_owned(),
+                    outcome: FlowOutcome::Completed,
                 },
             )
             .unwrap();
 
-        assert_eq!(first.sequence.get(), 1);
-        assert_eq!(first.schema_version, 2);
-        assert_eq!(second.sequence.get(), 2);
-        assert_eq!(second.previous_hash, Some(first.record_hash));
+        assert_eq!(first.sequence().get(), 1);
+        assert_eq!(first.schema_version(), AuditSchemaVersion::CURRENT);
+        assert_eq!(second.sequence().get(), 2);
+        assert_eq!(second.previous_hash(), Some(first.record_hash()));
     }
 
     #[test]
@@ -185,12 +188,50 @@ mod tests {
             )
             .unwrap();
         let signer = CheckpointSigner::from_seed([7_u8; 32]);
-        let checkpoint = signer.sign_checkpoint(record.sequence, record.record_hash);
+        let checkpoint = signer.sign_checkpoint(record.sequence(), record.record_hash());
         assert!(checkpoint.verifies());
 
-        let mut tampered = checkpoint;
-        tampered.signature_hex.replace_range(0..2, "00");
+        let mut encoded = serde_json::to_value(checkpoint).unwrap();
+        let signature = encoded
+            .get_mut("signature_hex")
+            .and_then(|value| value.as_str())
+            .unwrap()
+            .to_owned();
+        let replacement = if signature.starts_with("00") {
+            "01"
+        } else {
+            "00"
+        };
+        let mut signature = signature;
+        signature.replace_range(0..2, replacement);
+        encoded["signature_hex"] = serde_json::Value::String(signature);
+        let tampered: SignedCheckpoint = serde_json::from_value(encoded).unwrap();
         assert!(!tampered.verifies());
+    }
+
+    #[test]
+    fn typed_categories_preserve_the_stable_wire_vocabulary() {
+        assert_eq!(
+            serde_json::to_value(AuthenticationOutcome::Accepted).unwrap(),
+            serde_json::json!("accepted")
+        );
+        assert_eq!(
+            serde_json::to_value(AuditHookStage::HttpResponseBody).unwrap(),
+            serde_json::json!("http-response-body")
+        );
+        assert_eq!(
+            serde_json::to_value(HookOutcome::Completed).unwrap(),
+            serde_json::json!("completed")
+        );
+        assert_eq!(
+            serde_json::to_value(ManualModificationAction::ModifyRequest).unwrap(),
+            serde_json::json!("modify-request")
+        );
+        assert_eq!(
+            serde_json::to_value(FlowOutcome::TlsClientRejected).unwrap(),
+            serde_json::json!("tls-client-rejected")
+        );
+        assert!(serde_json::from_str::<FlowOutcome>(r#""unknown""#).is_err());
     }
 
     #[test]

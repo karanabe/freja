@@ -1,6 +1,8 @@
 use std::fmt;
 
-use freja_domain::{DecisionTrace, Direction, EvaluationTarget, Finding, SessionId, TransactionId};
+use freja_domain::{
+    DecisionTrace, Direction, EvaluationTarget, Finding, HttpStatusCode, SessionId, TransactionId,
+};
 
 /// Immutable data-plane fact offered to best-effort observers.
 ///
@@ -40,7 +42,7 @@ pub enum DataPlaneEvent {
         /// HTTP exchange correlation identity.
         transaction_id: TransactionId,
         /// Parsed HTTP status code.
-        status: u16,
+        status: HttpStatusCode,
         /// Parsed HTTP version used by the semantic view.
         version: String,
         /// Response headers copied at the observation boundary.

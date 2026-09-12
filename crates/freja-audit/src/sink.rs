@@ -6,10 +6,12 @@ use sha2::{Digest, Sha256};
 use tokio::sync::mpsc;
 
 use crate::{
-    AuditContext, AuditEnvelope, AuditEvent, AuditRecord, CheckpointSchedule, RecordHash, Redactor,
+    AuditContext, AuditEnvelope, AuditEvent, AuditRecord, AuditSchemaVersion, CheckpointSchedule,
+    RecordHash, Redactor,
 };
 
-/// JSON encoding or sink I/O failure. A partial write permanently poisons the sink.
+/// JSON encoding, sink I/O, continuity, or sequence-space failure.
+/// A partial write permanently poisons the sink.
 #[derive(Debug)]
 pub enum AuditError {
     /// A typed event or record could not be encoded as canonical JSON.
@@ -18,6 +20,8 @@ pub enum AuditError {
     Write(std::io::Error),
     /// A write was attempted after a possible partial record broke chain continuity.
     SinkPoisoned,
+    /// The segment already used the largest representable sequence number.
+    SequenceExhausted,
 }
 
 impl fmt::Display for AuditError {
@@ -28,6 +32,7 @@ impl fmt::Display for AuditError {
             Self::SinkPoisoned => {
                 formatter.write_str("audit sink is poisoned after an earlier partial write")
             }
+            Self::SequenceExhausted => formatter.write_str("audit sequence space is exhausted"),
         }
     }
 }
@@ -37,7 +42,7 @@ impl Error for AuditError {
         match self {
             Self::Serialize(source) => Some(source),
             Self::Write(source) => Some(source),
-            Self::SinkPoisoned => None,
+            Self::SinkPoisoned | Self::SequenceExhausted => None,
         }
     }
 }
@@ -46,7 +51,7 @@ impl Error for AuditError {
 pub struct JsonlAuditSink<W> {
     writer: W,
     redactor: Redactor,
-    next_sequence: u64,
+    next_sequence: Option<AuditSequence>,
     previous_hash: Option<RecordHash>,
     poisoned: bool,
 }
@@ -57,7 +62,7 @@ impl<W: Write> JsonlAuditSink<W> {
         Self {
             writer,
             redactor,
-            next_sequence: 1,
+            next_sequence: Some(AuditSequence::FIRST),
             previous_hash: None,
             poisoned: false,
         }
@@ -67,8 +72,8 @@ impl<W: Write> JsonlAuditSink<W> {
     ///
     /// # Errors
     ///
-    /// Returns [`AuditError`] when JSON encoding or output fails, or when an
-    /// earlier partial output failure has poisoned this sink.
+    /// Returns [`AuditError`] when JSON encoding or output fails, an earlier
+    /// partial output failure poisoned this sink, or the sequence is exhausted.
     pub fn write_event(
         &mut self,
         context: AuditContext,
@@ -78,30 +83,30 @@ impl<W: Write> JsonlAuditSink<W> {
             return Err(AuditError::SinkPoisoned);
         }
         self.redactor.redact_event(&mut event);
-        let sequence = AuditSequence::new(self.next_sequence);
+        let sequence = self.next_sequence.ok_or(AuditError::SequenceExhausted)?;
         let unsigned = UnsignedAuditRecord {
-            schema_version: 2,
+            schema_version: AuditSchemaVersion::CURRENT,
             sequence,
-            occurred_at: context.occurred_at,
-            session_id: context.session_id,
-            transaction_id: context.transaction_id,
-            policy_generation: context.policy_generation,
+            occurred_at: context.occurred_at(),
+            session_id: context.session_id(),
+            transaction_id: context.transaction_id(),
+            policy_generation: context.policy_generation(),
             event: &event,
             previous_hash: self.previous_hash,
         };
         let canonical = serde_json::to_vec(&unsigned).map_err(AuditError::Serialize)?;
         let record_hash = RecordHash(Sha256::digest(canonical).into());
-        let record = AuditRecord {
-            schema_version: 2,
+        let record = AuditRecord::from_parts(
+            AuditSchemaVersion::CURRENT,
             sequence,
-            occurred_at: context.occurred_at,
-            session_id: context.session_id,
-            transaction_id: context.transaction_id,
-            policy_generation: context.policy_generation,
+            context.occurred_at(),
+            context.session_id(),
+            context.transaction_id(),
+            context.policy_generation(),
             event,
-            previous_hash: self.previous_hash,
+            self.previous_hash,
             record_hash,
-        };
+        );
         let mut line = serde_json::to_vec(&record).map_err(AuditError::Serialize)?;
         line.push(b'\n');
         if let Err(source) = self.writer.write_all(&line) {
@@ -109,7 +114,7 @@ impl<W: Write> JsonlAuditSink<W> {
             return Err(AuditError::Write(source));
         }
         self.previous_hash = Some(record_hash);
-        self.next_sequence = self.next_sequence.saturating_add(1);
+        self.next_sequence = sequence.checked_next();
         Ok(record)
     }
 
@@ -166,11 +171,11 @@ pub fn drain_jsonl_with_checkpoints<W: Write>(
         ordinary_events = ordinary_events.saturating_add(1);
         sink.flush()?;
         if let Some(schedule) = &checkpoint
-            && ordinary_events.is_multiple_of(schedule.interval)
+            && ordinary_events.is_multiple_of(schedule.interval.get())
         {
             let checkpoint = schedule
                 .signer
-                .sign_checkpoint(record.sequence, record.record_hash);
+                .sign_checkpoint(record.sequence(), record.record_hash());
             sink.write_event(
                 envelope.context,
                 AuditEvent::SignedCheckpoint { checkpoint },
@@ -179,4 +184,43 @@ pub fn drain_jsonl_with_checkpoints<W: Write>(
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use freja_domain::{AuditSequence, PolicyGeneration, SessionId};
+
+    use super::{AuditError, JsonlAuditSink};
+    use crate::{AuditContext, AuditEvent, Redactor, UnixMillis};
+
+    fn context() -> AuditContext {
+        AuditContext::new(
+            UnixMillis::from_millis(1),
+            SessionId::new(),
+            None,
+            PolicyGeneration::INITIAL,
+        )
+    }
+
+    fn event() -> AuditEvent {
+        AuditEvent::ConnectionAccepted {
+            client: "127.0.0.1:40000".to_owned(),
+            listener: "127.0.0.1:8080".to_owned(),
+        }
+    }
+
+    #[test]
+    fn sequence_exhaustion_does_not_emit_a_duplicate_position() {
+        let mut sink = JsonlAuditSink::new(Vec::new(), Redactor::new(std::iter::empty()));
+        sink.next_sequence = Some(AuditSequence::new(u64::MAX).unwrap());
+
+        let final_record = sink.write_event(context(), event()).unwrap();
+        assert_eq!(final_record.sequence().get(), u64::MAX);
+        assert!(matches!(
+            sink.write_event(context(), event()),
+            Err(AuditError::SequenceExhausted)
+        ));
+        let output = String::from_utf8(sink.into_inner()).unwrap();
+        assert_eq!(output.lines().count(), 1);
+    }
 }

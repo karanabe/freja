@@ -1,7 +1,9 @@
-use super::protocol::{negotiate_authentication, read_request, reply_for_proxy_error, send_reply};
+use super::protocol::{
+    SocksReply, negotiate_authentication, read_request, reply_for_proxy_error, send_reply,
+};
 use std::net::SocketAddr;
 
-use freja_audit::{AuditEnvelope, AuditEvent};
+use freja_audit::{AuditEnvelope, AuditEvent, FlowOutcome};
 use freja_domain::{Protocol, ProxyCredentialHash, RequestedTargetFacts, SessionId};
 use tokio::net::TcpStream;
 
@@ -52,7 +54,7 @@ pub(super) async fn serve_session(
             event: AuditEvent::FlowClosed {
                 client_to_upstream_bytes: stats.client_to_upstream_bytes,
                 upstream_to_client_bytes: stats.upstream_to_client_bytes,
-                outcome: outcome.to_owned(),
+                outcome,
             },
         })
         .await?;
@@ -97,7 +99,13 @@ async fn run_socks_session(
     {
         Ok(addresses) => addresses,
         Err(error) => {
-            send_reply(client, 2, None, context.limits.connect_timeout).await?;
+            send_reply(
+                client,
+                SocksReply::ConnectionNotAllowed,
+                None,
+                context.limits.connect_timeout,
+            )
+            .await?;
             return Err(error);
         }
     };
@@ -116,7 +124,13 @@ async fn run_socks_session(
             }
         };
     let bound = upstream.local_addr().ok();
-    send_reply(client, 0, bound, context.limits.connect_timeout).await?;
+    send_reply(
+        client,
+        SocksReply::Succeeded,
+        bound,
+        context.limits.connect_timeout,
+    )
+    .await?;
     let inspection = FlowInspector::new(
         context.services.clone(),
         session_id,
@@ -138,26 +152,26 @@ async fn run_socks_session(
     .await
 }
 
-const fn relay_outcome(termination: RelayTermination) -> &'static str {
+const fn relay_outcome(termination: RelayTermination) -> FlowOutcome {
     match termination {
-        RelayTermination::Completed => "completed",
-        RelayTermination::IdleTimeout => "idle-timeout",
-        RelayTermination::Shutdown => "shutdown",
-        RelayTermination::InspectionBlocked => "inspection-blocked",
+        RelayTermination::Completed => FlowOutcome::Completed,
+        RelayTermination::IdleTimeout => FlowOutcome::IdleTimeout,
+        RelayTermination::Shutdown => FlowOutcome::Shutdown,
+        RelayTermination::InspectionBlocked => FlowOutcome::InspectionBlocked,
     }
 }
 
-const fn error_outcome(error: &ProxyError) -> &'static str {
+const fn error_outcome(error: &ProxyError) -> FlowOutcome {
     match error {
-        ProxyError::PolicyDenied { .. } => "policy-denied",
-        ProxyError::DetourLoop { .. } => "detour-loop",
-        ProxyError::Socks(SocksError::AuthenticationFailed) => "authentication-failed",
-        ProxyError::Socks(_) => "socks-protocol-error",
-        ProxyError::ConnectTimedOut { .. } => "connect-timeout",
-        ProxyError::ConnectFailed { .. } => "connect-failure",
-        ProxyError::Dns { .. } | ProxyError::NoResolvedAddresses { .. } => "dns-failure",
-        ProxyError::DnsTimedOut { .. } => "dns-timeout",
-        ProxyError::Shutdown => "shutdown",
-        _ => "runtime-failure",
+        ProxyError::PolicyDenied { .. } => FlowOutcome::PolicyDenied,
+        ProxyError::DetourLoop { .. } => FlowOutcome::DetourLoop,
+        ProxyError::Socks(SocksError::AuthenticationFailed) => FlowOutcome::AuthenticationFailed,
+        ProxyError::Socks(_) => FlowOutcome::SocksProtocolError,
+        ProxyError::ConnectTimedOut { .. } => FlowOutcome::ConnectTimeout,
+        ProxyError::ConnectFailed { .. } => FlowOutcome::ConnectFailure,
+        ProxyError::Dns { .. } | ProxyError::NoResolvedAddresses { .. } => FlowOutcome::DnsFailure,
+        ProxyError::DnsTimedOut { .. } => FlowOutcome::DnsTimeout,
+        ProxyError::Shutdown => FlowOutcome::Shutdown,
+        _ => FlowOutcome::RuntimeFailure,
     }
 }

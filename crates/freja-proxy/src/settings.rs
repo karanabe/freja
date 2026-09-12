@@ -1,6 +1,7 @@
 use std::{
     error::Error,
     fmt,
+    num::NonZeroUsize,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -242,14 +243,14 @@ impl ProxyLimits {
 /// Explicit metadata-only or bounded-prefix capture setting for the data plane.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct CaptureSettings {
-    maximum_prefix_bytes: Option<usize>,
+    maximum_prefix_bytes: Option<NonZeroUsize>,
 }
 
 /// Bounded in-memory capture settings used only by an attached live UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UiCaptureSettings {
-    content_bytes: usize,
-    retained_rows: usize,
+    content_bytes: NonZeroUsize,
+    retained_rows: NonZeroUsize,
 }
 
 impl UiCaptureSettings {
@@ -259,14 +260,14 @@ impl UiCaptureSettings {
     ///
     /// Returns [`ProxySettingsError::ZeroLimit`] when either bound is zero.
     pub fn new(content_bytes: usize, retained_rows: usize) -> Result<Self, ProxySettingsError> {
-        for (name, value) in [
-            ("ui_content_bytes", content_bytes),
-            ("ui_retained_rows", retained_rows),
-        ] {
-            if value == 0 {
-                return Err(ProxySettingsError::ZeroLimit { name });
-            }
-        }
+        let content_bytes =
+            NonZeroUsize::new(content_bytes).ok_or(ProxySettingsError::ZeroLimit {
+                name: "ui_content_bytes",
+            })?;
+        let retained_rows =
+            NonZeroUsize::new(retained_rows).ok_or(ProxySettingsError::ZeroLimit {
+                name: "ui_retained_rows",
+            })?;
         Ok(Self {
             content_bytes,
             retained_rows,
@@ -275,11 +276,15 @@ impl UiCaptureSettings {
 
     /// Returns the maximum retained bytes for one traffic side.
     pub const fn content_bytes(self) -> usize {
-        self.content_bytes
+        self.content_bytes.get()
     }
 
     /// Returns the maximum traffic rows retained by the TUI.
     pub const fn retained_rows(self) -> usize {
+        self.retained_rows.get()
+    }
+
+    pub(crate) const fn retained_rows_bound(self) -> NonZeroUsize {
         self.retained_rows
     }
 }
@@ -299,11 +304,10 @@ impl CaptureSettings {
     /// Returns [`ProxySettingsError::ZeroLimit`] when `maximum_prefix_bytes` is
     /// zero.
     pub fn prefix(maximum_prefix_bytes: usize) -> Result<Self, ProxySettingsError> {
-        if maximum_prefix_bytes == 0 {
-            return Err(ProxySettingsError::ZeroLimit {
+        let maximum_prefix_bytes =
+            NonZeroUsize::new(maximum_prefix_bytes).ok_or(ProxySettingsError::ZeroLimit {
                 name: "capture_prefix_bytes",
-            });
-        }
+            })?;
         Ok(Self {
             maximum_prefix_bytes: Some(maximum_prefix_bytes),
         })
@@ -311,7 +315,10 @@ impl CaptureSettings {
 
     /// Returns the raw capture bound, or `None` when capture is disabled.
     pub const fn maximum_prefix_bytes(self) -> Option<usize> {
-        self.maximum_prefix_bytes
+        match self.maximum_prefix_bytes {
+            Some(value) => Some(value.get()),
+            None => None,
+        }
     }
 }
 
@@ -321,7 +328,7 @@ pub struct TlsInterceptionConfig {
     pub(crate) ca_certificate: PathBuf,
     pub(crate) ca_private_key: PathBuf,
     pub(crate) intercept_hosts: Vec<HostPattern>,
-    pub(crate) leaf_cache_entries: usize,
+    pub(crate) leaf_cache_entries: NonZeroUsize,
 }
 
 impl TlsInterceptionConfig {
@@ -340,11 +347,10 @@ impl TlsInterceptionConfig {
         if intercept_hosts.is_empty() {
             return Err(ProxySettingsError::EmptyInterceptionAllowlist);
         }
-        if leaf_cache_entries == 0 {
-            return Err(ProxySettingsError::ZeroLimit {
+        let leaf_cache_entries =
+            NonZeroUsize::new(leaf_cache_entries).ok_or(ProxySettingsError::ZeroLimit {
                 name: "tls_leaf_cache_entries",
-            });
-        }
+            })?;
         Ok(Self {
             ca_certificate,
             ca_private_key,
@@ -370,7 +376,7 @@ impl TlsInterceptionConfig {
 
     /// Returns the maximum generated leaf certificates retained in memory.
     pub const fn leaf_cache_entries(&self) -> usize {
-        self.leaf_cache_entries
+        self.leaf_cache_entries.get()
     }
 }
 

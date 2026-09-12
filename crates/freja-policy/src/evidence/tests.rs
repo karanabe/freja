@@ -48,7 +48,7 @@ fn compound_definition_keeps_unmatched_branches_negation_range_and_action() {
     );
     assert_eq!(
         decision
-            .trace
+            .trace()
             .match_reasons
             .iter()
             .filter(|reason| reason.criterion == "destination-port")
@@ -85,7 +85,7 @@ fn default_has_no_individual_rule_and_snapshot_does_not_retain_policy() {
     let (decision, definition) = policy.evaluate_with_definition(PolicyFacts::Requested(&facts));
     let evidence = definition.snapshot(EnforcementMode::Enforce);
     drop(policy);
-    assert!(decision.trace.matched_rule.is_none());
+    assert!(decision.trace().matched_rule.is_none());
     assert_eq!(evidence.source(), RuleSource::AclDefault);
     assert_eq!(evidence.action().text(), "\"deny\"");
     let acl = evidence.acl().unwrap();
@@ -130,7 +130,7 @@ fn inspection_uses_the_consumed_detector_even_when_rule_ids_collide() {
     let (decision, definition) = program.evaluate_with_definition(&finding, Protocol::Http);
     let evidence = definition.snapshot(EnforcementMode::Enforce);
     assert_eq!(
-        decision.trace.matched_rule.as_ref().unwrap().as_str(),
+        decision.trace().matched_rule.as_ref().unwrap().as_str(),
         "shared-rule-id"
     );
     assert_eq!(evidence.source(), RuleSource::Inspection);
@@ -159,7 +159,7 @@ fn acl_fallback_preserves_configuration_and_actual_unavailable_vs_false_results(
     let facts = PolicyFacts::Resolved(&resolved);
     let (decision, definition) = policy.evaluate_with_definition(facts);
     assert_eq!(decision, policy.evaluate(facts));
-    assert!(decision.trace.matched_rule.is_none());
+    assert!(decision.trace().matched_rule.is_none());
     let snapshot = definition.snapshot(EnforcementMode::Observe);
     let acl = snapshot.acl().unwrap();
     assert_eq!(
@@ -198,7 +198,7 @@ fn acl_fallback_preserves_configuration_and_actual_unavailable_vs_false_results(
     let request = HttpRequestFacts::new(resolved, "GET", "/go", SanitizedHeaders::default());
     let (decision, definition) =
         policy.evaluate_with_definition(PolicyFacts::HttpRequest(&request));
-    assert_eq!(decision.trace.matched_rule.as_ref(), Some(&rules[1].id));
+    assert_eq!(decision.trace().matched_rule.as_ref(), Some(&rules[1].id));
     let selected = definition.snapshot(EnforcementMode::Observe);
     let acl = selected.acl().unwrap();
     assert_eq!(acl.selected_ordinal(), Some(2));
