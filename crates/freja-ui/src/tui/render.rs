@@ -108,7 +108,7 @@ fn render_flows(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
         ListItem::new(format!("{protocol} {state:6} {identity} {summary}"))
     });
     let title = format!(
-        "Flows [1 Traffic]  mode={:?} layout={:?}  Ctrl+j/k pane | Enter expand",
+        "Flows [1 Traffic]  mode={:?} layout={:?}  Ctrl+h/j/k/l pane | Enter expand",
         model.display_mode, model.layout
     );
     let border_style = if model.focus == FocusPane::Flows {
@@ -275,7 +275,7 @@ fn render_repeat_side(frame: &mut Frame<'_>, model: &TuiModel, selected: Selecte
             .block(
                 Block::default()
                     .title(format!(
-                        "{name} [{:?}]  Ctrl+j/k pane | j/k scroll",
+                        "{name} [{:?}]  Ctrl+h/j/k/l pane | j/k scroll",
                         model.display_mode
                     ))
                     .borders(Borders::ALL)
@@ -348,22 +348,27 @@ struct EditorLayout {
 /// Wraps the escaped draft independently from the terminal caret so moving the
 /// caret cannot add a display cell or change an existing row boundary.
 fn editor_layout(editor: &super::editor::RequestEditor, width: u16) -> EditorLayout {
-    let document = escape_terminal_bytes(editor.document().as_bytes());
-    let prefix = escape_terminal_bytes(&editor.document().as_bytes()[..editor.cursor()]);
-    let cursor_logical_line = prefix.bytes().filter(|byte| *byte == b'\n').count();
-    let cursor_line_prefix = prefix.rsplit('\n').next().unwrap_or_default();
+    let cursor = editor.cursor();
     let mut lines = Vec::new();
     let mut rows_before_cursor = 0_usize;
 
-    for (line_index, line) in document.split('\n').enumerate() {
+    for (line_index, line) in editor.lines().iter().enumerate() {
         let first_row = lines.len();
-        wrap_editor_line(line, width, &mut lines);
-        if line_index < cursor_logical_line {
+        let escaped = escape_terminal_bytes(line.as_bytes());
+        wrap_editor_line(&escaped, width, &mut lines);
+        if line_index < cursor.line() {
             rows_before_cursor = rows_before_cursor.saturating_add(lines.len() - first_row);
         }
     }
 
-    let (cursor_row_in_line, cursor_column) = wrapped_cursor(cursor_line_prefix, width);
+    let cursor_line_prefix = editor
+        .lines()
+        .get(cursor.line())
+        .and_then(|line| line.get(..cursor.byte_column()))
+        .map_or_else(String::new, |prefix| {
+            escape_terminal_bytes(prefix.as_bytes())
+        });
+    let (cursor_row_in_line, cursor_column) = wrapped_cursor(&cursor_line_prefix, width);
     EditorLayout {
         lines,
         cursor_row: u16::try_from(rows_before_cursor.saturating_add(cursor_row_in_line))
@@ -642,7 +647,9 @@ fn render_stats(frame: &mut Frame<'_>, model: &TuiModel, area: Rect) {
             model.paused_flows,
             escape_terminal_bytes(model.interactive_status.as_bytes())
         )),
-        Line::from("1/2 page | Ctrl+j/k pane | j/k scroll | Enter expand | q back | Ctrl+c/Q quit"),
+        Line::from(
+            "1/2 page | Ctrl+h/j/k/l pane | j/k scroll | Enter expand | q back | Ctrl+c/Q quit",
+        ),
     ];
     frame.render_widget(
         Paragraph::new(lines).block(Block::default().title("Statistics").borders(Borders::ALL)),

@@ -33,7 +33,7 @@ Real border glyphs, wrapping and visible hints depend on width/data; the TUI
 requires at least 80×24. This diagram assumes Flows has focus after pressing `1`.
 
 ```text
-+[T1] Flows [1 Traffic]  mode=Pretty layout=Split  Ctrl+j/k pane | Enter expand-----------------------------------------------------------------------+
++[T1] Flows [1 Traffic]  mode=Pretty layout=Split  Ctrl+h/j/k/l pane | Enter expand-------------------------------------------------------------------+
 |[T2] > HTTP paused <TransactionId> GET http://127.0.0.1:3001/lab HTTP/1.1                                                                            |
 |                                                                                                                                                     |
 +-----------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -45,7 +45,7 @@ requires at least 80×24. This diagram assumes Flows has focus after pressing `1
 ```
 
 1. **T1 — top Flows title:** `1` returns to Traffic and focuses Flows.
-   `j/k` or arrows select rows there. `Ctrl+j/k` or Tab changes pane focus;
+   `j/k` or arrows select rows there. `Ctrl+h/j/k/l` or Tab changes pane focus;
    Enter expands the focused pane, and `q` closes the expansion.
 2. **T2 — selected row:** `>` marks selection, `paused` identifies the wait,
    and the real TransactionId binds the action to one request. Verify `/lab`,
@@ -57,9 +57,10 @@ requires at least 80×24. This diagram assumes Flows has focus after pressing `1
    (side) hints. With detail focus, `j/k` scrolls instead of selecting a flow.
 4. **T4 — Response below:** before forwarding, `No content observed` is expected;
    after `c`, check the response on this same transaction. In the editor, Insert
-   mode types into the draft: Esc returns to Normal and `s` submits. Outside the
-   editor, `3` opens Repeat, where `s` sends its selected draft. `Q`/Ctrl+C exits
-   Freja even from the editor; check mode/focus before typing action keys.
+   mode types into the draft: Esc or `jj` returns to Normal and `s` submits.
+   Outside the editor, `3` opens Repeat, where `s` sends its selected draft.
+   `Q`/Ctrl+C exits Freja even from the editor; check mode/focus before typing
+   action keys.
 
 <a id="step-5"></a>
 

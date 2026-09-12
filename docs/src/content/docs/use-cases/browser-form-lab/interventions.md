@@ -80,10 +80,10 @@ press **`i`** to open the editor in Insert mode. Its cursor starts at the body.
 2. To also test a permitted header, move to Home at the body line and Up to the
    blank separator line. Type `X-Lab-Edit: yes`, then Enter to retain a blank
    line between the headers and body. Check the resulting header/body boundary.
-3. Press Esc to enter Normal mode, then **`s`** to validate and continue.
-   Ctrl+S also submits. If validation fails, read the editor error and correct
-   the draft before the pause expires. `q` in Normal mode discards only the draft;
-   it is not continue or reject.
+3. Press Esc or type `jj` to enter Normal mode, then **`s`** to validate and
+   continue. Ctrl+S also submits. If validation fails, read the editor error and
+   correct the draft before the pause expires. `q` in Normal mode discards only
+   the draft; it is not continue or reject.
 
 **Look / evidence:** Terminal A and browser receipt contain the changed encoded
 body and, when added, `received.headers["x-lab-edit"]: ["yes"]`.
@@ -139,7 +139,8 @@ shows that original response. The Repeat workspace list shows the **source**
 TransactionId and state `ready`. Merely creating the draft is not a second send.
 
 **Do — Terminal B:** press `3` if necessary, use `j`/`k` or arrows to select the
-workspace, then press **`s`** once. Tab or Ctrl+`j`/Ctrl+`k` cycles through
+workspace, then press **`s`** once. Tab or Ctrl+`j`/Ctrl+`l` cycles forward and
+Ctrl+`h`/Ctrl+`k` cycles backward through
 **Workspaces → Editable request → Latest result**. Use Pretty for the result;
 Raw/Hex can be unavailable for these semantic snapshots. Scroll the focused
 detail with `j`/`k`, arrows or PageDown/PageUp.

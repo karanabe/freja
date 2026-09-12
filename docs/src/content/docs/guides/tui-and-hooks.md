@@ -209,7 +209,8 @@ for synthetic examples and operator observation.
 | `v` | Cycle split / request-wide / response-wide detail |
 | `m` | Cycle Pretty / Raw / Hex |
 | `h` / `l` | Select request/client or response/upstream side |
-| Ctrl+`j` / Ctrl+`k`, Tab | Move focus between panes; Repeat cycles workspace, request, and latest result |
+| Ctrl+`h` / Ctrl+`k` | Move focus to the previous pane |
+| Ctrl+`j` / Ctrl+`l`, Tab | Move focus to the next pane; Repeat cycles workspace, request, and latest result |
 | `j` / `k` | Select a flow/workspace, select a Diagnostics decision, or scroll a detail |
 | arrows | Scroll Diagnostics evidence or a detail; select a flow/workspace |
 | PageDown / PageUp | Scroll by ten rows |
@@ -232,9 +233,10 @@ When a request is paused, the TUI supports:
 
 From Normal mode, use `i` to enter Insert mode, arrows or
 `h`/`j`/`k`/`l` in Normal mode to move, and `s` or Ctrl+S to validate and
-submit. In Insert mode, Enter inserts a newline and Esc returns to Normal mode;
-`q` discards the draft only from Normal mode. Ctrl+C and `Q` still terminate
-the application from either mode.
+submit. In Insert mode, Enter inserts a newline; Esc or `jj` returns to Normal
+mode. A lone `j`, or a `j` followed by another character, remains literal draft
+text. `q` discards the draft only from Normal mode. Ctrl+C and `Q` still
+terminate the application from either mode.
 
 The shipped editor accepts textual HTTP/1.1 requests. It can atomically change
 end-to-end headers and a UTF-8 body, including repeated headers and multiline
@@ -259,8 +261,9 @@ enabled by the TLS interception allowlist; IP literals remain excluded.
 Repeat workspaces remain available when `q`, `1`, or `2` returns to another
 page. `ui_retained_rows` caps their count; Freja does not silently evict a
 draft. Each workspace allows one in-flight attempt and retains only its latest
-result. Use `j`/`k` or arrows to select a workspace. Ctrl+`j` / Ctrl+`k` or Tab
-moves focus through the workspace list, editable request, and latest result;
+result. Use `j`/`k` or arrows to select a workspace. Ctrl+`h` / Ctrl+`k` moves
+focus backward, while Ctrl+`j` / Ctrl+`l` or Tab moves forward through the
+workspace list, editable request, and latest result;
 after focusing either detail pane, `j`/`k`, arrows, and PageDown/PageUp scroll
 it. Use `e`/`i` to edit and send, `s` to resend the saved draft, and `d` to
 delete a workspace that is not in flight. `q` returns to the page that opened

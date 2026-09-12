@@ -135,8 +135,8 @@ pub(super) fn handle_key_with_repeat(
     }
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         match key.code {
-            KeyCode::Char('j') => model.focus_next(),
-            KeyCode::Char('k') => model.focus_previous(),
+            KeyCode::Char('h' | 'k') => model.focus_previous(),
+            KeyCode::Char('j' | 'l') => model.focus_next(),
             _ => {}
         }
         return false;
@@ -610,7 +610,9 @@ mod tests {
     use tokio::sync::oneshot;
 
     use super::{handle_key, handle_key_with_repeat};
-    use crate::tui::{DetailLayout, FocusPane, SelectedSide, TuiModel, TuiPage};
+    use crate::tui::{
+        DetailLayout, FocusPane, SelectedSide, TuiModel, TuiPage, editor::EditorMode,
+    };
 
     #[test]
     fn navigation_expansion_and_exit_keys_do_not_conflict() {
@@ -659,6 +661,34 @@ mod tests {
             &mut model,
             &mut pending,
         ));
+    }
+
+    #[test]
+    fn control_hjkl_cycle_pane_focus_without_changing_plain_keys() {
+        let mut model = TuiModel::default();
+        let mut pending = VecDeque::new();
+
+        for (key_code, expected) in [
+            (KeyCode::Char('l'), FocusPane::Detail),
+            (KeyCode::Char('h'), FocusPane::Flows),
+            (KeyCode::Char('j'), FocusPane::Detail),
+            (KeyCode::Char('k'), FocusPane::Flows),
+        ] {
+            assert!(!handle_key(
+                key(key_code, KeyModifiers::CONTROL),
+                &mut model,
+                &mut pending,
+            ));
+            assert_eq!(model.focus, expected);
+        }
+
+        assert!(!handle_key(
+            key(KeyCode::Char('l'), KeyModifiers::NONE),
+            &mut model,
+            &mut pending,
+        ));
+        assert_eq!(model.focus, FocusPane::Flows);
+        assert_eq!(model.selected_side, SelectedSide::Response);
     }
 
     #[test]
@@ -774,6 +804,45 @@ mod tests {
             &mut pending,
         ));
         assert!(model.editor.is_none());
+        assert!(response.try_recv().is_err());
+    }
+
+    #[test]
+    fn insert_mode_resolves_jj_and_preserves_a_mismatched_prefix() {
+        let (mut model, mut pending, mut response) = paused_request();
+        assert!(!handle_key(
+            key(KeyCode::Char('i'), KeyModifiers::NONE),
+            &mut model,
+            &mut pending,
+        ));
+        let before = model.editor.as_ref().unwrap().document();
+
+        for character in ['j', 'j'] {
+            assert!(!handle_key(
+                key(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut model,
+                &mut pending,
+            ));
+        }
+
+        {
+            let editor = model.editor.as_ref().unwrap();
+            assert_eq!(editor.mode(), EditorMode::Normal);
+            assert_eq!(editor.document(), before);
+            assert!(editor.status().starts_with("NORMAL"));
+        }
+
+        for character in ['i', 'j', 'x'] {
+            assert!(!handle_key(
+                key(KeyCode::Char(character), KeyModifiers::NONE),
+                &mut model,
+                &mut pending,
+            ));
+        }
+
+        let editor = model.editor.as_ref().unwrap();
+        assert_eq!(editor.mode(), EditorMode::Insert);
+        assert_eq!(editor.document(), before.replacen("old", "jxold", 1));
         assert!(response.try_recv().is_err());
     }
 

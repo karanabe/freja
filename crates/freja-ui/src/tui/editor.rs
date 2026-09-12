@@ -11,12 +11,11 @@ use freja_policy::hook::{
     normalize_replaced_body_headers,
 };
 use http::{HeaderMap, HeaderName, HeaderValue, Version, header};
+use vim_navigation::{
+    Cursor, EditOutcome, EditableBuffer, EditorInput, Motion, MotionKind, Viewport,
+};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum EditorMode {
-    Normal,
-    Insert,
-}
+pub(super) use vim_navigation::Mode as EditorMode;
 
 #[derive(Debug)]
 pub(super) struct RequestEditor {
@@ -27,12 +26,10 @@ pub(super) struct RequestEditor {
     maximum_head_bytes: usize,
     maximum_body_bytes: usize,
     maximum_document_bytes: usize,
-    buffer: String,
-    cursor: usize,
+    buffer: EditableBuffer,
     // Rendering receives a shared model; the atomic retains the viewport
     // without removing `Sync` from the public `TuiModel`.
     viewport_top: AtomicU16,
-    mode: EditorMode,
     status: String,
 }
 
@@ -133,7 +130,7 @@ impl RequestEditor {
             buffer.push('\n');
         }
         buffer.push('\n');
-        let cursor = buffer.len();
+        let cursor_offset = buffer.len();
         let body = std::str::from_utf8(snapshot.body.bytes())
             .map_err(|_| RequestEditError::NonTextBody)?;
         buffer.push_str(body);
@@ -148,6 +145,13 @@ impl RequestEditor {
                 maximum: maximum_document_bytes,
             });
         }
+        let cursor = cursor_at_offset(&buffer, cursor_offset);
+        let mut editor_buffer = EditableBuffer::with_byte_limit(
+            &buffer,
+            Viewport::new(0, 0, 1, 1, 0),
+            maximum_document_bytes,
+        );
+        editor_buffer.set_cursor(cursor);
         Ok(Self {
             original_method: snapshot.method.as_str().to_owned(),
             original_target: snapshot.uri.to_string(),
@@ -156,26 +160,24 @@ impl RequestEditor {
             maximum_head_bytes: snapshot.maximum_head_bytes,
             maximum_body_bytes: snapshot.maximum_body_bytes,
             maximum_document_bytes,
-            buffer,
-            cursor,
+            buffer: editor_buffer,
             viewport_top: AtomicU16::new(0),
-            mode: EditorMode::Normal,
             status: "NORMAL — i insert | s submit | q discard".to_owned(),
         })
     }
 
     pub(super) const fn mode(&self) -> EditorMode {
-        self.mode
+        self.buffer.mode()
     }
 
     pub(super) fn enter_insert_mode(&mut self) {
-        self.mode = EditorMode::Insert;
-        "INSERT — Esc normal | Enter newline | Ctrl+S submit".clone_into(&mut self.status);
+        let _ = self.buffer.handle(EditorInput::Insert);
+        self.set_mode_status();
     }
 
     pub(super) fn enter_normal_mode(&mut self) {
-        self.mode = EditorMode::Normal;
-        "NORMAL — i insert | s submit | q discard".clone_into(&mut self.status);
+        let _ = self.buffer.handle(EditorInput::Escape);
+        self.set_mode_status();
     }
 
     pub(super) fn status(&self) -> &str {
@@ -186,12 +188,17 @@ impl RequestEditor {
         self.status = format!("ERROR — {error}");
     }
 
-    pub(super) fn document(&self) -> &str {
-        &self.buffer
+    #[cfg(test)]
+    pub(super) fn document(&self) -> String {
+        self.buffer.text()
     }
 
-    pub(super) const fn cursor(&self) -> usize {
-        self.cursor
+    pub(super) fn lines(&self) -> &[String] {
+        self.buffer.lines()
+    }
+
+    pub(super) const fn cursor(&self) -> Cursor {
+        self.buffer.cursor()
     }
 
     pub(super) fn keep_cursor_visible(&self, cursor_row: u16, visible_rows: u16) -> u16 {
@@ -212,98 +219,52 @@ impl RequestEditor {
         if character.is_control() {
             return;
         }
-        let required = character.len_utf8();
-        if self.buffer.len().saturating_add(required) > self.maximum_document_bytes {
-            self.status = format!(
-                "ERROR — request editor limit is {} bytes",
-                self.maximum_document_bytes
-            );
-            return;
-        }
-        self.buffer.insert(self.cursor, character);
-        self.cursor = self.cursor.saturating_add(required);
+        self.handle_bounded_insert(EditorInput::Character(character), character.len_utf8());
     }
 
     pub(super) fn insert_tab(&mut self) {
-        self.insert_text("\t");
+        self.handle_bounded_insert(EditorInput::Character('\t'), 1);
     }
 
     pub(super) fn insert_newline(&mut self) {
-        self.insert_text("\n");
-    }
-
-    fn insert_text(&mut self, text: &str) {
-        if self.buffer.len().saturating_add(text.len()) > self.maximum_document_bytes {
-            self.status = format!(
-                "ERROR — request editor limit is {} bytes",
-                self.maximum_document_bytes
-            );
-            return;
-        }
-        self.buffer.insert_str(self.cursor, text);
-        self.cursor = self.cursor.saturating_add(text.len());
+        self.handle_bounded_insert(EditorInput::Newline, 1);
     }
 
     pub(super) fn backspace(&mut self) {
-        let Some(previous) = previous_boundary(&self.buffer, self.cursor) else {
-            return;
-        };
-        self.buffer.drain(previous..self.cursor);
-        self.cursor = previous;
+        let _ = self.buffer.handle(EditorInput::Backspace);
     }
 
     pub(super) fn delete(&mut self) {
-        let Some(next) = next_boundary(&self.buffer, self.cursor) else {
-            return;
-        };
-        self.buffer.drain(self.cursor..next);
+        let _ = self.buffer.handle(EditorInput::Delete);
     }
 
     pub(super) fn move_left(&mut self) {
-        if let Some(previous) = previous_boundary(&self.buffer, self.cursor) {
-            self.cursor = previous;
-        }
+        self.move_cursor(MotionKind::Left);
     }
 
     pub(super) fn move_right(&mut self) {
-        if let Some(next) = next_boundary(&self.buffer, self.cursor) {
-            self.cursor = next;
-        }
+        self.move_cursor(MotionKind::Right);
     }
 
     pub(super) fn move_home(&mut self) {
-        self.cursor = line_start(&self.buffer, self.cursor);
+        self.move_cursor(MotionKind::LineStart);
     }
 
     pub(super) fn move_end(&mut self) {
-        self.cursor = line_end(&self.buffer, self.cursor);
+        self.move_cursor(MotionKind::LineEnd);
     }
 
     pub(super) fn move_up(&mut self) {
-        let start = line_start(&self.buffer, self.cursor);
-        if start == 0 {
-            return;
-        }
-        let column = self.buffer[start..self.cursor].chars().count();
-        let previous_end = start.saturating_sub(1);
-        let previous_start = line_start(&self.buffer, previous_end);
-        self.cursor = byte_at_column(&self.buffer, previous_start, previous_end, column);
+        self.move_cursor(MotionKind::Up);
     }
 
     pub(super) fn move_down(&mut self) {
-        let end = line_end(&self.buffer, self.cursor);
-        if end == self.buffer.len() {
-            return;
-        }
-        let start = line_start(&self.buffer, self.cursor);
-        let column = self.buffer[start..self.cursor].chars().count();
-        let next_start = end.saturating_add(1);
-        let next_end = line_end(&self.buffer, next_start);
-        self.cursor = byte_at_column(&self.buffer, next_start, next_end, column);
+        self.move_cursor(MotionKind::Down);
     }
 
     pub(super) fn submission(&self) -> Result<RequestEditSubmission, RequestEditError> {
-        let (wire, body_offset, header_capacity) = wire_request(&self.buffer)?;
+        let document = self.buffer.text();
+        let (wire, body_offset, header_capacity) = wire_request(&document)?;
         let mut parsed_headers = vec![httparse::EMPTY_HEADER; header_capacity];
         let mut parsed = httparse::Request::new(&mut parsed_headers);
         let parsed_head_bytes = match parsed.parse(&wire).map_err(RequestEditError::Parse)? {
@@ -365,6 +326,68 @@ impl RequestEditor {
             headers,
             body,
         })
+    }
+
+    fn handle_bounded_insert(&mut self, input: EditorInput, required_bytes: usize) {
+        let exceeds_limit = self
+            .buffer
+            .byte_len()
+            .checked_add(required_bytes)
+            .is_none_or(|next| next > self.maximum_document_bytes);
+        let outcome = self.buffer.handle(input);
+        if outcome == EditOutcome::ModeChanged {
+            self.set_mode_status();
+        } else if outcome == EditOutcome::Ignored && exceeds_limit {
+            self.status = format!(
+                "ERROR — request editor limit is {} bytes",
+                self.maximum_document_bytes
+            );
+        }
+    }
+
+    fn move_cursor(&mut self, motion: MotionKind) {
+        if self.buffer.mode() == EditorMode::Normal {
+            let _ = self.buffer.handle(EditorInput::Motion(Motion::new(motion)));
+            return;
+        }
+        let cursor = insert_mode_cursor(self.buffer.lines(), self.buffer.cursor(), motion);
+        self.buffer.set_cursor(cursor);
+    }
+
+    fn set_mode_status(&mut self) {
+        match self.buffer.mode() {
+            EditorMode::Normal => {
+                "NORMAL — i insert | s submit | q discard".clone_into(&mut self.status);
+            }
+            EditorMode::Insert => {
+                "INSERT — Esc/jj normal | Enter newline | Ctrl+S submit"
+                    .clone_into(&mut self.status);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn replace_document(&mut self, document: &str) {
+        let cursor = cursor_at_offset(document, document.len());
+        self.buffer = EditableBuffer::with_byte_limit(
+            document,
+            Viewport::new(0, 0, 1, 1, 0),
+            self.maximum_document_bytes,
+        );
+        self.buffer.set_cursor(cursor);
+    }
+
+    #[cfg(test)]
+    fn constrain_document_to_current_len(&mut self) {
+        let document = self.buffer.text();
+        let cursor = self.buffer.cursor();
+        self.maximum_document_bytes = document.len();
+        self.buffer = EditableBuffer::with_byte_limit(
+            &document,
+            Viewport::new(0, 0, 1, 1, 0),
+            self.maximum_document_bytes,
+        );
+        self.buffer.set_cursor(cursor);
     }
 }
 
@@ -444,37 +467,85 @@ fn validate_header_budget(headers: &HeaderMap, maximum: usize) -> Result<(), Req
     Ok(())
 }
 
+fn cursor_at_offset(document: &str, offset: usize) -> Cursor {
+    let mut offset = offset.min(document.len());
+    while !document.is_char_boundary(offset) {
+        offset = offset.saturating_sub(1);
+    }
+    let prefix = &document[..offset];
+    let line = prefix.bytes().filter(|byte| *byte == b'\n').count();
+    let byte_column = prefix
+        .rfind('\n')
+        .map_or(offset, |separator| offset.saturating_sub(separator + 1));
+    Cursor::new(line, byte_column)
+}
+
+fn insert_mode_cursor(lines: &[String], cursor: Cursor, motion: MotionKind) -> Cursor {
+    let line_index = cursor.line().min(lines.len().saturating_sub(1));
+    let line = lines.get(line_index).map_or("", String::as_str);
+    let byte_column = cursor.byte_column().min(line.len());
+    match motion {
+        MotionKind::Left if byte_column > 0 => Cursor::new(
+            line_index,
+            previous_boundary(line, byte_column).unwrap_or(0),
+        ),
+        MotionKind::Left if line_index > 0 => {
+            let previous_line = line_index.saturating_sub(1);
+            let previous_length = lines.get(previous_line).map_or(0, String::len);
+            Cursor::new(previous_line, previous_length)
+        }
+        MotionKind::Right if byte_column < line.len() => Cursor::new(
+            line_index,
+            next_boundary(line, byte_column).unwrap_or(line.len()),
+        ),
+        MotionKind::Right if line_index.saturating_add(1) < lines.len() => {
+            Cursor::new(line_index.saturating_add(1), 0)
+        }
+        MotionKind::LineStart => Cursor::new(line_index, 0),
+        MotionKind::LineEnd => Cursor::new(line_index, line.len()),
+        MotionKind::Up if line_index > 0 => {
+            let character_column = line.get(..byte_column).unwrap_or_default().chars().count();
+            let previous_line = line_index.saturating_sub(1);
+            let previous_text = lines.get(previous_line).map_or("", String::as_str);
+            Cursor::new(
+                previous_line,
+                byte_at_character_column(previous_text, character_column),
+            )
+        }
+        MotionKind::Down if line_index.saturating_add(1) < lines.len() => {
+            let character_column = line.get(..byte_column).unwrap_or_default().chars().count();
+            let next_line = line_index.saturating_add(1);
+            let next_text = lines.get(next_line).map_or("", String::as_str);
+            Cursor::new(
+                next_line,
+                byte_at_character_column(next_text, character_column),
+            )
+        }
+        _ => Cursor::new(line_index, byte_column),
+    }
+}
+
 fn previous_boundary(value: &str, cursor: usize) -> Option<usize> {
-    value[..cursor]
+    value
+        .get(..cursor)?
         .char_indices()
         .next_back()
         .map(|(index, _)| index)
 }
 
 fn next_boundary(value: &str, cursor: usize) -> Option<usize> {
-    value[cursor..]
+    value
+        .get(cursor..)?
         .chars()
         .next()
         .map(|character| cursor.saturating_add(character.len_utf8()))
 }
 
-fn line_start(value: &str, cursor: usize) -> usize {
-    value[..cursor]
-        .rfind('\n')
-        .map_or(0, |index| index.saturating_add(1))
-}
-
-fn line_end(value: &str, cursor: usize) -> usize {
-    value[cursor..]
-        .find('\n')
-        .map_or(value.len(), |offset| cursor.saturating_add(offset))
-}
-
-fn byte_at_column(value: &str, start: usize, end: usize, column: usize) -> usize {
-    value[start..end]
+fn byte_at_character_column(value: &str, column: usize) -> usize {
+    value
         .char_indices()
         .nth(column)
-        .map_or(end, |(offset, _)| start.saturating_add(offset))
+        .map_or(value.len(), |(offset, _)| offset)
 }
 
 #[cfg(test)]
@@ -489,16 +560,14 @@ mod tests {
     #[test]
     fn request_editor_submits_header_and_multiline_body_atomically() {
         let mut editor = RequestEditor::new(&snapshot()).unwrap();
-        editor.buffer = concat!(
+        editor.replace_document(concat!(
             "POST /submit HTTP/1.1\n",
             "host: example.test\n",
             "content-length: 3\n",
             "x-review: accepted\n",
             "\n",
             "first\nsecond"
-        )
-        .to_owned();
-        editor.cursor = editor.buffer.len();
+        ));
 
         let submission = editor.submission().unwrap();
 
@@ -523,17 +592,19 @@ mod tests {
     #[test]
     fn request_editor_rejects_routing_and_protected_header_changes() {
         let mut changed_target = RequestEditor::new(&snapshot()).unwrap();
-        changed_target.buffer = changed_target.buffer.replacen("/submit", "/other", 1);
+        let changed_document = changed_target.document().replacen("/submit", "/other", 1);
+        changed_target.replace_document(&changed_document);
         assert!(matches!(
             changed_target.submission(),
             Err(RequestEditError::ChangedStartLine)
         ));
 
         let mut changed_host = RequestEditor::new(&snapshot()).unwrap();
-        changed_host.buffer =
+        let changed_document =
             changed_host
-                .buffer
+                .document()
                 .replacen("host: example.test", "host: attacker.test", 1);
+        changed_host.replace_document(&changed_document);
         assert!(matches!(
             changed_host.submission(),
             Err(RequestEditError::Mutation(_))
@@ -553,8 +624,8 @@ mod tests {
             maximum_body_bytes: body.len(),
         };
         let mut editor = RequestEditor::new(&snapshot).unwrap();
-        editor.maximum_document_bytes = editor.buffer.len();
-        let original = editor.document().to_owned();
+        editor.constrain_document_to_current_len();
+        let original = editor.document();
 
         editor.move_right();
         editor.move_down();
@@ -565,6 +636,23 @@ mod tests {
         assert_eq!(editor.document(), original);
         assert!(editor.status().contains("request editor limit"));
         assert_eq!(editor.submission().unwrap().body, body.as_bytes());
+    }
+
+    #[test]
+    fn full_request_editor_still_accepts_jj_escape_without_mutation() {
+        let mut editor = RequestEditor::new(&snapshot()).unwrap();
+        editor.constrain_document_to_current_len();
+        let original = editor.document();
+        editor.enter_insert_mode();
+
+        editor.insert_character('j');
+        assert_eq!(editor.mode(), super::EditorMode::Insert);
+        assert_eq!(editor.document(), original);
+        editor.insert_character('j');
+
+        assert_eq!(editor.mode(), super::EditorMode::Normal);
+        assert_eq!(editor.document(), original);
+        assert!(editor.status().starts_with("NORMAL"));
     }
 
     fn snapshot() -> HttpRequestSnapshot {

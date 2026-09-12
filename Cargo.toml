@@ -54,6 +54,7 @@ tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "fmt"] }
 url = "2.5.7"
 uuid = { version = "1.18.0", features = ["serde", "v4"] }
+vim-navigation = "0.1.0"
 webpki-roots = "1.0.3"
 
 [workspace.lints.rust]

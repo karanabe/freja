@@ -32,7 +32,7 @@ next:
 図は`1`を押し、Flowsにfocusを置いた状態を表します。
 
 ```text
-+[T1] Flows [1 Traffic]  mode=Pretty layout=Split  Ctrl+j/k pane | Enter expand-----------------------------------------------------------------------+
++[T1] Flows [1 Traffic]  mode=Pretty layout=Split  Ctrl+h/j/k/l pane | Enter expand-------------------------------------------------------------------+
 |[T2] > HTTP paused <TransactionId> GET http://127.0.0.1:3001/lab HTTP/1.1                                                                            |
 |                                                                                                                                                     |
 +-----------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -44,7 +44,7 @@ next:
 ```
 
 1. **T1 — 上部Flows title：** `1`でTrafficへ戻りFlowsをfocusします。
-   そこで`j/k`または矢印で行を選びます。`Ctrl+j/k`・Tabはpane focusの移動、
+   そこで`j/k`または矢印で行を選びます。`Ctrl+h/j/k/l`・Tabはpane focusの移動、
    Enterはfocus中paneの拡大、`q`は拡大を閉じる操作です。
 2. **T2 — 選択行：** `>`が選択、`paused`が待機を示し、実TransactionIdで操作対象を一件に定めます。
    `/lab`を照合して`c`でcontinueします。editor外の選択済みpaused requestでは
@@ -54,7 +54,7 @@ next:
    titleには`m`（Pretty/Raw/Hex）、`v`（layout）、`h/l`（side）のhintがあります。
    detailにfocusがあると`j/k`は行選択ではなくscrollになります。
 4. **T4 — 下段Response：** 転送前は`No content observed`を期待し、`c`後に同じtransactionの
-   responseを確認します。editorのInsert modeではdraftへ入力するため、EscでNormalへ戻り
+   responseを確認します。editorのInsert modeではdraftへ入力するため、Escまたは`jj`でNormalへ戻り
    `s`で提出します。editor外の`3`はRepeat、そのpageの`s`は選択draftの送信です。
    `Q`/Ctrl+Cはeditor内からもFrejaを終了するので、操作キーの前にmode/focusを確認します。
 

@@ -89,7 +89,7 @@ case欄へ戻り、caseを変えて明示的にSendします。pending中は追�
 | origin未起動・停止 | 前の試行完了後、Terminal AだけをCtrl+Cで止め、新caseを送る。 | 通常proxyの502だが起動・network失敗で表示は異なり得る。origin receiptはない。[originのready確認](../setup/#origin-readiness)で再起動・ready確認し、再入力で新caseを送る。 |
 | network error・45秒でbrowser待機終了 | 両processの起動と、Freja側でまだpendingかを確認。 | 到達は未確認。旧transactionを調べて処理してから次を送る。 |
 | echoはあるがTUI transactionがない | [直通対照](../interventions/#direct-control)とbrowser proxy設定を比較。 | Freja経由は未確認。proxied profileへ戻し、新transactionで照合する。 |
-| `r`・`s`・移動が意図どおりでない | editorのInsert modeやpane拡大を確認。 | EscでInsertを抜け、Normal modeの`q`でeditor draftを破棄。その外では`q`で拡大を閉じ、`1`でTraffic/Flowsへ。操作キーをbodyへ入力しない。 |
+| `r`・`s`・移動が意図どおりでない | editorのInsert modeやpane拡大を確認。 | Escまたは`jj`でInsertを抜け、Normal modeの`q`でeditor draftを破棄。その外では`q`で拡大を閉じ、`1`でTraffic/Flowsへ。操作キーをbodyへ入力しない。 |
 
 <a id="bounds-and-observation-record"></a>
 

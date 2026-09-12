@@ -75,7 +75,7 @@ trackedなsequential HTTP repeat executorはUI型へ依存せず、TUIから型�
 ### `freja-ui`
 
 immutable snapshotを受け、isolated threadでRAII restoration guardのもとterminalを所有します。TUI modeではCLIがoperational tracingをbounded immutable UI eventへformatするため、raw terminalへ同時に書くproducerはありません。UI saturationはsnapshotまたはlog lineをdropしてmetricを増やします。interactive requestは別のbounded channel、paused-flow semaphore、timeout、oneshot responseを使います。
-traffic rowとrepeat workspaceは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離し、screen 3は複数のHTTP/1.1 repeat draftと各draftの最新resultだけを保持します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。HTTP/1.1 text editorはそのcopy済みsnapshotだけを所有し、validate済みdraftを原子的な型付きheader/body planへ変換します。method、target、version、routing、framingはdata planeの責務のままです。responseとTCP dataはTUI decisionを待ちません。
+traffic rowとrepeat workspaceは設定でboundedです。screen 1はHTTPを`TransactionId`、TCPを`SessionId`でcorrelateし、screen 2はevidence/log/statisticsを分離し、screen 3は複数のHTTP/1.1 repeat draftと各draftの最新resultだけを保持します。HTTP interactive modeはcompleteでboundedなrequest snapshotをoperatorへ1回送ります。HTTP/1.1 text editorはそのcopy済みsnapshotだけを所有し、boundedなNormal / Insert textとcursor stateに`vim-navigation`を使います。terminal keyの変換、escape済みsoft-wrap描画、validate済みdraftから原子的な型付きheader/body planへの変換はFrejaが引き続き所有します。method、target、version、routing、framingはdata planeの責務のままです。responseとTCP dataはTUI decisionを待ちません。
 
 domain所有の`EvaluationTarget` snapshotはruntime型を含まず、要求先または解決先の接続情報を表します。proxyがbest-effortな`DecisionMade` eventへ付帯し、composition rootのadapterがUIのboundedな`TraceSnapshot`へ評価結果と一緒に渡します。rendererは評価行に最新の解決先IPを後付けしません。このobserver情報はaudit schema、replay fact、policy評価を変更しません。
 

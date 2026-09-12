@@ -135,7 +135,8 @@ audit/replay schema、capture、hook、forwardingの意味は変えません。
 | `v` | split / request全幅 / response全幅をcycle |
 | `m` | Pretty / Raw / Hexをcycle |
 | `h` / `l` | request/client側またはresponse/upstream側を選択 |
-| Ctrl+`j` / Ctrl+`k`、Tab | pane間でfocusを移動。Repeatではworkspace、request、latest resultの順にcycle |
+| Ctrl+`h` / Ctrl+`k` | 前のpaneへfocusを移動 |
+| Ctrl+`j` / Ctrl+`l`、Tab | 次のpaneへfocusを移動。Repeatではworkspace、request、latest resultの順にcycle |
 | `j` / `k`、arrow | flow/workspace選択またはfocused detail paneをscroll |
 | PageDown / PageUp | 10 row scroll |
 | Enter | Diagnosticsでは選択したDecisionのルールを開く。それ以外はfocused paneを拡大 |
@@ -155,7 +156,7 @@ requestのpause中は次を操作できます。
 | `x` | 保留中の変更をcancel |
 | Shift+`R` | 元requestを変更せずcontinueし、copyをRepeatへ保持 |
 
-Normal modeからは`i`でInsert modeへ入り、arrowまたは`h`/`j`/`k`/`l`で移動し、`s`またはCtrl+Sでvalidateしてsubmitします。Insert modeのEnterは改行を挿入し、EscでNormal modeへ戻ります。draftを破棄する`q`はNormal modeだけで有効です。Ctrl+Cと`Q`はどちらのmodeでもapplicationを終了します。
+Normal modeからは`i`でInsert modeへ入り、arrowまたは`h`/`j`/`k`/`l`で移動し、`s`またはCtrl+Sでvalidateしてsubmitします。Insert modeのEnterは改行を挿入し、Escまたは`jj`でNormal modeへ戻ります。`j`一文字だけ、または`j`の後に別の文字を入力した場合はdraftの文字として残ります。draftを破棄する`q`はNormal modeだけで有効です。Ctrl+Cと`Q`はどちらのmodeでもapplicationを終了します。
 
 同梱editorはtextとして表現できるHTTP/1.1 requestを対象にします。end-to-end headerとUTF-8 bodyを1つの原子的decisionで変更でき、重複headerと複数行bodyにも対応します。method、request target、version、Host、hop-by-hop field、framing headerはread-onlyです。submit時に`httparse`でparseし、型付きmutation planへ変換して設定済みheader/body byte上限を検証した後、proxyが`Content-Length`を再構築します。HTTP/2と非UTF-8 requestは観測できますがtext editorでは開けません。
 
@@ -165,7 +166,7 @@ bounded queue、`limits.paused_flows`、`limits.interception_timeout_ms`によ�
 
 Shift+`R`は、absolute `http`または`https` targetを持つ、現在pause中のtextual HTTP/1.1 requestだけで利用できます。独立した上限付きdraftを作成し、元requestは変更せず即座にcontinueします。CONNECTとHTTP/2はrepeat modeへ移せません。HTTPS draftはTLS interception allowlistで既に許可されたhostnameだけを対象とし、IP literalは引き続き除外します。
 
-`q`、`1`、`2`で別pageへ戻ってもRepeat workspaceは残ります。個数は`ui_retained_rows`で制限し、draftを暗黙にevictしません。各workspaceのin-flight attemptは1件だけで、最新resultだけを保持します。`j`/`k`またはarrowでworkspaceを選びます。Ctrl+`j` / Ctrl+`k`またはTabでworkspace一覧、編集可能request、latest resultの順にfocusを移動でき、detail paneをfocusした後は`j`/`k`、arrow、PageDown/PageUpでscrollできます。`e`/`i`で編集して送信、`s`で保存済みdraftを再送、`d`でin-flightでないworkspaceを削除します。`q`はdraftを削除せずRepeatを開いたpageへ戻ります。
+`q`、`1`、`2`で別pageへ戻ってもRepeat workspaceは残ります。個数は`ui_retained_rows`で制限し、draftを暗黙にevictしません。各workspaceのin-flight attemptは1件だけで、最新resultだけを保持します。`j`/`k`またはarrowでworkspaceを選びます。Ctrl+`h` / Ctrl+`k`で前へ、Ctrl+`j` / Ctrl+`l`またはTabで次へ、workspace一覧、編集可能request、latest resultの間をfocus移動できます。detail paneをfocusした後は`j`/`k`、arrow、PageDown/PageUpでscrollできます。`e`/`i`で編集して送信、`s`で保存済みdraftを再送、`d`でin-flightでないworkspaceを削除します。`q`はdraftを削除せずRepeatを開いたpageへ戻ります。
 
 送信ごとに新しい`SessionId`と`TransactionId`を作ります。policy factでは元client IPを維持し、proxy credentialを除去して`Host`とframingを再生成します。そのうえで現在のrequested/resolved destination check、HTTP request/response ACL、inspection、typed Hook、必要なauthenticated upstream TLS、audit、replay-fact publicationを再実行します。interactive brokerだけを意図的に迂回するため、repeat自身は再pauseしません。attemptはlocal TUI内部から生成されるためproxy listener authenticationは再実行しません。response bodyは最後までdrainしますが`ui_content_bytes`までしか保持せず、repeat resultはingress wire captureではないsemantic snapshotなのでRaw/Hexはunavailableを表示します。
 

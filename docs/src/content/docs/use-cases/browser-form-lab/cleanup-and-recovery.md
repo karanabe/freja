@@ -90,7 +90,7 @@ navigation, redirect following or history replay is performed. Aborting the
 | Origin unavailable | After completing prior attempts, stop only Terminal A with Ctrl+C and send a new case. | Usually proxy 502; startup/network errors can differ. No origin receipt is available. Restart [origin readiness](../setup/#origin-readiness), verify readiness, and send a new case after re-entry. |
 | Network error or browser stops after 45 seconds | Check whether both processes are running and whether the request is still pending in Freja. | Arrival remains unknown; inspect/resolve the old transaction before sending another. |
 | Echo without a matching TUI transaction | Compare [the direct control](../interventions/#direct-control) and the browser proxy setup. | Freja traversal is unverified. Restore the proxied profile and obtain a new correlated transaction. |
-| `r`, `s` or navigation acts unexpectedly | Check whether the editor is in Insert mode or a pane is expanded. | Esc leaves Insert mode; `q` in Normal mode discards the editor draft. Outside it, `q` closes expansion and `1` focuses Traffic/Flows. Do not type an action into the body by mistake. |
+| `r`, `s` or navigation acts unexpectedly | Check whether the editor is in Insert mode or a pane is expanded. | Esc or `jj` leaves Insert mode; `q` in Normal mode discards the editor draft. Outside it, `q` closes expansion and `1` focuses Traffic/Flows. Do not type an action into the body by mistake. |
 
 ## Bounds and observation record
 

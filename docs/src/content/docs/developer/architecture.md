@@ -137,9 +137,11 @@ Traffic rows and repeat workspaces are bounded by configuration. Screen 1 correl
 statistics; screen 3 retains multiple HTTP/1.1 repeat drafts and only each
 draft's latest result. HTTP interactive mode sends one complete bounded request snapshot
 to the operator. The HTTP/1.1 text editor owns only that copied snapshot and
-converts a validated draft to an atomic typed header/body plan; method, target,
-version, routing, and framing remain data-plane responsibilities. Responses and
-TCP data never wait for a TUI decision.
+uses `vim-navigation` for its bounded Normal/Insert text and cursor state. Freja
+continues to own terminal key translation, escaped soft-wrap rendering, and
+conversion of a validated draft to an atomic typed header/body plan; method,
+target, version, routing, and framing remain data-plane responsibilities.
+Responses and TCP data never wait for a TUI decision.
 
 Domain-owned `EvaluationTarget` snapshots describe requested or resolved
 connection facts without runtime types. The proxy attaches them to best-effort

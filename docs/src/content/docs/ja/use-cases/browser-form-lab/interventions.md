@@ -77,7 +77,7 @@ editorを開きます。cursorはbody先頭にあります。
 2. 許可されたheaderも確認する場合は、body行でHome、その後Upで空の区切り行へ移ります。
    `X-Lab-Edit: yes`を入力し、Enterでheaderとbodyの間に空行を残します。
    header/bodyの境界を確認してください。
-3. EscでNormal modeへ戻り、**`s`**で検証・continueします。Ctrl+Sも送信できます。
+3. Escまたは`jj`でNormal modeへ戻り、**`s`**で検証・continueします。Ctrl+Sも送信できます。
    検証失敗ならeditorの説明を読み、pauseが切れる前に修正します。
    Normal modeの`q`はdraftを破棄するだけで、continue/rejectではありません。
 
@@ -133,7 +133,7 @@ Repeatのworkspace一覧は**source** TransactionIdと`ready`を示します。
 draftを作るだけでは二回目の送信になりません。
 
 **操作 — Terminal B：** 必要なら`3`でRepeatへ移り、`j`/`k`または矢印でworkspaceを選び、
-**`s`**を一度押します。TabまたはCtrl+`j`/Ctrl+`k`で
+**`s`**を一度押します。TabまたはCtrl+`j`/Ctrl+`l`で次へ、Ctrl+`h`/Ctrl+`k`で前へ
 **Workspaces → Editable request → Latest result**とfocusを移します。
 結果はPrettyで確認し、semantic snapshotのためRaw/Hexがunavailableでも異常ではありません。
 focusしたdetailは`j`/`k`・矢印・PageDown/PageUpでscrollします。
