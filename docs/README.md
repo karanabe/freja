@@ -74,9 +74,9 @@ The table of contents includes H2 through H4 headings.
 `src/components/PrimaryNavigation.astro` owns the links reused by desktop and
 mobile layouts. `src/styles/site.css` owns the shared typography and content
 surfaces, while `src/styles/theme.css` derives the palette from
-`--project-accent-hue`. The Starlight header and both localized landing pages
-load `src/assets/FrejaLogo.png`; `public/favicon.png` supplies the browser icon.
-Fonts remain local to the reader's operating system.
+`--project-accent-hue`. The Starlight header loads `src/assets/FrejaLogo.png`.
+Both localized landing-page heroes and the browser icon use
+`public/favicon.png`. Fonts remain local to the reader's operating system.
 
 ## Adding a use case
 

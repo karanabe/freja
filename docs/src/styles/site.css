@@ -483,10 +483,20 @@ html[data-has-hero] main {
 }
 
 html[data-has-hero] .hero {
-	grid-template-columns: minmax(0, 1fr);
 	max-width: 58rem;
 	margin-inline: auto;
 	padding-block: clamp(4.5rem, 11vw, 8.5rem) clamp(3.5rem, 8vw, 6rem);
+}
+
+html[data-has-hero] .hero > .hero-html {
+	width: min(70%, 20rem);
+}
+
+html[data-has-hero] .hero > .hero-html img {
+	display: block;
+	width: 100%;
+	height: auto;
+	filter: drop-shadow(0 28px 24px hsla(225, 30%, 2%, 0.28));
 }
 
 html[data-has-hero] .hero .stack,
@@ -525,24 +535,6 @@ html[data-has-hero] .hero .tagline {
 	max-width: 64rem;
 	margin: 0 auto;
 	padding-bottom: clamp(3rem, 8vw, 6rem);
-}
-
-.landing-logo {
-	display: flex;
-	justify-content: center;
-	margin: 0 auto clamp(3rem, 7vw, 5rem);
-}
-
-.landing-logo img {
-	display: block;
-	box-sizing: border-box;
-	width: min(100%, 34rem);
-	height: auto;
-	border: 1px solid var(--sl-color-hairline-light);
-	border-radius: 1rem;
-	background: #fff;
-	box-shadow: 0 24px 60px -42px hsla(225, 30%, 2%, 0.75);
-	padding: clamp(0.75rem, 2vw, 1.25rem);
 }
 
 .landing-eyebrow {
@@ -670,6 +662,28 @@ html[data-has-hero] .hero .tagline {
 	.sl-markdown-content pre.mermaid:not(:where(.not-content *)) {
 		min-height: 9rem;
 		padding: 1rem;
+	}
+}
+
+@media (min-width: 50rem) {
+	html[data-has-hero] .hero {
+		grid-template-columns: minmax(0, 7fr) minmax(14rem, 4fr);
+		gap: clamp(2rem, 5vw, 4rem);
+		max-width: 70rem;
+	}
+
+	html[data-has-hero] .hero .stack,
+	html[data-has-hero] .hero .copy {
+		align-items: flex-start;
+		text-align: start;
+	}
+
+	html[data-has-hero] .hero .actions {
+		justify-content: flex-start;
+	}
+
+	html[data-has-hero] .hero > .hero-html {
+		width: min(100%, 21rem);
 	}
 }
 

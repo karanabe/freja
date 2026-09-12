@@ -10,6 +10,8 @@ template: splash
 hero:
   title: See what your proxy decided—<wbr>and why.
   tagline: Freja is a local-first L4/L7 inspection proxy with deterministic policy traces, bounded inspection, typed hooks, and privacy-aware audit records.
+  image:
+    html: '<img src="/favicon.png" alt="" width="400" height="400" loading="eager" decoding="async">'
   actions:
     - text: Get started
       link: /guides/getting-started/
@@ -24,12 +26,7 @@ hero:
       variant: minimal
 ---
 
-import logo from '../../assets/FrejaLogo.png';
-
 <div class="landing-shell not-content">
-  <div class="landing-logo">
-    <img src={logo.src} alt="" width="543" height="181" loading="eager" decoding="async" />
-  </div>
   <section class="landing-intro" aria-labelledby="landing-intro-title">
     <p class="landing-eyebrow">Interactive by default</p>
     <h2 id="landing-intro-title">Inspect local traffic without hiding the decision path.</h2>
